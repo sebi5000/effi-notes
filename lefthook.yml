@@ -1,0 +1,18 @@
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: '*.{js,ts,jsx,tsx,json,jsonc}'
+      run: bunx biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    typecheck:
+      glob: '*.{ts,tsx}'
+      run: bun run typecheck
+    eslint-next:
+      glob: 'apps/web/**/*.{ts,tsx}'
+      run: bun --filter @app/web lint
+
+commit-msg:
+  commands:
+    conventional:
+      run: bunx --bun @commitlint/cli --edit {1}

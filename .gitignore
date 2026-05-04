@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Build output
+.next/
+out/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# IDE / OS
+.DS_Store
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+
+# Bun – lockfile IS committed for reproducibility
+
+# Prisma generated client
+packages/db/generated/
+
+# Local data / backups
+.local/
+backups/
+
+# Lefthook local
+.lefthook-local.yml
+
+# Claude Code – local user settings (project agents/CLAUDE.md ARE committed)
+.claude/settings.local.json

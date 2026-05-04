@@ -18,7 +18,7 @@ Produktionsreifes Projekt-Template für individuelle B2B-Software, das als Basis
 | Schicht | Wahl | Begründung |
 |---|---|---|
 | Runtime | Bun (auch Prod) | User-Vorgabe; geprüft: Next 15, Prisma, BullMQ, OTel laufen 2026 produktiv unter Bun |
-| Frontend | Next.js 15 App Router + Tailwind v4 + shadcn/ui | User-Vorgabe |
+| Frontend | Next.js 16 App Router + Tailwind v4 + shadcn/ui | User-Vorgabe (auf 16 angehoben da 16.2.4 Latest in 05/2026) |
 | Backend | Next.js Route Handlers + separater Bun-Worker | User-Vorgabe |
 | DB | PostgreSQL 16 + Prisma | User-Vorgabe; rust-freier `prisma-client`-Generator mit `runtime = "bun"` |
 | Auth | Keycloak (self-hosted) + `auth.js` mit Keycloak-Provider | User-Vorgabe |
