@@ -1,0 +1,49 @@
+name: app-template
+
+# Phase 2 stack — application Postgres only.
+# Subsequent phases extend this file with Redis (Phase 4), Keycloak +
+# its own Postgres (Phase 3), Caddy (Phase 6), observability profile (Phase 5).
+
+x-restart-policy: &restart
+  restart: unless-stopped
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '5'
+
+services:
+  postgres-app:
+    image: postgres:16.10-alpine
+    <<: *restart
+    logging: *logging
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-app:/var/lib/postgresql/data
+    networks:
+      - net-data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app -d app']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    # Port only exposed via the dev override file (deploy/compose/docker-compose.dev.yml)
+
+volumes:
+  postgres-app:
+    name: app-template_postgres-app
+
+networks:
+  net-data:
+    name: app-template_net-data

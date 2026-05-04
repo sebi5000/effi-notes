@@ -1,0 +1,10 @@
+# Dev overrides — apply with:
+#   docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.dev.yml up -d
+#
+# Exposes ports to the host so local tooling (Prisma migrate, Studio,
+# database GUIs) can reach the services.
+
+services:
+  postgres-app:
+    ports:
+      - '5432:5432'

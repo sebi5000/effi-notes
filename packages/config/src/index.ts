@@ -1,4 +1,14 @@
-// Phase 1 stub. Zod-validated env schema lands in Phase 2.
-// All env vars listed in .env.example MUST appear in the schema once added.
+export { type Env, env } from './env.ts';
 
-export const PHASE = 'phase-1-skeleton' as const;
+/**
+ * Env-based feature flags. The template ships zero flags by default —
+ * customer projects add named getters here when a flag becomes load-bearing.
+ *
+ * Pattern:
+ *   FEATURE_AUDIT_LOG=true → flags.auditLog === true
+ */
+export const flags = {
+  auditLog: process.env.FEATURE_AUDIT_LOG === 'true',
+} as const;
+
+export type Flags = typeof flags;

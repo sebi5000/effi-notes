@@ -6,6 +6,12 @@ This file is a contract, not documentation. Keep it in sync with reality.
 
 B2B web app **template** intended to be forked per customer. Single-tenant deployments via Docker Compose, vendor-supported remotely. Goal: a small, sharp skeleton — auth, jobs, observability, audit-log table — and nothing more. Customer projects add domain entities; the template stays generic.
 
+## Data scope (template-only)
+
+Two tables: `User` (Keycloak-subject mirror) and `AuditLog` (append-only audit trail with non-auto-wired helper). **Nothing else** in `prisma/schema.prisma`. Domain entities, feature-flag tables, idempotency keys, integration metadata — all of these belong in customer projects.
+
+Feature flags are env-based via `@app/config` (`flags.<name>`). If a customer project needs runtime toggling, they introduce a table or external service themselves.
+
 ## Stack (do not change without an ADR)
 
 - Bun 1.3.x as runtime **and** package manager (no Node fallback in production)

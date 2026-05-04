@@ -1,0 +1,49 @@
+// Template-only schema — User and AuditLog. Customer projects extend this.
+// Do not add fachliche entities here.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated"
+  runtime      = "bun"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Cached projection of an identity managed by Keycloak.
+/// Source of truth for identity stays in Keycloak; this row is upserted on
+/// first login and refreshed on subsequent logins (Phase 3 wires this).
+model User {
+  id          String     @id @default(cuid())
+  keycloakSub String     @unique
+  email       String     @unique
+  displayName String?
+  locale      String     @default("de")
+  roles       String[]   @default([])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  lastSeenAt  DateTime?
+  auditLogs   AuditLog[]
+
+  @@index([email])
+}
+
+/// Append-only audit trail. Helper in `@app/db/audit` — never auto-wired,
+/// callers decide which actions are auditable per customer project.
+model AuditLog {
+  id         String   @id @default(cuid())
+  occurredAt DateTime @default(now())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action     String
+  subject    String?
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+
+  @@index([occurredAt])
+  @@index([actorId, occurredAt])
+  @@index([action, occurredAt])
+}

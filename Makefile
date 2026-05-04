@@ -1,16 +1,20 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
-.PHONY: help install dev dev-worker build test typecheck lint format check up down logs ps clean smoke db-migrate db-seed backup restore
+.PHONY: help install dev dev-worker build test typecheck lint format check up up-dev down logs ps clean smoke db-generate db-migrate db-migrate-dev db-seed db-studio db-reset backup restore
+
+COMPOSE := docker compose -f deploy/compose/docker-compose.yml
+COMPOSE_DEV := $(COMPOSE) -f deploy/compose/docker-compose.dev.yml
 
 # ----- Meta ----------------------------------------------------------------
 help: ## Show this help
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage: make <target>\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 # ----- Workspace -----------------------------------------------------------
-install: ## Install all workspace dependencies
+install: ## Install workspace deps + generate Prisma client + install hooks
 	bun install
 	bun run prepare
+	$(MAKE) db-generate
 
 dev: ## Start the web app in dev mode
 	bun run dev
@@ -39,28 +43,43 @@ check: ## Biome combined check + autofix
 
 clean: ## Remove build artifacts and node_modules
 	rm -rf node_modules apps/*/node_modules packages/*/node_modules
-	rm -rf apps/*/.next apps/*/dist packages/*/dist
-	rm -rf **/*.tsbuildinfo
+	rm -rf apps/*/.next apps/*/dist packages/*/dist packages/db/generated
+	find . -name '*.tsbuildinfo' -type f -delete
 
-# ----- Compose stack (placeholder for Phase 2+) ----------------------------
-up: ## Start the local stack (docker compose up -d)
-	@echo "TODO Phase 2+: docker compose -f deploy/compose/docker-compose.yml up -d"
+# ----- Compose stack -------------------------------------------------------
+up: ## Start the stack (prod-like, no host port exposure)
+	$(COMPOSE) up -d
 
-down: ## Stop the local stack
-	@echo "TODO Phase 2+: docker compose -f deploy/compose/docker-compose.yml down"
+up-dev: ## Start the stack with dev overrides (host ports exposed)
+	$(COMPOSE_DEV) up -d
+
+down: ## Stop the stack
+	$(COMPOSE) down
 
 logs: ## Tail logs of all services
-	@echo "TODO Phase 2+: docker compose -f deploy/compose/docker-compose.yml logs -f"
+	$(COMPOSE) logs -f --tail=100
 
 ps: ## Show running services
-	@echo "TODO Phase 2+: docker compose -f deploy/compose/docker-compose.yml ps"
+	$(COMPOSE) ps
 
-# ----- Database (placeholder for Phase 2) ----------------------------------
-db-migrate: ## Apply Prisma migrations
-	@echo "TODO Phase 2: bun --filter @app/db migrate:deploy"
+# ----- Database ------------------------------------------------------------
+db-generate: ## Regenerate the Prisma client
+	bun --filter @app/db generate
 
-db-seed: ## Seed database
-	@echo "TODO Phase 2: bun --filter @app/db seed"
+db-migrate-dev: ## Create + apply a new migration in dev
+	bun --filter @app/db migrate:dev
+
+db-migrate: ## Apply pending migrations (production-style)
+	bun --filter @app/db migrate:deploy
+
+db-seed: ## Seed the database
+	bun --filter @app/db seed
+
+db-studio: ## Open Prisma Studio
+	bun --filter @app/db studio
+
+db-reset: ## Drop, recreate, migrate, seed (DANGEROUS — dev only)
+	bun --filter @app/db migrate:reset
 
 # ----- Operations (placeholder for Phase 6) --------------------------------
 backup: ## Create a backup

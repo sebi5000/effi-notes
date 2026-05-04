@@ -144,16 +144,11 @@ model AuditLog {
   @@index([occurredAt])
   @@index([actorId, occurredAt])
 }
-
-model FeatureFlag {
-  key         String   @id
-  enabled     Boolean  @default(false)
-  description String?
-  updatedAt   DateTime @updatedAt
-}
 ```
 
-Hinweis: `FeatureFlag`-Tabelle ist Stub für später; in Phase 1 reicht env-basiert (`FEATURE_X=true`). Tabelle wird in Phase 2 angelegt, aber nicht verdrahtet.
+**Entitäten-Scope (Template):** Nur `User` und `AuditLog`. Keine fachlichen Entitäten — die kommen pro Kundenprojekt.
+
+**Feature-Flags:** Env-basiert über `packages/config` (`FEATURE_X=true`). Keine eigene Tabelle; ein Kundenprojekt kann das auf eine DB-Tabelle / externen Service heben, falls Runtime-Toggling nötig wird.
 
 ## 6. Auth-Flow (Phase 3)
 
@@ -233,7 +228,7 @@ Werden nicht über Superpowers ersetzt, sondern als projekt-spezifische Reviewer
 |---|---|---|
 | **0** | Plan (= dieses Dokument) | User-Approval |
 | **1** | Skelett: Workspaces, leere Apps, TS-Config, Lint, Pre-commit, Makefile, `.env.example`, ADR-Stubs | `bun install && bun dev` startet leere Next-App auf :3000 |
-| **2** | Daten: Prisma-Schema (User, AuditLog, FeatureFlag), Migrations-Setup, `db`-Package, Postgres im Compose, Seed-Skript | `make db:migrate && make db:seed` läuft, User-CRUD im Prisma Studio sichtbar |
+| **2** | Daten: Prisma-Schema (User, AuditLog), Migrations-Setup, `db`-Package, Postgres im Compose, Seed-Skript, Audit-Helper (nicht verdrahtet) | `make db-migrate && make db-seed` läuft, User-CRUD im Prisma Studio sichtbar |
 | **3** | Auth: Keycloak im Compose, Realm-Export, auth.js, geschützte `/dashboard`, Logout, User-Upsert | Login mit Test-User → Dashboard, Logout → Public-Page; User-Datensatz in DB |
 | **4** | Jobs: Redis im Compose, BullMQ, Worker-App mit Demo-Queue, Bull-Board hinter Auth | "Hello World"-Job über UI auslösbar, im Bull-Board sichtbar, Worker-Log strukturiert |
 | **5** | Observability: OTel-SDK in web+worker, Collector + Loki + Tempo + Prometheus + Grafana im obs-Profil, Default-Dashboards | Login-Trace in Tempo sichtbar, Job-Span verbunden, Logs in Loki, Metriken in Prom |
