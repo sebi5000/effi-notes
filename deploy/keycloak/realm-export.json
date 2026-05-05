@@ -1,5 +1,4 @@
 {
-  "_comment_README": "Default Keycloak realm shipped with the template. Loaded on first start via --import-realm. Customer admins replace the test user, rotate the client secret, and add federation/IdPs via the Keycloak admin UI. This file is intentionally minimal — see deploy/keycloak/README.md for the customisation walkthrough.",
   "realm": "app",
   "enabled": true,
   "displayName": "App Template",
@@ -91,7 +90,6 @@
   ],
   "users": [
     {
-      "_comment": "Default test user — only useful in dev. Customer admins MUST delete or disable this account before going live (see customer-install.md).",
       "username": "test@example.invalid",
       "email": "test@example.invalid",
       "emailVerified": true,

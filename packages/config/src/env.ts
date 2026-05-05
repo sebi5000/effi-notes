@@ -8,8 +8,10 @@ import { z } from 'zod';
  * behavior visible to operators.
  *
  * Validation runs at module load. Misconfiguration fails fast — by design.
+ * `parseEnv()` is exposed so unit tests can assert schema behaviour without
+ * triggering the process-exit side effect.
  */
-const EnvSchema = z.object({
+export const EnvSchema = z.object({
   // Runtime --------------------------------------------------------------
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   APP_ENV: z.enum(['local', 'staging', 'production']).default('local'),
@@ -52,12 +54,20 @@ const EnvSchema = z.object({
 
 export type Env = z.infer<typeof EnvSchema>;
 
-const parsed = EnvSchema.safeParse(process.env);
+/**
+ * Pure parser — no side effects. Returns a Zod result so callers (tests,
+ * non-process contexts) can inspect issues without aborting.
+ */
+export const parseEnv = (raw: Record<string, string | undefined>) => EnvSchema.safeParse(raw);
+
+const parsed = parseEnv(process.env);
 
 if (!parsed.success) {
   const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
-  console.error(`Invalid environment configuration:\n${issues}`);
-  process.exit(1);
+  // Throw, do not call process.exit — this module is reached from
+  // Next.js Edge middleware where process.exit is unsupported. An
+  // uncaught throw still terminates Node-runtime apps loud and fast.
+  throw new Error(`Invalid environment configuration:\n${issues}`);
 }
 
 export const env: Env = parsed.data;

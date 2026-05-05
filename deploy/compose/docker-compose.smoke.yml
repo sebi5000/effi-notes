@@ -1,0 +1,36 @@
+# Smoke-test override — used by deploy/scripts/smoke.sh.
+#
+# Differences from production:
+#  - Caddy is disabled (no public DNS, ACME would fail)
+#  - Web exposes 3000, worker exposes 3100, keycloak exposes 8080
+#  - postgres-app intentionally NOT host-exposed — web/worker reach it
+#    on the internal Compose network. Avoids collisions with any host
+#    Postgres a developer happens to be running on :5432
+#  - Stub secrets are injected via the script's environment, not .env
+
+services:
+  caddy:
+    profiles: ['skip-in-smoke']
+
+  web:
+    ports:
+      - '3000:3000'
+    environment:
+      APP_BASE_URL: http://localhost:3000
+      AUTH_URL: http://localhost:3000
+      # Docker's port-publish acts as a proxy from the host to the container,
+      # so auth.js sees a different `host` header than its configured AUTH_URL.
+      # Trust the host in the smoke environment. In a real customer install
+      # this is also `true` because Caddy is the proxy in front.
+      AUTH_TRUST_HOST: 'true'
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/app
+
+  worker:
+    ports:
+      - '3100:3100'
+    environment:
+      KEYCLOAK_ISSUER: http://keycloak:8080/realms/app
+
+  keycloak:
+    ports:
+      - '8080:8080'

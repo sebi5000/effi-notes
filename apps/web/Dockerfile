@@ -17,18 +17,28 @@ WORKDIR /app
 # (instead of cherry-picking package.json files) because Bun workspaces
 # require the directory layout to be intact at install time.
 COPY . .
-RUN bun install --frozen-lockfile
+# --ignore-scripts skips the `prepare` lifecycle (lefthook install). The
+# build context has no .git directory (.dockerignore excludes it), so
+# lefthook would fail. Local dev installs run lefthook via `make install`.
+RUN bun install --frozen-lockfile --ignore-scripts
 
 # ── build ────────────────────────────────────────────────────────────────
 FROM oven/bun:${BUN_VERSION}-alpine AS build
 WORKDIR /app
 
 ENV NEXT_TELEMETRY_DISABLED=1
-# DATABASE_URL is required at build time only because Prisma's config loader
-# resolves env() at parse time. The value is never used; Next does not connect
-# to the DB during `next build`.
-ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
 ENV NODE_ENV=production
+# Build-time placeholders. `next build` collects page data, which
+# imports @app/config/env and runs Zod validation. None of these values
+# are used at runtime — they are overwritten by the customer's .env at
+# `up` time. Keep them syntactically valid (URLs, 32+ char AUTH_SECRET).
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build?schema=public"
+ENV REDIS_URL="redis://localhost:6379/0"
+ENV KEYCLOAK_ISSUER="http://localhost:8080/realms/build"
+ENV KEYCLOAK_CLIENT_ID="build"
+ENV KEYCLOAK_CLIENT_SECRET="build"
+ENV AUTH_SECRET="build-time-placeholder-32-bytes-or-more"
+ENV AUTH_URL="http://localhost:3000"
 
 COPY --from=deps /app /app
 

@@ -91,5 +91,11 @@ backup: ## Create a backup of all data (databases + redis snapshot) into ./backu
 restore: ## Restore from a backup directory: make restore DIR=./backups/<timestamp>
 	deploy/scripts/restore.sh $(DIR)
 
-smoke: ## Run end-to-end smoke test
-	@echo "TODO Phase 8: deploy/scripts/smoke.sh"
+smoke: ## Run end-to-end smoke test (build + up + verify endpoints + backup roundtrip)
+	deploy/scripts/smoke.sh
+
+smoke-quick: ## Smoke test without rebuilding images
+	deploy/scripts/smoke.sh --no-build
+
+smoke-clean: ## Smoke test then tear down the stack and volumes
+	deploy/scripts/smoke.sh --teardown
