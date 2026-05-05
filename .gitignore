@@ -47,6 +47,10 @@ packages/db/generated/
 # Local data / backups
 .local/
 backups/
+# smoke.sh writes timestamped snapshots into the repo root for the
+# backup-roundtrip assertion, then deletes them — but a crashed run
+# leaves them behind.
+.smoke-backup-*/
 
 # Lefthook local
 .lefthook-local.yml
