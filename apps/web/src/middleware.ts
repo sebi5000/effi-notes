@@ -1,4 +1,5 @@
 import { auth } from '@/auth';
+import { safeRedirect } from '@/lib/safe-redirect';
 
 /**
  * Auth middleware. Runs on every matched path before the route handler.
@@ -28,7 +29,10 @@ export default auth((req) => {
 
   if (!isPublic && !isAuthed) {
     const loginUrl = new URL('/login', req.url);
-    loginUrl.searchParams.set('from', pathname);
+    // `pathname` here originates from req.nextUrl, so it is already a
+    // path on our origin — but normalising through safeRedirect makes
+    // the contract explicit and guards future refactors.
+    loginUrl.searchParams.set('from', safeRedirect(pathname, '/dashboard'));
     return Response.redirect(loginUrl);
   }
 

@@ -43,15 +43,22 @@ Copy `.env.example` to `.env` and fill in the required values.
 cp .env.example .env
 ```
 
-Required values:
+Required values (Compose enforces presence via `${VAR:?required}` — missing values fail `docker compose up` loudly, before any container starts):
 
 | Variable | How to set it |
 |---|---|
 | `APP_HOSTNAME` | `app.<your-domain>` |
 | `AUTH_HOSTNAME` | `auth.<your-domain>` |
-| `ACME_EMAIL` | An email address that receives Let's Encrypt notifications |
-| `KEYCLOAK_CLIENT_SECRET` | After step 4: copy from Keycloak's Credentials tab |
-| `AUTH_SECRET` | `openssl rand -base64 32` |
+| `ACME_EMAIL` | Email that receives Let's Encrypt notifications |
+| `REGISTRY` | The image registry the vendor publishes to (e.g. `ghcr.io/<vendor-org>`) |
+| `IMAGE_TAG` | The release tag the vendor told you to deploy (e.g. `v1.4.0`) |
+| `POSTGRES_APP_USER`, `POSTGRES_APP_PASSWORD`, `POSTGRES_APP_DB` | App database credentials. Pick anything; rotate the password through `make backup → password change → restore` later if it leaks |
+| `POSTGRES_KEYCLOAK_USER`, `POSTGRES_KEYCLOAK_PASSWORD`, `POSTGRES_KEYCLOAK_DB` | Same for Keycloak's database |
+| `KC_BOOTSTRAP_ADMIN_USERNAME`, `KC_BOOTSTRAP_ADMIN_PASSWORD` | Used **once** to create the master-realm admin. Replace via the Keycloak UI on first login |
+| `KEYCLOAK_CLIENT_SECRET` | After step 4 below: copy from Keycloak's Credentials tab |
+| `AUTH_SECRET` | 32+ random bytes — `openssl rand -base64 32` |
+| `DATABASE_URL` | `postgresql://${POSTGRES_APP_USER}:${POSTGRES_APP_PASSWORD}@postgres-app:5432/${POSTGRES_APP_DB}?schema=public` (must match the Postgres credentials above) |
+| `GRAFANA_ADMIN_PASSWORD` | Required only if you enable the obs profile |
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Leave empty unless you opted into vendor-side observability |
 
 ### 3. Pull images and start the stack

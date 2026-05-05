@@ -52,9 +52,51 @@ jobs:
         run: bun run lint:next
 
       - name: Validate Compose
+        # The main compose uses `${VAR:?required}` for secrets to fail
+        # loud in production; CI loads the local-defaults env-file so
+        # `compose config` resolves cleanly without real secrets.
         run: |
-          docker compose -f deploy/compose/docker-compose.yml config --quiet
-          docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.dev.yml --profile obs config --quiet
+          docker compose --env-file deploy/compose/.env.local-defaults \
+            -f deploy/compose/docker-compose.yml config --quiet
+          docker compose --env-file deploy/compose/.env.local-defaults \
+            -f deploy/compose/docker-compose.yml \
+            -f deploy/compose/docker-compose.build.yml \
+            -f deploy/compose/docker-compose.dev.yml \
+            --profile obs config --quiet
+
+  next-build:
+    name: next build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build apps/web
+        env:
+          # Build-time placeholders. None of these are used at runtime;
+          # next build only collects page data and validates the env
+          # schema imports. Customer .env supplies real values at deploy.
+          NODE_ENV: production
+          APP_ENV: production
+          NEXT_TELEMETRY_DISABLED: '1'
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+          REDIS_URL: redis://localhost:6379/0
+          KEYCLOAK_ISSUER: http://localhost:8080/realms/ci
+          KEYCLOAK_CLIENT_ID: app-web
+          KEYCLOAK_CLIENT_SECRET: ci-stub-secret-not-used
+          AUTH_SECRET: ci-stub-secret-must-be-32-bytes-or-longer
+          AUTH_URL: http://localhost:3000
+        run: |
+          bun --filter @app/db generate
+          bun --filter @app/web build
 
   test:
     name: vitest

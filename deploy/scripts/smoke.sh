@@ -24,18 +24,14 @@ for arg in "$@"; do
   esac
 done
 
+# `--env-file deploy/compose/.env.local-defaults` provides stub values
+# for every `${VAR:?required}` reference in the main compose. The build
+# override turns the immutable image references into local builds.
 COMPOSE="docker compose \
+  --env-file deploy/compose/.env.local-defaults \
   -f deploy/compose/docker-compose.yml \
+  -f deploy/compose/docker-compose.build.yml \
   -f deploy/compose/docker-compose.smoke.yml"
-
-# Stub secrets — present so Compose interpolation succeeds and the apps'
-# Zod validators pass. In a real install these come from the customer .env.
-export AUTH_SECRET="${AUTH_SECRET:-smoke-test-secret-must-be-32-bytes-or-more}"
-export KEYCLOAK_CLIENT_SECRET="${KEYCLOAK_CLIENT_SECRET:-dev-only-secret-replace-in-prod}"
-export APP_HOSTNAME="${APP_HOSTNAME:-localhost}"
-export AUTH_HOSTNAME="${AUTH_HOSTNAME:-localhost}"
-export ACME_EMAIL="${ACME_EMAIL:-smoke@example.invalid}"
-export OTEL_EXPORTER_OTLP_ENDPOINT=""
 
 PASSED=0
 FAILED=0

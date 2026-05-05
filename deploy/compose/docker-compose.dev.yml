@@ -1,8 +1,14 @@
-# Dev overrides — apply with:
-#   docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.dev.yml up -d
+# Dev overrides — apply with `make up-dev`, which expands to:
+#   docker compose \
+#     --env-file deploy/compose/.env.local-defaults \
+#     -f deploy/compose/docker-compose.yml \
+#     -f deploy/compose/docker-compose.dev.yml \
+#     up -d
 #
-# Exposes ports to the host so local tooling (Prisma migrate, Studio,
-# database GUIs, browser-side Keycloak admin) can reach the services.
+# Exposes ports to the host (so local tooling and browsers can reach the
+# services) and swaps the production realm for one that includes a test
+# user, so contributors can sign in without going through the
+# customer-install Keycloak UI dance.
 
 services:
   postgres-app:
@@ -16,12 +22,18 @@ services:
   keycloak:
     ports:
       - '8080:8080'
+    # !override replaces the inherited volume list. Without it, compose
+    # would append the dev mount and leave the prod realm export attached
+    # too — Keycloak then imports both, and the test user from the dev
+    # realm would leak into a misconfigured production install.
+    volumes: !override
+      - ../keycloak/realm-export.dev.json:/opt/keycloak/data/import/realm-export.json:ro
 
   redis:
     ports:
       - '6379:6379'
 
-  # Observability — only effective when `--profile obs` is also passed
+  # Observability — only effective when `--profile obs` is also passed.
   otel-collector:
     ports:
       - '4318:4318' # OTLP HTTP

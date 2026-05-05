@@ -3,8 +3,14 @@ SHELL := /usr/bin/env bash
 .DEFAULT_GOAL := help
 .PHONY: help install dev dev-worker build test typecheck lint format check up up-dev up-obs down logs ps clean smoke db-generate db-migrate db-migrate-dev db-seed db-studio db-reset backup restore
 
-COMPOSE := docker compose -f deploy/compose/docker-compose.yml
-COMPOSE_DEV := $(COMPOSE) -f deploy/compose/docker-compose.dev.yml
+# Compose handles. The `--env-file deploy/compose/.env.local-defaults`
+# supplies stub values for the `${VAR:?required}` references in
+# docker-compose.yml so local dev / smoke / CI all work without a
+# customer .env. Customer installs invoke compose without --env-file
+# (compose then reads .env at the repo root).
+COMPOSE_ENV_FILE := --env-file deploy/compose/.env.local-defaults
+COMPOSE := docker compose $(COMPOSE_ENV_FILE) -f deploy/compose/docker-compose.yml
+COMPOSE_DEV := $(COMPOSE) -f deploy/compose/docker-compose.build.yml -f deploy/compose/docker-compose.dev.yml
 
 # ----- Meta ----------------------------------------------------------------
 help: ## Show this help

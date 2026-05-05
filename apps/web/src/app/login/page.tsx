@@ -1,5 +1,6 @@
 import { getTranslations } from 'next-intl/server';
 import { signIn } from '@/auth';
+import { safeRedirect } from '@/lib/safe-redirect';
 
 type SearchParams = {
   from?: string;
@@ -8,7 +9,10 @@ type SearchParams = {
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const params = await searchParams;
-  const callbackUrl = params.from ?? '/dashboard';
+  // Validate the post-login destination at the entry point. auth.js does
+  // its own redirect validation, but we want the value we hand it to be
+  // already known-safe — defence in depth.
+  const callbackUrl = safeRedirect(params.from, '/dashboard');
   const t = await getTranslations('login');
 
   return (

@@ -34,3 +34,8 @@ services:
   keycloak:
     ports:
       - '8080:8080'
+    # !override replaces the inherited volume list with the dev realm
+    # (includes a test user so smoke can exercise the sign-in path if
+    # needed). See docker-compose.dev.yml for the same mechanism.
+    volumes: !override
+      - ../keycloak/realm-export.dev.json:/opt/keycloak/data/import/realm-export.json:ro

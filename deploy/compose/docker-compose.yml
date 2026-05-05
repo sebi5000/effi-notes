@@ -1,5 +1,8 @@
-name: app-template
-
+# No `name:` field — Compose derives the project from $COMPOSE_PROJECT_NAME
+# or the parent directory. This lets customers run staging + prod side by
+# side on the same host (each with its own COMPOSE_PROJECT_NAME) and lets
+# forks rename without touching this file.
+#
 # Phase 2: postgres-app. Phase 3: postgres-keycloak + keycloak.
 # Phase 4: redis. Phase 5: observability profile (--profile obs).
 # Phase 6: caddy + web + worker + migrator.
@@ -19,16 +22,18 @@ services:
     <<: *restart
     logging: *logging
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
-      POSTGRES_DB: app
+      # Required from .env (or shell). No fallbacks — fail loud if missing.
+      # Dev / smoke load deploy/compose/.env.local-defaults via --env-file.
+      POSTGRES_USER: ${POSTGRES_APP_USER:?POSTGRES_APP_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_APP_PASSWORD:?POSTGRES_APP_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_APP_DB:?POSTGRES_APP_DB is required}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-app:/var/lib/postgresql/data
     networks:
       - net-data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U app -d app']
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -45,16 +50,16 @@ services:
     <<: *restart
     logging: *logging
     environment:
-      POSTGRES_USER: keycloak
-      POSTGRES_PASSWORD: keycloak
-      POSTGRES_DB: keycloak
+      POSTGRES_USER: ${POSTGRES_KEYCLOAK_USER:?POSTGRES_KEYCLOAK_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_KEYCLOAK_PASSWORD:?POSTGRES_KEYCLOAK_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_KEYCLOAK_DB:?POSTGRES_KEYCLOAK_DB is required}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres-keycloak:/var/lib/postgresql/data
     networks:
       - net-data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U keycloak -d keycloak']
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 3s
       retries: 10
@@ -75,12 +80,14 @@ services:
     command: ['start-dev', '--import-realm']
     environment:
       KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/keycloak
-      KC_DB_USERNAME: keycloak
-      KC_DB_PASSWORD: keycloak
-      # Bootstrap admin (used once, then disable / replace)
-      KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/${POSTGRES_KEYCLOAK_DB:?POSTGRES_KEYCLOAK_DB is required}
+      KC_DB_USERNAME: ${POSTGRES_KEYCLOAK_USER:?POSTGRES_KEYCLOAK_USER is required}
+      KC_DB_PASSWORD: ${POSTGRES_KEYCLOAK_PASSWORD:?POSTGRES_KEYCLOAK_PASSWORD is required}
+      # Bootstrap admin: used on first start to create the master-realm admin.
+      # Customer admins replace this account in the Keycloak UI immediately
+      # after the first login (operations runbook).
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KC_BOOTSTRAP_ADMIN_USERNAME:?KC_BOOTSTRAP_ADMIN_USERNAME is required}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_BOOTSTRAP_ADMIN_PASSWORD:?KC_BOOTSTRAP_ADMIN_PASSWORD is required}
       KC_HOSTNAME_STRICT: 'false'
       KC_HTTP_ENABLED: 'true'
       KC_PROXY_HEADERS: xforwarded
@@ -89,6 +96,7 @@ services:
       KC_LOG_LEVEL: INFO
       # In production: switch `start-dev` → `start` and set KC_HOSTNAME to public URL
     volumes:
+      # Production realm — does NOT contain test users.
       - ../keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
     networks:
       - net-app
@@ -153,19 +161,16 @@ services:
     # One-shot: applies pending Prisma migrations, then exits 0.
     # The web service depends on this completing before it starts —
     # zero-downtime updates rely on this ordering.
-    build:
-      context: ../..
-      dockerfile: apps/worker/Dockerfile
-      args:
-        BUN_VERSION: '1.3.13'
-    image: app-template-migrator:latest
+    # The migrator image is the worker image; only the CMD differs.
+    image: ${REGISTRY:?REGISTRY is required}/worker:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: missing
     restart: 'no'
     logging: *logging
     depends_on:
       postgres-app:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://app:app@postgres-app:5432/app?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:?required}:${POSTGRES_APP_PASSWORD:?required}@postgres-app:5432/${POSTGRES_APP_DB:?required}?schema=public
     command: ['bun', '--filter', '@app/db', 'migrate:deploy']
     networks:
       - net-data
@@ -176,12 +181,8 @@ services:
           cpus: '0.5'
 
   web:
-    build:
-      context: ../..
-      dockerfile: apps/web/Dockerfile
-      args:
-        BUN_VERSION: '1.3.13'
-    image: app-template-web:latest
+    image: ${REGISTRY:?REGISTRY is required}/web:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: missing
     <<: *restart
     logging: *logging
     depends_on:
@@ -198,7 +199,7 @@ services:
       APP_ENV: production
       APP_BASE_URL: https://app.example.com
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://app:app@postgres-app:5432/app?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:?required}:${POSTGRES_APP_PASSWORD:?required}@postgres-app:5432/${POSTGRES_APP_DB:?required}?schema=public
       DATABASE_POOL_MAX: '10'
       REDIS_URL: redis://redis:6379/0
       KEYCLOAK_ISSUER: https://auth.example.com/realms/app
@@ -233,12 +234,8 @@ services:
           cpus: '1.5'
 
   worker:
-    build:
-      context: ../..
-      dockerfile: apps/worker/Dockerfile
-      args:
-        BUN_VERSION: '1.3.13'
-    image: app-template-worker:latest
+    image: ${REGISTRY:?REGISTRY is required}/worker:${IMAGE_TAG:?IMAGE_TAG is required}
+    pull_policy: missing
     <<: *restart
     logging: *logging
     depends_on:
@@ -252,7 +249,7 @@ services:
       NODE_ENV: production
       APP_ENV: production
       LOG_LEVEL: info
-      DATABASE_URL: postgresql://app:app@postgres-app:5432/app?schema=public
+      DATABASE_URL: postgresql://${POSTGRES_APP_USER:?required}:${POSTGRES_APP_PASSWORD:?required}@postgres-app:5432/${POSTGRES_APP_DB:?required}?schema=public
       DATABASE_POOL_MAX: '5'
       REDIS_URL: redis://redis:6379/0
       KEYCLOAK_ISSUER: https://auth.example.com/realms/app
@@ -418,7 +415,8 @@ services:
       prometheus:
         condition: service_healthy
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_USERS_ALLOW_SIGN_UP: 'false'
       GF_AUTH_ANONYMOUS_ENABLED: 'false'
       GF_FEATURE_TOGGLES_ENABLE: traceqlEditor,tempoSearch
@@ -441,32 +439,23 @@ services:
           memory: 384M
           cpus: '0.5'
 
+# Volumes and networks intentionally have no `name:` field — Compose
+# derives them as `<project>_<key>`. This lets customers run multiple
+# instances on the same host (e.g. staging + prod) without colliding
+# on volume names. The backup script reads the project name dynamically.
 volumes:
   postgres-app:
-    name: app-template_postgres-app
   postgres-keycloak:
-    name: app-template_postgres-keycloak
   redis-data:
-    name: app-template_redis-data
   loki-data:
-    name: app-template_loki-data
   tempo-data:
-    name: app-template_tempo-data
   prometheus-data:
-    name: app-template_prometheus-data
   grafana-data:
-    name: app-template_grafana-data
   caddy-data:
-    name: app-template_caddy-data
   caddy-config:
-    name: app-template_caddy-config
 
 networks:
   net-edge:
-    name: app-template_net-edge
   net-data:
-    name: app-template_net-data
   net-app:
-    name: app-template_net-app
   net-obs:
-    name: app-template_net-obs

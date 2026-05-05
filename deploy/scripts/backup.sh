@@ -12,7 +12,21 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."  # repo root
-COMPOSE="docker compose -f deploy/compose/docker-compose.yml"
+
+# Compose interpolates `${VAR:?required}` against either the customer's
+# `.env` at repo root (its default lookup) or, if that file is absent
+# (CI / fresh dev clones), our local-defaults. Pass `--env-file` only
+# when there is no customer .env — otherwise we'd shadow real values.
+COMPOSE_ENV_FILE_ARG=""
+if [[ ! -f .env ]]; then
+  COMPOSE_ENV_FILE_ARG="--env-file deploy/compose/.env.local-defaults"
+fi
+
+# `docker compose exec` is enough for DB dumps — it talks to running
+# containers by service name without needing volume-path knowledge.
+# Project name comes from Compose's ambient context (COMPOSE_PROJECT_NAME
+# or the parent directory). Never hardcode `app-template_*`.
+COMPOSE="docker compose ${COMPOSE_ENV_FILE_ARG} -f deploy/compose/docker-compose.yml"
 
 TIMESTAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 TARGET_DIR="${1:-./backups/${TIMESTAMP}}"
@@ -22,14 +36,17 @@ log() { printf '[backup] %s\n' "$*" >&2; }
 
 # ── Postgres app DB ───────────────────────────────────────────────────────
 log "dumping postgres-app → ${TARGET_DIR}/postgres-app.sql.gz"
-${COMPOSE} exec -T postgres-app \
-  pg_dump --username=app --format=plain --no-owner --no-privileges --clean --if-exists app \
+# pg_dump reads $POSTGRES_USER and $POSTGRES_DB from the container's env,
+# which we set from POSTGRES_APP_USER/DB at compose time — so backup
+# tracks whatever credentials the customer chose without hardcoding.
+${COMPOSE} exec -T postgres-app sh -c \
+  'pg_dump --username="$POSTGRES_USER" --format=plain --no-owner --no-privileges --clean --if-exists "$POSTGRES_DB"' \
   | gzip > "${TARGET_DIR}/postgres-app.sql.gz"
 
 # ── Postgres keycloak DB ──────────────────────────────────────────────────
 log "dumping postgres-keycloak → ${TARGET_DIR}/postgres-keycloak.sql.gz"
-${COMPOSE} exec -T postgres-keycloak \
-  pg_dump --username=keycloak --format=plain --no-owner --no-privileges --clean --if-exists keycloak \
+${COMPOSE} exec -T postgres-keycloak sh -c \
+  'pg_dump --username="$POSTGRES_USER" --format=plain --no-owner --no-privileges --clean --if-exists "$POSTGRES_DB"' \
   | gzip > "${TARGET_DIR}/postgres-keycloak.sql.gz"
 
 # ── Redis (BullMQ in-flight jobs) ─────────────────────────────────────────
