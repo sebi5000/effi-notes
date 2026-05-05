@@ -106,11 +106,47 @@ services:
           cpus: '1.0'
     # Port only exposed via the dev override file
 
+  redis:
+    image: redis:7.4.6-alpine
+    <<: *restart
+    logging: *logging
+    command:
+      [
+        'redis-server',
+        '--save',
+        '60',
+        '1',
+        '--loglevel',
+        'warning',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    volumes:
+      - redis-data:/data
+    networks:
+      - net-data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 320M
+          cpus: '0.5'
+    # noeviction is mandatory for BullMQ — see ADR 0018
+
 volumes:
   postgres-app:
     name: app-template_postgres-app
   postgres-keycloak:
     name: app-template_postgres-keycloak
+  redis-data:
+    name: app-template_redis-data
 
 networks:
   net-data:

@@ -43,7 +43,7 @@ Feature flags are env-based via `@app/config` (`flags.<name>`). If a customer pr
 
 ## Workspace conventions
 
-- Package names: `@app/web`, `@app/worker`, `@app/db`, `@app/config`, `@app/observability`, `@app/auth`, `@app/ui`
+- Package names: `@app/web`, `@app/worker`, `@app/db`, `@app/config`, `@app/observability`, `@app/auth`, `@app/jobs`, `@app/ui`
 - Workspace dep syntax: `"@app/config": "workspace:*"`
 - Each package: `tsconfig.json` extends `../../tsconfig.base.json`, has `typecheck` script
 - Apps build with their own toolchain (Next for web, Bun for worker). Packages are TS-only — consumed in source via Bun's bundler
@@ -200,6 +200,101 @@ These belong in `docs/customer-install.md`:
 - Switch Keycloak `start-dev` → `start` and set `KC_HOSTNAME` for production
 
 The app code does **not** care about any of this — it just trusts whatever is at `KEYCLOAK_ISSUER` to be a working OIDC provider with the `app-web` client.
+
+## Jobs (read this before adding a queue)
+
+> **For Claude in a customer project:** the BullMQ + Bull Board plumbing is intentional. Customer projects add **new queues** by following the pattern below. Don't add a different job library, don't change the connection options, don't move queue definitions out of `@app/jobs`.
+
+### Architecture (where things live)
+
+```
+packages/jobs/src/
+├── connection.ts        # Single ioredis client factory (BullMQ-tuned options)
+├── queues.ts            # Queue names, Zod payload schemas, typed producer helpers
+└── index.ts             # Public exports
+
+apps/worker/src/
+├── index.ts             # Worker entry: BullMQ Workers + Bun.serve HTTP for Bull Board
+├── bull-board.ts        # Mounts Bull Board at /admin/queues using @bull-board/bun
+└── processors/<name>.ts # One file per queue's processor function
+
+apps/web/src/app/
+├── admin/queues/[[...slug]]/route.ts  # Auth-gated reverse proxy → worker:3100
+└── dashboard/actions.ts                # Server actions that enqueue from the UI
+```
+
+### Identity flow for a job
+
+```
+[user clicks button] → server action → enqueueDemoJob(payload) → Redis
+                                                                   ↓
+            BullMQ Worker (apps/worker) ← processor(job) ← Job picked up
+                                                                   ↓
+                                                          job.log(...) → Bull Board
+```
+
+### Source of truth
+
+- **Queue names:** `QUEUES` const in `packages/jobs/src/queues.ts`. Web and worker import from the same module — never hard-code strings
+- **Payload shape:** Zod schema next to the queue. Producers `.parse()` before pushing; processors trust the typed payload
+- **Connection options:** `getRedis()` / `createRedis()` from `@app/jobs/connection`. Both use `maxRetriesPerRequest: null` and `enableReadyCheck: false`. Required by BullMQ — see ADR 0018
+
+### How to add a queue (the supported pattern)
+
+Walk through this every time. Skipping a step bites later.
+
+1. **Define the queue in `packages/jobs/src/queues.ts`:**
+   - Add the name to the `QUEUES` const
+   - Define a Zod schema `MyJobSchema` and `type MyJobPayload`
+   - Lazy-instantiate the Queue with sensible `defaultJobOptions` (retries, backoff, retention)
+   - Export `enqueueMyJob(payload, opts?)` that validates with Zod, then `add()`s
+   - Export `getMyQueueCounts()` if dashboards need depth visibility
+   - Add the queue to `getQueueForBullBoard()`'s switch
+2. **Implement the processor in `apps/worker/src/processors/<name>.ts`:**
+   - Pure function `(job: Job<MyJobPayload>) => Promise<Result>`
+   - Idempotent if at all possible — BullMQ retries on throw
+   - `job.log(...)` for observability; never `console.log` for job-level events (no trace correlation)
+3. **Register the Worker in `apps/worker/src/index.ts`:**
+   - `new Worker(QUEUES.myJob, processMyJob, { connection: getRedis(), concurrency: env.WORKER_CONCURRENCY })`
+   - Wire `failed` and `error` event handlers (logging)
+4. **Producer side (web):**
+   - Server action calls `enqueueMyJob(...)` and optionally `recordAudit({ action: 'jobs.myJob.enqueued', actorId, subject: jobId })`
+5. **No middleware changes** — Bull Board already shows new queues automatically
+
+### Hard rules (jobs-specific)
+
+1. **Never share a Redis connection between Worker and Queue.** BullMQ buffers blocking commands on the Worker connection; reusing it for `Queue.add()` deadlocks. `getRedis()` returns a singleton intended for the Queue / producer side; Workers create their own (BullMQ does it internally when given a connection at construction)
+2. **Never push to a queue without Zod validation.** The producer helpers in `@app/jobs` enforce this. Bypassing them with `new Queue('foo').add(...)` defeats the typing contract
+3. **Never run `prisma migrate` from inside a Worker process.** The web app's container entrypoint owns migrations
+4. **Never expose the worker's port (3100) publicly.** Bull Board has *no built-in auth* — the only ingress is `/admin/queues/*` in `apps/web`, which checks the `ops` role
+5. **Never use `removeOnComplete: true` for production-grade jobs without retention policy.** BullMQ deletes the job AND its logs immediately, defeating debugging. Use `{ age: <seconds>, count: <max> }` instead — see `defaultJobOpts` in `queues.ts`
+6. **Never store domain payloads larger than ~100 KB in a job.** Redis is RAM. Pass an entity id; let the processor fetch from Postgres
+7. **Cron / repeatable jobs go in the worker entry, not in business logic.** Use BullMQ's `JobScheduler` / `repeatable` pattern; don't reinvent with `setInterval`
+
+### Common pitfalls (Bun + BullMQ)
+
+- **The `noeviction` Redis policy is mandatory.** Without it, Redis under memory pressure may evict BullMQ's bookkeeping keys, corrupting queue state silently. Compose pins this in `redis-server --maxmemory-policy noeviction`. ADR 0018
+- **OpenTelemetry does not auto-instrument BullMQ jobs.** We wrap `processor` with a manual `tracer.startActiveSpan` in Phase 5 — leave the processor signatures pure for now
+- **`bun --watch` reloads kill BullMQ workers without draining.** Acceptable in dev (jobs return to `waiting`), but **never** in prod — the prod entrypoint must be `bun src/index.ts`, not `--watch`
+- **Long-running jobs (>30 min) need `lockDuration` tuned** — the Worker's lock expires by default at 30s. Set per-queue, not globally
+
+### Bull Board ingress (architecture detail)
+
+```
+browser → GET /admin/queues/* (apps/web)
+            ↓ auth.js middleware → requireRole('ops')
+            ↓ reverse-proxy fetch → http://worker:3100/admin/queues/*
+            ↓ Bun.serve in apps/worker
+            ↓ @bull-board/bun BunAdapter
+```
+
+The proxy is a streaming pass-through. It does **not** rewrite HTML or asset paths because Bull Board's `setBasePath('/admin/queues')` already produces the correct URLs. If you change the basePath, change it in **both** `bull-board.ts` (worker) and the route's path in `apps/web` — they must match.
+
+### What customer admins do (not us)
+
+- Pin Redis-side memory based on their queue throughput (default 256 MB is fine for a few hundred jobs/min)
+- Decide retention policy for completed/failed jobs — defaults are 24 h / 7 days
+- Wire alerts on Bull Board's failed-count metric (Phase 5 OTel wiring exposes counts as Prometheus gauges)
 
 ## Customer-facing concerns (always consider)
 

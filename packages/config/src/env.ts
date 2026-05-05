@@ -34,6 +34,13 @@ const EnvSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+
+  // Jobs (BullMQ + Redis) ------------------------------------------------
+  REDIS_URL: z.string().min(1, 'REDIS_URL is required (e.g. redis://localhost:6379/0)'),
+  WORKER_CONCURRENCY: z.coerce.number().int().positive().default(4),
+  WORKER_HTTP_PORT: z.coerce.number().int().positive().default(3100),
+  /** Internal URL the web app uses to proxy /admin/queues → worker's Bull Board. */
+  BULL_BOARD_INTERNAL_URL: z.string().url().default('http://localhost:3100'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

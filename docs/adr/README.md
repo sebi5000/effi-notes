@@ -30,3 +30,4 @@ Each non-trivial decision with tradeoffs is captured here. Format follows [MADR]
 | 0015 | License: UNLICENSED (proprietary template) | Accepted |
 | 0016 | OpenTelemetry instrumentation allow-list | Accepted |
 | 0017 | Next.js 16 (not 15 as originally specified) | Accepted |
+| 0018 | Redis `noeviction` policy for BullMQ | Accepted |

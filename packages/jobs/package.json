@@ -1,0 +1,21 @@
+{
+  "name": "@app/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./queues": "./src/queues.ts",
+    "./connection": "./src/connection.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@app/config": "workspace:*",
+    "bullmq": "5.76.5",
+    "ioredis": "5.10.1",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {}
+}
