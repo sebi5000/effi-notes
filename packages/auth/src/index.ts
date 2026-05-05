@@ -1,3 +1,6 @@
-// Phase 1 stub. auth.js v5 + Keycloak provider + RBAC helpers land in Phase 3.
+// Side-effect import: register module augmentation for Session/JWT types.
+import './types.ts';
 
-export const PHASE = 'phase-1-skeleton' as const;
+export { authConfig } from './config.ts';
+export { ForbiddenError, hasRole, requireRole } from './rbac.ts';
+export { ALL_ROLES, type AppUser, type Role } from './types.ts';

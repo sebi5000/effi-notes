@@ -1,8 +1,7 @@
 name: app-template
 
-# Phase 2 stack — application Postgres only.
-# Subsequent phases extend this file with Redis (Phase 4), Keycloak +
-# its own Postgres (Phase 3), Caddy (Phase 6), observability profile (Phase 5).
+# Phase 2: postgres-app.       Phase 3: postgres-keycloak + keycloak.
+# Phase 4: redis.   Phase 5: observability profile.   Phase 6: caddy.
 
 x-restart-policy: &restart
   restart: unless-stopped
@@ -40,10 +39,81 @@ services:
           cpus: '1.0'
     # Port only exposed via the dev override file (deploy/compose/docker-compose.dev.yml)
 
+  postgres-keycloak:
+    image: postgres:16.10-alpine
+    <<: *restart
+    logging: *logging
+    environment:
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak
+      POSTGRES_DB: keycloak
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-keycloak:/var/lib/postgresql/data
+    networks:
+      - net-data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U keycloak -d keycloak']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.6.1
+    <<: *restart
+    logging: *logging
+    depends_on:
+      postgres-keycloak:
+        condition: service_healthy
+    command: ['start-dev', '--import-realm']
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres-keycloak:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      # Bootstrap admin (used once, then disable / replace)
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_HOSTNAME_STRICT: 'false'
+      KC_HTTP_ENABLED: 'true'
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: 'true'
+      KC_METRICS_ENABLED: 'true'
+      KC_LOG_LEVEL: INFO
+      # In production: switch `start-dev` → `start` and set KC_HOSTNAME to public URL
+    volumes:
+      - ../keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks:
+      - net-app
+      - net-data
+    healthcheck:
+      # The Keycloak image ships a built-in healthcheck binary on port 9000
+      test: ['CMD-SHELL', 'exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e "GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\n\\r\\n" >&3 && cat <&3 | head -1 | grep -q "200 OK"']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+    # Port only exposed via the dev override file
+
 volumes:
   postgres-app:
     name: app-template_postgres-app
+  postgres-keycloak:
+    name: app-template_postgres-keycloak
 
 networks:
   net-data:
     name: app-template_net-data
+  net-app:
+    name: app-template_net-app

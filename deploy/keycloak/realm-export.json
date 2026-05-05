@@ -1,0 +1,111 @@
+{
+  "_comment_README": "Default Keycloak realm shipped with the template. Loaded on first start via --import-realm. Customer admins replace the test user, rotate the client secret, and add federation/IdPs via the Keycloak admin UI. This file is intentionally minimal — see deploy/keycloak/README.md for the customisation walkthrough.",
+  "realm": "app",
+  "enabled": true,
+  "displayName": "App Template",
+  "displayNameHtml": "<strong>App Template</strong>",
+  "registrationAllowed": false,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "waitIncrementSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200,
+  "failureFactor": 10,
+  "sslRequired": "external",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionIdleTimeout": 2592000,
+  "internationalizationEnabled": true,
+  "supportedLocales": ["de", "en"],
+  "defaultLocale": "de",
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Default authenticated user. Granted to every login by composite role on the realm.",
+        "composite": false
+      },
+      {
+        "name": "admin",
+        "description": "Application administrator (customer-side). Manages users, settings, audit access.",
+        "composite": false
+      },
+      {
+        "name": "ops",
+        "description": "Operations role for the vendor (us). Access to internal-only views (queue board, debug).",
+        "composite": false
+      }
+    ]
+  },
+  "defaultRoles": ["user"],
+  "clients": [
+    {
+      "clientId": "app-web",
+      "name": "App Web Frontend",
+      "description": "Next.js app — Authorization Code Flow + PKCE. Confidential client.",
+      "enabled": true,
+      "publicClient": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/api/auth/callback/keycloak",
+        "https://*.example/api/auth/callback/keycloak"
+      ],
+      "webOrigins": ["http://localhost:3000", "https://*.example"],
+      "rootUrl": "http://localhost:3000",
+      "baseUrl": "/",
+      "secret": "dev-only-secret-replace-in-prod",
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000##https://*.example",
+        "client.session.idle.timeout": "1800",
+        "access.token.lifespan": "300"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "_comment": "Default test user — only useful in dev. Customer admins MUST delete or disable this account before going live (see customer-install.md).",
+      "username": "test@example.invalid",
+      "email": "test@example.invalid",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "test1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "admin", "ops"]
+    }
+  ]
+}

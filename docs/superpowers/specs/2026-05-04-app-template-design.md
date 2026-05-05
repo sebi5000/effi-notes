@@ -229,7 +229,7 @@ Werden nicht über Superpowers ersetzt, sondern als projekt-spezifische Reviewer
 | **0** | Plan (= dieses Dokument) | User-Approval |
 | **1** | Skelett: Workspaces, leere Apps, TS-Config, Lint, Pre-commit, Makefile, `.env.example`, ADR-Stubs | `bun install && bun dev` startet leere Next-App auf :3000 |
 | **2** | Daten: Prisma-Schema (User, AuditLog), Migrations-Setup, `db`-Package, Postgres im Compose, Seed-Skript, Audit-Helper (nicht verdrahtet) | `make db-migrate && make db-seed` läuft, User-CRUD im Prisma Studio sichtbar |
-| **3** | Auth: Keycloak im Compose, Realm-Export, auth.js, geschützte `/dashboard`, Logout, User-Upsert | Login mit Test-User → Dashboard, Logout → Public-Page; User-Datensatz in DB |
+| **3** | Auth: Keycloak + eigene Postgres im Compose, Realm-Export, auth.js v5, geschützte `/dashboard`, `/login`, Logout, User-Upsert, RBAC-Helper, Health-Endpoints | Login mit Test-User → Dashboard, Logout → Public-Page; User-Datensatz in DB; CLAUDE.md dokumentiert alle Extension-Points |
 | **4** | Jobs: Redis im Compose, BullMQ, Worker-App mit Demo-Queue, Bull-Board hinter Auth | "Hello World"-Job über UI auslösbar, im Bull-Board sichtbar, Worker-Log strukturiert |
 | **5** | Observability: OTel-SDK in web+worker, Collector + Loki + Tempo + Prometheus + Grafana im obs-Profil, Default-Dashboards | Login-Trace in Tempo sichtbar, Job-Span verbunden, Logs in Loki, Metriken in Prom |
 | **6** | Härtung: Caddy mit auto-TLS, CSP/HSTS, Rate-Limit auf Auth-Endpoints, Resource-Limits, Backup/Restore-Skript-Stubs | Smoke-Test grün auf Linux + macOS, Backup-Restore-Roundtrip funktioniert |

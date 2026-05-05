@@ -63,6 +63,144 @@ Feature flags are env-based via `@app/config` (`flags.<name>`). If a customer pr
 - Integration tests **MUST hit a real Postgres**, never mocks. Use a separate test DB
 - Run via `bun run vitest`, never `bun test` (DOM/jsdom integration is not equivalent yet)
 
+## Auth (read this before touching anything auth-related)
+
+> **For Claude in a customer project that forked this template:** the auth plumbing below is intentional and stable. Customer projects add features **on top** of it (new protected routes, new roles, new claim mappings) but should not rewrite the wiring without an ADR. If you find yourself wanting to change the JWT callback, the refresh logic, or the user-upsert semantics — stop and write an ADR first.
+
+### Architecture (where things live)
+
+```
+apps/web/src/
+├── auth.ts                                       # Single NextAuth() instance — { auth, signIn, signOut, handlers }
+├── middleware.ts                                 # Public/private path gate; redirects to /login
+├── app/
+│   ├── api/auth/[...nextauth]/route.ts           # auth.js HTTP endpoints (do not add to)
+│   ├── api/health/{live,ready}/route.ts          # Probes for orchestrator
+│   ├── login/page.tsx                            # Single sign-in button → Keycloak
+│   └── dashboard/page.tsx                        # Protected example page; pattern for other pages
+
+packages/auth/src/
+├── index.ts                                      # Public exports + side-effect type augmentation
+├── types.ts                                      # Role union, AppUser shape, Session/JWT augmentation
+├── config.ts                                     # NextAuthConfig: provider, callbacks, refresh, upsert
+└── rbac.ts                                       # hasRole, requireRole, ForbiddenError
+```
+
+### Identity flow
+
+1. User clicks "Sign in" on `/login` → server action calls `signIn('keycloak')`
+2. auth.js redirects browser to Keycloak's authorisation endpoint with PKCE
+3. User authenticates against Keycloak (Keycloak handles federation, MFA, password policies — not us)
+4. Keycloak redirects to `/api/auth/callback/keycloak` with the auth code
+5. auth.js exchanges code for tokens; the `jwt` callback runs
+6. **First login or refresh:** `upsertUser()` (in `packages/auth/src/config.ts`) writes a row in our `User` table keyed by Keycloak `sub`. Roles in our `User.roles` are filtered to known `Role` values
+7. The session JWT now carries `appUser` (typed as `AppUser`), `accessToken`, `refreshToken`, `accessTokenExpiresAt`
+8. On subsequent requests, the `jwt` callback re-runs; if the access token is within 30s of expiry, we call Keycloak's `/protocol/openid-connect/token` to refresh. On refresh failure we set `session.error = 'RefreshAccessTokenError'` — the dashboard checks for this and redirects to `/login`
+
+### Source of truth
+
+- **Identity (who you are):** Keycloak. Email changes, password resets, MFA, federation — all in Keycloak's admin UI / by admin API. Never write user-management code in this app.
+- **Application user (foreign-key target, audit actor):** `User` table in our DB. Mirror only — `keycloakSub` is the join key. Adding columns is fine; never make this table the auth source.
+- **Roles:** Realm roles in Keycloak. Mapped into the access token via the `realm roles` protocol-mapper (configured in `deploy/keycloak/realm-export.json`). `Role` union in `@app/auth/types` lists what the app understands.
+
+### Session shape (what `session.user` gives you)
+
+```ts
+type AppUser = {
+  id: string;            // our DB user.id (cuid) — use for FKs and audit
+  keycloakSub: string;   // Keycloak sub claim — stable across email changes
+  email: string;
+  displayName: string | null;
+  locale: string;
+  roles: ReadonlyArray<Role>;
+};
+```
+
+### How to use the session (patterns)
+
+**Server component:**
+
+```tsx
+import { auth } from '@/auth';
+
+export default async function MyPage() {
+  const session = await auth();
+  if (!session?.user) redirect('/login');
+  return <p>Hello {session.user.displayName}</p>;
+}
+```
+
+**Route handler:**
+
+```ts
+import { auth } from '@/auth';
+import { requireRole } from '@app/auth/rbac';
+
+export const POST = auth(async (req) => {
+  if (!req.auth) return Response.json({ error: 'unauthorised' }, { status: 401 });
+  requireRole(req.auth.user, 'admin');     // throws ForbiddenError → 500 unless caught
+  // … do thing …
+});
+```
+
+**Server action:**
+
+```ts
+'use server';
+import { auth } from '@/auth';
+import { requireRole } from '@app/auth/rbac';
+
+export async function updateThing() {
+  const session = await auth();
+  requireRole(session?.user, ['admin', 'ops']);
+  // …
+}
+```
+
+**Client component (rare — prefer server reads):**
+Pass session down as a prop from a server component. Do **not** call `useSession()` in client code unless you genuinely need real-time session updates; it costs a network round-trip on each render.
+
+### How to add things (the supported extension points)
+
+| You want to… | Where to change | Don't touch |
+|---|---|---|
+| Add a new role | `Role` union in `packages/auth/src/types.ts` **AND** add the role in `deploy/keycloak/realm-export.json` (or via Keycloak admin UI for live realms) | The JWT callback or refresh logic |
+| Protect a new page | Wrap the page in `auth()` (RSC) or `requireRole()`. Middleware already redirects unauthenticated requests | The middleware matcher unless absolutely necessary |
+| Add a public path | Add to `PUBLIC_PATHS` in `apps/web/src/middleware.ts` | The matcher regex (it intentionally lets static assets through) |
+| Add a session field | Extend `AppUser` in `packages/auth/src/types.ts`, populate in `upsertUser()` and the `jwt` callback in `config.ts` | The realm-export client mapper layout — re-export the realm cleanly |
+| Surface a Keycloak attribute | Add a protocol-mapper in the realm export, then read `profile` in the `jwt` callback | The catch-all `[...nextauth]/route.ts` |
+| Forbid an action with HTTP 403 | `requireRole()` + a Next error boundary that converts `ForbiddenError` to 403 | `redirect('/login')` from inside a route handler — return a JSON 401 instead |
+
+### Hard rules (auth-specific)
+
+1. **Never bypass auth.js with a hand-rolled session cookie.** The JWT cookie is signed with `AUTH_SECRET`; verifying it requires auth.js
+2. **Never write to `User.keycloakSub`** outside `upsertUser()`. The mapping is the integrity contract
+3. **Never read `process.env.KEYCLOAK_*` directly.** Use `env` from `@app/config/env` so the Zod schema gates everything
+4. **Never store the Keycloak access token in the database.** It lives in the JWT cookie only. Reasons: tokens are short-lived; they would silently rot in stale rows; they are credentials and DB encryption-at-rest is not the same as a tightly scoped cookie
+5. **Never wire audit logging into the auth callback for "user.login" by default.** It is tempting; resist. Customers may not want every login captured for retention/GDPR reasons. Provide it as a sample in customer-install docs instead
+6. **Don't use auth.js database sessions.** We use JWT sessions because Keycloak owns identity. Switching to DB sessions doubles the failure modes for no benefit
+7. **`AUTH_TRUST_HOST` is `false` in dev**. Set it to `true` only when behind Caddy (Phase 6) so `X-Forwarded-Host` is honoured. Never set it to `true` for an app exposed directly to the internet without a known proxy
+
+### Common pitfalls (Bun + auth.js v5)
+
+- **`signIn()` only works in a server action / route handler.** Calling it from a client onClick will fail at build time
+- **The `jwt` callback runs on every request needing the session.** Keep it cheap: `upsertUser()` runs only when `account` is non-null (i.e. on the auth-code exchange) and on refresh — not on every page render
+- **Token refresh runs at every request once the token is near expiry**, but multiple concurrent requests can race. auth.js v5 mitigates this; if you see duplicate refresh calls in production, the next step is a per-process refresh-lock — write an ADR before adding it
+- **Bun does not auto-instrument fetch with OTel** — refresh calls to Keycloak will be visible in Tempo only via the manual Undici instrumentation we add in Phase 5
+
+### What customer-side admins do (not us, not Claude in customer projects)
+
+These belong in `docs/customer-install.md`:
+
+- Rotate `app-web` client secret on first install and update `KEYCLOAK_CLIENT_SECRET`
+- Delete or disable the default `test@example.invalid` user
+- Adjust `redirectUris` and `webOrigins` to the production hostname
+- Wire identity federation to their existing IdP (LDAP, Azure AD, Okta) via Keycloak's *Identity Providers* / *User Federation*
+- Configure realm SMTP for password-reset email
+- Switch Keycloak `start-dev` → `start` and set `KC_HOSTNAME` for production
+
+The app code does **not** care about any of this — it just trusts whatever is at `KEYCLOAK_ISSUER` to be a working OIDC provider with the `app-web` client.
+
 ## Customer-facing concerns (always consider)
 
 - 12-factor: configuration via environment only

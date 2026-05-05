@@ -21,6 +21,19 @@ const EnvSchema = z.object({
     .string()
     .min(1, 'DATABASE_URL is required (e.g. postgresql://app:app@localhost:5432/app)'),
   DATABASE_POOL_MAX: z.coerce.number().int().positive().default(10),
+
+  // Auth (Keycloak via auth.js v5) ---------------------------------------
+  KEYCLOAK_ISSUER: z.string().url('KEYCLOAK_ISSUER must be a full realm URL'),
+  KEYCLOAK_CLIENT_ID: z.string().min(1),
+  KEYCLOAK_CLIENT_SECRET: z.string().min(1),
+  AUTH_SECRET: z
+    .string()
+    .min(32, 'AUTH_SECRET must be at least 32 chars (use `openssl rand -base64 32`)'),
+  AUTH_URL: z.string().url().default('http://localhost:3000'),
+  AUTH_TRUST_HOST: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
