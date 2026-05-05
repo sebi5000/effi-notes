@@ -40,6 +40,7 @@ Feature flags are env-based via `@app/config` (`flags.<name>`). If a customer pr
 8. **Conventional commits**. Breaking changes are tagged with `!:` and an ADR
 9. **No invented versions** — verify against `npm view <pkg> version` before pinning
 10. **Decisions with tradeoffs get an ADR** in `docs/adr/`. No silent choices
+11. **Never `console.log` in app code** — use `createLogger` from `@app/observability/logger`. Exceptions: `instrumentation.ts` files (logger not yet ready) and the env-validation failure path
 
 ## Workspace conventions
 
@@ -295,6 +296,106 @@ The proxy is a streaming pass-through. It does **not** rewrite HTML or asset pat
 - Pin Redis-side memory based on their queue throughput (default 256 MB is fine for a few hundred jobs/min)
 - Decide retention policy for completed/failed jobs — defaults are 24 h / 7 days
 - Wire alerts on Bull Board's failed-count metric (Phase 5 OTel wiring exposes counts as Prometheus gauges)
+
+## Observability (read this before adding logs / metrics / traces)
+
+> **For Claude in a customer project:** the observability plumbing — OTel SDK init, Pino logger with trace correlation, the otel-collector → Loki/Tempo/Prometheus → Grafana stack — is the universal infrastructure. Customer projects add domain dashboards and span-wrap their own code paths but should not change the SDK init order, the allow-list, or the collector pipelines without an ADR. The `obs` Compose profile is opt-in (`make up-obs`) so the default stack stays small.
+
+### Architecture
+
+```
+[apps/web ─ Next.js]            [apps/worker ─ Bun]
+   instrumentation.ts (Next       src/instrumentation.ts (FIRST import)
+   register hook)                    │
+       │                              │
+       ▼                              ▼
+   @app/observability/otel.ts  ─────  initOtel({serviceName})
+                                       │
+                                       │ traces / metrics / logs (OTLP HTTP)
+                                       ▼
+                          ┌──── otel-collector ────┐
+                          ▼            ▼            ▼
+                       loki         tempo      prometheus
+                          │            │            │
+                          └──────► grafana ◄───────┘
+                                  (Application Overview dashboard)
+```
+
+### Hard rules (observability-specific)
+
+1. **The OTel SDK init must run BEFORE any module that needs to be instrumented is imported.** In Next.js this is automatic (`instrumentation.ts` hook). In the worker it is `import './instrumentation.ts'` as the **first** statement — moving any other import above it silently disables tracing for that module
+2. **Never `console.log` in app code.** Use the logger from `@app/observability/logger`. `console.warn` / `console.error` are tolerated only inside `instrumentation.ts` files (where the logger is not yet available) and the env-validation failure path
+3. **Never call `trace.getTracer(...).startActiveSpan(...)` directly.** Use `withSpan(name, attrs, fn)` from `@app/observability/tracing` — it sets status + records exceptions + ends the span correctly under errors
+4. **Never add a new instrumentation library without updating ADR 0016.** The allow-list is the contract; auto-loading every instrumentation under Bun has historically broken builds
+5. **OTLP endpoint empty = no telemetry leaves the box.** This is the DSGVO toggle — never override `OTEL_EXPORTER_OTLP_ENDPOINT` to a hard-coded value in code, only via env
+6. **Resource attributes (`service.name`, `service.version`, `deployment.environment`) come from the SDK init, not from individual log lines.** Adding them to every log call duplicates fields and confuses Loki indexing
+7. **Span names use dot.notation, not slashes or human prose.** Examples: `demo.process`, `auth.token.refresh`, `db.users.upsert`. They become metrics (`<name>_duration_milliseconds_bucket`) — keep them stable
+
+### How to add observability (the supported patterns)
+
+**Add a log statement:**
+
+```ts
+import { createLogger } from '@app/observability/logger';
+const log = createLogger({ component: 'auth.callback' });
+log.info({ userId, tookMs }, 'sign-in completed');
+log.error({ err: err.message }, 'sign-in failed');
+```
+
+The OTel pino instrumentation injects `trace_id` and `span_id` automatically — no manual work needed.
+
+**Wrap a code path in a span (e.g. a new BullMQ processor):**
+
+```ts
+import { withSpan } from '@app/observability/tracing';
+
+export const processInvoice = (job: Job<InvoicePayload>) =>
+  withSpan('invoice.process', { 'job.id': job.id, 'invoice.id': job.data.invoiceId }, async () => {
+    // … work …
+  });
+```
+
+`withSpan` sets `OK`/`ERROR` status, records the exception, and ends the span on throw — do not manually `span.end()`.
+
+**Add a metric:**
+
+```ts
+import { metrics } from '@opentelemetry/api';
+const meter = metrics.getMeter('app-web');
+const signIns = meter.createCounter('app.signins.total');
+signIns.add(1, { provider: 'keycloak' });
+```
+
+Histograms for latency, gauges for queue depth — same pattern. The OTel exporter ships them; Prometheus scrapes the OTLP endpoint; Grafana queries Prometheus.
+
+**Add a Grafana dashboard:**
+
+Drop a JSON file in `deploy/grafana/dashboards/`. Grafana provisioning picks it up on next start. Use `prometheus`, `loki`, or `tempo` as the datasource UID — they are pinned in `deploy/grafana/provisioning/datasources/datasources.yaml`.
+
+### What ships in the template (and what does not)
+
+| Ships | Does NOT ship |
+|---|---|
+| OTel SDK with curated allow-list (HTTP, undici, pg, ioredis, pino, prisma) | Customer-specific span-wrapping of domain code |
+| Pino logger with trace-context injection | Audit-log auto-wiring (Phase 2 stays opt-in) |
+| `otel-collector` → Loki / Tempo / Prometheus pipelines | Alert rules — those are tied to customer SLAs |
+| One default dashboard: Application Overview | Domain dashboards (sales, customer KPIs, etc.) |
+| 30-day Loki / 14-day Tempo retention | Off-site log shipping (customer adds remote_write or sets `OTEL_EXPORTER_OTLP_ENDPOINT` to vendor URL) |
+
+### Common pitfalls (Bun + OTel)
+
+- **`@opentelemetry/auto-instrumentations-node` is a meta package** that pulls in instrumentations for libraries we do not use AND some that break under Bun. Use individual instrumentations only — the explicit allow-list in `packages/observability/src/otel.ts` is the contract
+- **Bun's HTTP server (`Bun.serve`) is NOT auto-instrumented.** The worker's HTTP port (Bull Board) shows up in traces only via the `withSpan` calls in processors. Next.js HTTP requests are covered because they go through the Node HTTP path
+- **`pino-opentelemetry-transport` runs in a worker thread.** It does not see the parent's OTel context — trace correlation is via `trace_id` in the log record, injected by `@opentelemetry/instrumentation-pino`
+- **`memory_limiter` in the collector is in MiB, not MB**, and rejects telemetry on overflow rather than crashing. If you see `memory_limiter` log lines, raise the limit in `deploy/otel-collector/config.yaml` — don't disable it
+- **Tempo's metrics generator emits `traces_spanmetrics_*` series** which Prometheus stores and Grafana renders as a service map. Disabling the generator silently breaks the service-map view
+
+### Customer-side adjustments
+
+- Set `OTEL_EXPORTER_OTLP_ENDPOINT` to *their* observability backend if they use a SaaS (Datadog, Honeycomb, Grafana Cloud) — keep the local stack OFF in that case (omit `--profile obs`)
+- Bump Loki/Tempo retention based on disk capacity (defaults: 30 / 14 days)
+- Add scrape configs to `deploy/prometheus/prometheus.yml` for node-exporter / cAdvisor if they want infra metrics
+- Set `GF_SECURITY_ADMIN_PASSWORD` from a secret, not the `admin` default
 
 ## Customer-facing concerns (always consider)
 

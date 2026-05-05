@@ -1,9 +1,14 @@
+// MUST be the very first import — sets up OTel before anything is patched.
+import './instrumentation.ts';
+
 import { env } from '@app/config/env';
 import { closeRedis, getRedis, QUEUES } from '@app/jobs';
+import { createLogger } from '@app/observability/logger';
 import { Worker } from 'bullmq';
 import { buildBullBoardRoutes } from './bull-board.ts';
 import { processDemoJob } from './processors/demo.ts';
 
+const log = createLogger({ component: 'worker' });
 const startedAt = new Date().toISOString();
 
 // ── Workers ────────────────────────────────────────────────────────────────
@@ -16,11 +21,11 @@ const demoWorker = new Worker(QUEUES.demo, processDemoJob, {
 });
 
 demoWorker.on('failed', (job, err) => {
-  console.error(`[worker] demo job ${job?.id ?? '?'} failed: ${err.message}`);
+  log.error({ jobId: job?.id, err: err.message, queue: QUEUES.demo }, 'job failed');
 });
 
 demoWorker.on('error', (err) => {
-  console.error(`[worker] demo worker error: ${err.message}`);
+  log.error({ err: err.message, queue: QUEUES.demo }, 'worker error');
 });
 
 // ── Internal HTTP server ──────────────────────────────────────────────────
@@ -49,19 +54,17 @@ const server = Bun.serve({
   },
 });
 
-console.warn(
-  `[worker] started at ${startedAt} — concurrency=${env.WORKER_CONCURRENCY}, http=${server.port}`,
-);
+log.info({ startedAt, concurrency: env.WORKER_CONCURRENCY, http: server.port }, 'worker started');
 
 // ── Graceful shutdown ──────────────────────────────────────────────────────
 const shutdown = async (signal: string): Promise<void> => {
-  console.warn(`[worker] received ${signal}, draining`);
+  log.warn({ signal }, 'draining worker');
   try {
     await demoWorker.close();
     server.stop();
     await closeRedis();
   } catch (err) {
-    console.error(`[worker] shutdown error: ${err instanceof Error ? err.message : err}`);
+    log.error({ err: err instanceof Error ? err.message : err }, 'shutdown error');
   } finally {
     process.exit(0);
   }

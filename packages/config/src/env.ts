@@ -35,6 +35,13 @@ const EnvSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
 
+  // Observability (OpenTelemetry) ----------------------------------------
+  // Empty endpoint → SDK still patches modules but exports nothing.
+  // Customer can disable export entirely without removing the SDK.
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().default(''),
+  OTEL_SERVICE_NAME: z.string().default('app'),
+  OTEL_RESOURCE_ATTRIBUTES: z.string().default(''),
+
   // Jobs (BullMQ + Redis) ------------------------------------------------
   REDIS_URL: z.string().min(1, 'REDIS_URL is required (e.g. redis://localhost:6379/0)'),
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(4),

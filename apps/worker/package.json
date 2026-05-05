@@ -13,6 +13,7 @@
     "@app/config": "workspace:*",
     "@app/db": "workspace:*",
     "@app/jobs": "workspace:*",
+    "@app/observability": "workspace:*",
     "@bull-board/api": "7.0.0",
     "@bull-board/bun": "7.0.0",
     "bullmq": "5.76.5"

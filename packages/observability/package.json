@@ -4,11 +4,33 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./otel": "./src/otel.ts",
+    "./logger": "./src/logger.ts",
+    "./tracing": "./src/tracing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@app/config": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-logs-otlp-http": "0.216.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "0.216.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.216.0",
+    "@opentelemetry/instrumentation-http": "0.216.0",
+    "@opentelemetry/instrumentation-ioredis": "0.64.0",
+    "@opentelemetry/instrumentation-pg": "0.68.0",
+    "@opentelemetry/instrumentation-pino": "0.62.0",
+    "@opentelemetry/instrumentation-undici": "0.26.0",
+    "@opentelemetry/resources": "2.7.1",
+    "@opentelemetry/sdk-node": "0.216.0",
+    "@opentelemetry/semantic-conventions": "1.40.0",
+    "@prisma/instrumentation": "7.8.0",
+    "pino": "10.3.1",
+    "pino-opentelemetry-transport": "3.0.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "13.1.3"
+  }
 }

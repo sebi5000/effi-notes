@@ -20,3 +20,12 @@ services:
   redis:
     ports:
       - '6379:6379'
+
+  # Observability — only effective when `--profile obs` is also passed
+  otel-collector:
+    ports:
+      - '4318:4318' # OTLP HTTP
+
+  grafana:
+    ports:
+      - '3001:3000' # Grafana UI (3001 to avoid clash with web)

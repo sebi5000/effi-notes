@@ -1,7 +1,7 @@
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -eu -o pipefail -c
 .DEFAULT_GOAL := help
-.PHONY: help install dev dev-worker build test typecheck lint format check up up-dev down logs ps clean smoke db-generate db-migrate db-migrate-dev db-seed db-studio db-reset backup restore
+.PHONY: help install dev dev-worker build test typecheck lint format check up up-dev up-obs down logs ps clean smoke db-generate db-migrate db-migrate-dev db-seed db-studio db-reset backup restore
 
 COMPOSE := docker compose -f deploy/compose/docker-compose.yml
 COMPOSE_DEV := $(COMPOSE) -f deploy/compose/docker-compose.dev.yml
@@ -52,6 +52,9 @@ up: ## Start the stack (prod-like, no host port exposure)
 
 up-dev: ## Start the stack with dev overrides (host ports exposed)
 	$(COMPOSE_DEV) up -d
+
+up-obs: ## Start the stack + observability profile (otel-collector, loki, tempo, prometheus, grafana)
+	$(COMPOSE_DEV) --profile obs up -d
 
 down: ## Stop the stack
 	$(COMPOSE) down
