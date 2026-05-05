@@ -31,3 +31,6 @@ Each non-trivial decision with tradeoffs is captured here. Format follows [MADR]
 | 0016 | OpenTelemetry instrumentation allow-list | Accepted |
 | 0017 | Next.js 16 (not 15 as originally specified) | Accepted |
 | 0018 | Redis `noeviction` policy for BullMQ | Accepted |
+| 0019 | Run `prisma migrate deploy` from a dedicated migrator service | Accepted |
+| 0020 | CSP baseline with `'unsafe-inline'` for script/style | Accepted |
+| 0021 | Rate limiting lives in the app, backed by Redis | Accepted |

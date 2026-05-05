@@ -84,12 +84,12 @@ db-studio: ## Open Prisma Studio
 db-reset: ## Drop, recreate, migrate, seed (DANGEROUS — dev only)
 	bun --filter @app/db migrate:reset
 
-# ----- Operations (placeholder for Phase 6) --------------------------------
-backup: ## Create a backup
-	@echo "TODO Phase 6: deploy/scripts/backup.sh"
+# ----- Operations ---------------------------------------------------------
+backup: ## Create a backup of all data (databases + redis snapshot) into ./backups/<UTC-timestamp>/
+	deploy/scripts/backup.sh
 
-restore: ## Restore from a backup
-	@echo "TODO Phase 6: deploy/scripts/restore.sh"
+restore: ## Restore from a backup directory: make restore DIR=./backups/<timestamp>
+	deploy/scripts/restore.sh $(DIR)
 
 smoke: ## Run end-to-end smoke test
 	@echo "TODO Phase 8: deploy/scripts/smoke.sh"

@@ -1,0 +1,50 @@
+# Security headers — applied to every site via `import security-headers`.
+#
+# Defaults are conservative for a B2B SaaS template. Customer projects
+# tighten or relax per their threat model AND per the application's
+# inline-script needs (Next.js App Router uses inline RSC payload —
+# 'unsafe-inline' on script-src is required unless we wire nonce-based
+# CSP, which is a Phase-7+ exercise).
+
+(security-headers) {
+    header {
+        # HSTS — 1 year, all subdomains, eligible for preload list.
+        # Customer admins MUST verify they really run only HTTPS on the
+        # apex+subdomains before submitting to hstspreload.org.
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # Clickjacking protection
+        X-Frame-Options "DENY"
+        # CSP frame-ancestors supersedes X-Frame-Options on modern browsers
+        # but we ship both for older clients. Both must agree.
+
+        # MIME-sniffing protection
+        X-Content-Type-Options "nosniff"
+
+        # Referrer leak control
+        Referrer-Policy "strict-origin-when-cross-origin"
+
+        # Modern Permissions-Policy — minimal default, deny everything
+        # the template does not actively use. Customer projects unlock
+        # individual features (e.g. `camera=(self)` for a video feature).
+        Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()"
+
+        # CSP baseline. 'unsafe-inline' on script-src is the Next.js
+        # RSC compromise — replace with nonces in customer projects that
+        # have a real CSP audit requirement.
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+        # Remove server fingerprinting
+        -Server
+
+        defer
+    }
+}
+
+# Rate-limit snippet placeholder — real rate-limiting lives in the
+# Next.js middleware (Redis-backed). Leaving the import name reserved
+# so customer projects can swap in caddy-ratelimit (xcaddy build) later
+# without changing site blocks.
+(rate-limit-auth) {
+    # Placeholder — see CLAUDE.md "Hardening" section.
+}

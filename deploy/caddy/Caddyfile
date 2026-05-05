@@ -1,0 +1,82 @@
+# Caddyfile — reverse proxy + automatic HTTPS for the app template.
+#
+# Two sites: APP_HOSTNAME for the Next.js app, AUTH_HOSTNAME for Keycloak.
+# Default mode is automatic ACME (Let's Encrypt) — requires outbound 443
+# from the customer host. Manual cert mode is documented at the bottom.
+
+{
+    # ACME contact for Let's Encrypt notifications.
+    email {$ACME_EMAIL}
+
+    # Caddy admin endpoint — bind to localhost inside the container only.
+    admin localhost:2019
+}
+
+import /etc/caddy/snippets/*.caddy
+
+# ── Application ──────────────────────────────────────────────────────────
+{$APP_HOSTNAME} {
+    import security-headers
+
+    # Block direct access to the worker's Bull Board internal port —
+    # ingress goes through /admin/queues which the Next.js app gates.
+    @worker_admin path /admin/queues* /admin/queues/*
+    handle @worker_admin {
+        reverse_proxy web:3000
+    }
+
+    # Auth endpoints — eligible for stricter rate-limiting once
+    # caddy-ratelimit is in the image (see security-headers.caddy).
+    @auth path /api/auth/*
+    handle @auth {
+        import rate-limit-auth
+        reverse_proxy web:3000
+    }
+
+    handle {
+        reverse_proxy web:3000
+    }
+
+    # Long-form access logs — JSON to stdout so the OTel collector or
+    # logging driver picks them up.
+    log {
+        output stdout
+        format json
+    }
+}
+
+# ── Keycloak ─────────────────────────────────────────────────────────────
+{$AUTH_HOSTNAME} {
+    import security-headers
+
+    # Keycloak's admin console is reached via /admin and /realms/master/console.
+    # Customer admins put this hostname behind their own VPN / IP allow list
+    # if they want; the template keeps it open and trusts Keycloak's own
+    # admin auth.
+    reverse_proxy keycloak:8080
+
+    log {
+        output stdout
+        format json
+    }
+}
+
+# ── Redirect bare HTTP → HTTPS ───────────────────────────────────────────
+# Caddy does this automatically when ACME is in use. If you switch to
+# manual certs (see below), uncomment this block.
+# :80 {
+#     redir https://{host}{uri} permanent
+# }
+
+# ── Manual certificate mode ──────────────────────────────────────────────
+# For air-gapped or on-prem-cert customers, replace the auto-TLS block
+# above with explicit cert paths:
+#
+# {$APP_HOSTNAME} {
+#     tls /etc/caddy/certs/app.crt /etc/caddy/certs/app.key
+#     ...
+# }
+#
+# Mount the certificates into /etc/caddy/certs/ via a Compose volume
+# and pin the global `email` line to a no-op (Caddy will not contact
+# ACME servers in this mode).

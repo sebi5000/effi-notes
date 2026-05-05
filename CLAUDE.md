@@ -397,6 +397,136 @@ Drop a JSON file in `deploy/grafana/dashboards/`. Grafana provisioning picks it 
 - Add scrape configs to `deploy/prometheus/prometheus.yml` for node-exporter / cAdvisor if they want infra metrics
 - Set `GF_SECURITY_ADMIN_PASSWORD` from a secret, not the `admin` default
 
+## Hardening (read this before changing the production stack)
+
+> **For Claude in a customer project:** the production-ready stack — Caddy in front, web + worker as containers, the migrator one-shot pattern, security headers, Redis-backed rate limit, backup scripts — is the universal hardening shape for every customer install. Customer projects extend it (add CSP nonces, scale workers, swap auto-TLS for company certs, add WAF rules) but should not remove the hardening. Each shipping piece has a defined extension point.
+
+### Production topology
+
+```
+┌──── customer host ────────────────────────────────────────────────┐
+│                                                                   │
+│   :80/:443  Caddy (auto-TLS via ACME, security headers)          │
+│       │                                                           │
+│       ├──► web    Next.js standalone, Node-style server (Bun)     │
+│       └──► auth   reverse-proxy → keycloak                        │
+│                                                                   │
+│   web depends-on: migrator (completed_successfully) → postgres-app│
+│                                                                   │
+│   worker        BullMQ + Bull Board (port 3100, internal only)    │
+│                                                                   │
+│   postgres-app, postgres-keycloak, redis (with --maxmemory-policy │
+│       noeviction)                                                 │
+│                                                                   │
+│   [obs profile] otel-collector → loki / tempo / prometheus        │
+│                              ↓                                    │
+│                          grafana                                  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+Networks (Compose):
+
+| Network | Members | Purpose |
+|---|---|---|
+| `net-edge` | caddy, web | Public ingress only — Caddy is the only listener with host-bound ports |
+| `net-app` | caddy, web, worker, keycloak | App-internal traffic. Caddy reverse-proxies keycloak here |
+| `net-data` | web, worker, migrator, postgres-app, postgres-keycloak, redis | Data-tier; never exposes to host except via dev override |
+| `net-obs` | web, worker, otel-collector, loki, tempo, prometheus, grafana | Telemetry pipeline; profile-gated |
+
+### Image build (multi-stage Bun)
+
+Both `apps/web/Dockerfile` and `apps/worker/Dockerfile` are multi-stage:
+
+1. **deps** — `oven/bun:1.3.13-alpine` + `bun install --frozen-lockfile` over the whole monorepo. Workspace resolution requires the directory layout intact, so we copy the repo (with a strong `.dockerignore`) rather than cherry-picking package.json files
+2. **build (web)** / **prisma-generate (worker)** — runs `bun --filter @app/db generate` then either `next build` (web) or noop (worker is plain TS)
+3. **runtime** — non-root `app` user, ports 3000 / 3100, `bun apps/web/server.js` or `bun apps/worker/src/index.ts`
+
+The build context is the **repo root** for both Dockerfiles. Build-arg `BUN_VERSION` is overrideable; pin in Compose.
+
+`DATABASE_URL` is set to a placeholder during `next build` because Prisma's config loader resolves `env()` at parse time. The placeholder is never used — Next does not connect.
+
+### Migration pattern (zero-downtime updates)
+
+The `migrator` service uses the worker image with overridden `command: ["bun", "--filter", "@app/db", "migrate:deploy"]`. It runs once, applies pending Prisma migrations, exits 0. Web and worker depend on it via `service_completed_successfully`, so:
+
+- Fresh install: stack up → migrator runs → web/worker start
+- Update: pull new image tags → `docker compose up -d` → migrator runs new migrations → web/worker restart with new code
+
+For *additive* migrations this is zero-downtime — old web kept serving while new schema is applied (Postgres migrations are non-blocking for additive changes). For *destructive* migrations the customer schedules a maintenance window. ADR 0019 documents the pattern.
+
+### Caddy configuration (auto-TLS + security headers)
+
+Two sites in `deploy/caddy/Caddyfile`:
+
+- `${APP_HOSTNAME}` — reverse-proxy to `web:3000`
+- `${AUTH_HOSTNAME}` — reverse-proxy to `keycloak:8080`
+
+Hostnames come from the customer's `.env` (`APP_HOSTNAME`, `AUTH_HOSTNAME`, `ACME_EMAIL`). Default is automatic ACME via Let's Encrypt — customer host needs outbound 443 to ACME servers. Air-gapped customers comment out the auto-TLS and set `tls /path/cert.pem /path/key.pem` (documented inline in the Caddyfile).
+
+Security headers are imported from `deploy/caddy/snippets/security-headers.caddy` so every site has them with no drift:
+
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
+- `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy:` minimal default (deny all features)
+- CSP baseline (with `'unsafe-inline'` for script/style — Next.js RSC payload requires this; customer projects can upgrade to nonces)
+- `-Server` header removed
+
+Customer projects that need stricter CSP (nonce-based, no inline) wire a Next.js middleware that injects the nonce into both the `<script>` tags and the response header. ADR 0020.
+
+### Rate limiting (`/api/auth/*`)
+
+`apps/web/src/lib/rate-limit.ts` is a Redis-backed sliding-window limiter (single sorted set per `scope:key`, one round-trip per check). The auth catch-all route wraps `handlers.GET` / `handlers.POST` with a 30-req/min/IP guard.
+
+Why in-app and not in Caddy:
+- The vanilla `caddy:alpine` image does not include `caddy-ratelimit`. Building a custom image with `xcaddy` is fine but pushes more ops surface to customers
+- Using Redis means the limit is shared across web replicas if a customer scales horizontally
+- Per-route, per-user, per-feature limits are easy to add: `await rateLimit({ key: userId, scope: 'invoice.export', max: 5, windowMs: 60_000 })`
+
+ADR 0021 captures this choice.
+
+### Backup and restore
+
+`deploy/scripts/backup.sh` writes:
+
+- `postgres-app.sql.gz` — `pg_dump` of the application database
+- `postgres-keycloak.sql.gz` — same for the Keycloak realm/users database
+- `redis-dump.rdb.gz` — BullMQ in-flight state (BGSAVE-based)
+- `manifest.json` — timestamp + content listing
+
+Off-site replication is **not** in the template per ADR 0013. Customers add a cron + their tool (rclone, restic, borg) that ships `./backups/` to whichever remote storage they trust. The scripts are designed so the directory is fully self-contained.
+
+`restore.sh` is destructive — it drops and recreates both databases. It pauses web + worker first (databases stay up to receive the restore), prompts for `yes` confirmation, and prompts again before touching Redis (Redis-restore is rarely useful since BullMQ replays from producers).
+
+### Hard rules (hardening-specific)
+
+1. **Caddy listens on `:80` and `:443` of the host. Nothing else does.** If you need to expose another port to the public, route it through Caddy. Direct host-port mappings outside dev-override are a security regression
+2. **Workers and the worker's port 3100 stay on `net-app` only.** The `/admin/queues` ingress goes through `apps/web` so auth.js + ops-role gating applies. Exposing 3100 publicly defeats the entire Phase-3 auth design
+3. **`prisma migrate deploy` runs only via the migrator service** — not from web on startup, not by hand on production. Two reasons: idempotent in concurrent web replica startups, and observable as a discrete step (separate logs, separate exit code)
+4. **`AUTH_SECRET` and `KEYCLOAK_CLIENT_SECRET` are set via the customer's `.env` file**, never baked into images, never committed. Compose validates with `${VAR:?...}` syntax — missing values fail `docker compose up` loudly
+5. **Containers run as non-root.** Both Dockerfiles add an `app` user. If a customer modification needs root at runtime, write an ADR explaining why
+6. **Image tags are SemVer + git SHA, never `latest`** in production. The Compose `image:` lines pin `app-template-{web,worker,migrator}:latest` for *local* dev; CI overrides with the real tag at deploy time
+7. **Backup before any destructive maintenance.** `restore.sh` exists for the day someone runs the wrong migration — keep it well-documented and obvious
+
+### Common pitfalls (Bun + Next standalone + Caddy)
+
+- **Next standalone preserves the monorepo path** — `apps/web/server.js`, not just `server.js`. Don't try to `WORKDIR /app/apps/web` to shorten the entrypoint; the standalone build references `node_modules` from the standalone root
+- **`next build` fails without DATABASE_URL** even though it never connects — Prisma's config-loader evaluates `env()` early. Set a placeholder URL in the build stage (we do this in `apps/web/Dockerfile`)
+- **Caddy auto-TLS needs to reach Let's Encrypt within the first 10 minutes after start** — slow / wrong DNS → certificate failure → Caddy serves HTTP and complains in logs. Always check `docker compose logs caddy` after a fresh customer install
+- **`AUTH_TRUST_HOST=true` is required behind Caddy** so auth.js honours `X-Forwarded-Host`. Do NOT set this true if web is exposed directly
+- **The migrator container shares the worker image, not the web image.** Reason: web's standalone runtime stage doesn't include the Prisma CLI. The worker stage carries `node_modules` plus the source tree, so `bunx prisma migrate deploy` works
+- **`bun install --frozen-lockfile` requires `bun.lock` (not `bun.lockb`).** `bun.lock` is the text format pinned by Bun ≥ 1.2
+
+### Customer-side adjustments (Phase-6 specific)
+
+- Set `APP_HOSTNAME`, `AUTH_HOSTNAME`, `ACME_EMAIL` in `.env`
+- Set `AUTH_SECRET` (`openssl rand -base64 32`) and `KEYCLOAK_CLIENT_SECRET` from secrets management
+- Tighten CSP if their threat model requires (replace `'unsafe-inline'` with nonces — Next.js middleware change)
+- Schedule cron for `make backup` + off-site sync
+- Pin image tags to released versions, not `:latest`
+- Configure `OTEL_EXPORTER_OTLP_ENDPOINT` (their SaaS or `http://otel-collector:4318` if using the local obs profile)
+
 ## Customer-facing concerns (always consider)
 
 - 12-factor: configuration via environment only

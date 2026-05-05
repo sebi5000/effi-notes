@@ -1,0 +1,40 @@
+# Build artefacts
+**/node_modules
+**/.next
+**/dist
+**/build
+**/.turbo
+**/*.tsbuildinfo
+
+# Test / coverage
+**/coverage
+**/.nyc_output
+
+# Local data and env
+.env
+.env.local
+.env.*.local
+.local/
+backups/
+
+# IDE / OS
+.git
+.github
+.idea
+.vscode
+.DS_Store
+*.swp
+
+# Docs (not needed at build)
+docs/
+*.md
+
+# Claude / lefthook
+.claude/
+.lefthook-local.yml
+
+# Generated Prisma client (regenerated in build)
+packages/db/generated/
+
+# Lockfile of test runs
+*.log
