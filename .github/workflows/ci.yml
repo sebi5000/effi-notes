@@ -1,0 +1,114 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: 1.3.13
+
+jobs:
+  validate:
+    name: typecheck + lint + format + prisma
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client
+        env:
+          # Required by prisma.config.ts at parse time. Never connects.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+        run: bun --filter @app/db generate
+
+      - name: Validate Prisma schema
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
+        run: bun --filter @app/db exec bunx --bun prisma validate
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Biome lint + format check
+        run: |
+          bun run lint
+          bun run format:check
+
+      - name: Next ESLint
+        run: bun run lint:next
+
+      - name: Validate Compose
+        run: |
+          docker compose -f deploy/compose/docker-compose.yml config --quiet
+          docker compose -f deploy/compose/docker-compose.yml -f deploy/compose/docker-compose.dev.yml --profile obs config --quiet
+
+  test:
+    name: vitest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16.10-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7.4.6-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Generate Prisma client + apply migrations
+        env:
+          DATABASE_URL: postgresql://app:app@localhost:5432/app?schema=public
+        run: |
+          bun --filter @app/db generate
+          bun --filter @app/db migrate:deploy
+
+      - name: Run tests
+        env:
+          NODE_ENV: test
+          APP_ENV: local
+          LOG_LEVEL: warn
+          DATABASE_URL: postgresql://app:app@localhost:5432/app?schema=public
+          REDIS_URL: redis://localhost:6379/0
+          KEYCLOAK_ISSUER: http://localhost:8080/realms/app
+          KEYCLOAK_CLIENT_ID: app-web
+          KEYCLOAK_CLIENT_SECRET: ci-stub-secret-not-used
+          AUTH_SECRET: ci-stub-secret-must-be-32-bytes-or-longer
+          AUTH_URL: http://localhost:3000
+        run: bun run test

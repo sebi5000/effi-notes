@@ -23,10 +23,15 @@
     "format:check": "biome format .",
     "check": "biome check --write .",
     "test": "bun --filter '*' test",
-    "prepare": "lefthook install"
+    "prepare": "lefthook install",
+    "changeset": "bunx --bun changeset",
+    "changeset:version": "bunx --bun changeset version",
+    "changeset:publish": "bunx --bun changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.14",
+    "@changesets/changelog-github": "0.6.0",
+    "@changesets/cli": "2.31.0",
     "@commitlint/cli": "20.5.3",
     "@commitlint/config-conventional": "20.5.3",
     "@commitlint/types": "20.5.0",

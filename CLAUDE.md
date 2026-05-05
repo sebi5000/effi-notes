@@ -527,6 +527,50 @@ Off-site replication is **not** in the template per ADR 0013. Customers add a cr
 - Pin image tags to released versions, not `:latest`
 - Configure `OTEL_EXPORTER_OTLP_ENDPOINT` (their SaaS or `http://otel-collector:4318` if using the local obs profile)
 
+## Internationalisation (read this before touching user-facing strings)
+
+> **For Claude in a customer project:** the template ships next-intl with `de` and `en` message catalogues. Every user-visible string lives in `apps/web/messages/*.json` — never inline JSX. The `i18n-extractor` subagent finds violations.
+
+### What ships
+
+- `apps/web/src/i18n/locales.ts` — the supported locale union (`de`, `en`)
+- `apps/web/src/i18n/request.ts` — server-side resolver: session → cookie → Accept-Language → `defaultLocale`
+- `apps/web/messages/de.json` and `apps/web/messages/en.json` — namespaced message catalogues; both files MUST carry the same keys
+- `next.config.ts` wraps the config with `createNextIntlPlugin('./src/i18n/request.ts')`
+- `app/layout.tsx` provides `NextIntlClientProvider` to the React tree
+
+No subpath routing — URLs stay locale-agnostic. Customer projects opt into `/de`, `/en` later by switching `localePrefix` in next-intl's middleware; deep links survive because the i18n state lives in the session/cookie.
+
+### Hard rules (i18n-specific)
+
+1. **Every user-visible string passes through `useTranslations` (client) or `getTranslations` (server)**. JSX literals like `<h1>Sign in</h1>` are reviewer-blocking. Exceptions: code identifiers, technical IDs, audit-log action names, log lines (Pino is for machines)
+2. **Both locale files carry the same keys**. Adding `dashboard.foo` to `en.json` without a matching entry in `de.json` is a defect; the `i18n-extractor` surfaces it
+3. **Locale claim from Keycloak wins over cookie**. We trust the customer's IdP — if a user sets their preferred locale in Keycloak, that is the source of truth
+4. **Date / number / currency formatting goes through `useFormatter()`** (next-intl), not `Intl.DateTimeFormat` directly. Customer projects benefit from a single locale source
+
+### How to add a string
+
+```tsx
+// Server component
+import { getTranslations } from 'next-intl/server';
+const t = await getTranslations('dashboard');
+return <h1>{t('title')}</h1>;
+
+// Client component
+'use client';
+import { useTranslations } from 'next-intl';
+const t = useTranslations('toolbar');
+return <button>{t('save')}</button>;
+```
+
+Add the new key to **both** `de.json` and `en.json` in the same commit.
+
+### How to add a locale
+
+1. Append the new code to `locales` in `apps/web/src/i18n/locales.ts`
+2. Create `apps/web/messages/<code>.json` with the same key tree as the existing files
+3. If the locale is also added in Keycloak, set the realm's `supportedLocales` in `deploy/keycloak/realm-export.json` to match — customer admins do this in the Keycloak UI at runtime; the template ships a baseline
+
 ## Customer-facing concerns (always consider)
 
 - 12-factor: configuration via environment only

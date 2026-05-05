@@ -1,0 +1,36 @@
+{
+  "app": {
+    "name": "app-template"
+  },
+  "home": {
+    "tagline": "Phase 7 Skelett — Kundenprojekte ergänzen Domänenlogik.",
+    "signIn": "Anmelden",
+    "continueAs": "Weiter als {email}"
+  },
+  "login": {
+    "title": "Anmelden",
+    "subtitle": "Über den Identity-Provider Ihres Unternehmens authentifizieren.",
+    "cta": "Mit Keycloak fortfahren",
+    "errors": {
+      "refresh": "Ihre Sitzung ist abgelaufen. Bitte erneut anmelden.",
+      "generic": "Anmeldung fehlgeschlagen. Bitte erneut versuchen."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "signOut": "Abmelden",
+    "signedInUser": "Angemeldete:r Nutzer:in",
+    "displayName": "Anzeigename",
+    "email": "E-Mail",
+    "locale": "Sprache",
+    "roles": "Rollen",
+    "internalId": "Interne ID",
+    "demoQueue": {
+      "title": "Demo-Queue",
+      "description": "Stellt einen Hello-World-Job in die `demo`-Queue. Worker loggt die Nachricht und beendet.",
+      "trigger": "Demo-Job auslösen",
+      "openBoard": "Bull Board öffnen →"
+    },
+    "phaseFooter": "Phase 7 Skelett — Auth + Jobs + Observability + Härtung. Kundenprojekte ergänzen Rollen, Dashboards und Routenwächter."
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "app": {
+    "name": "app-template"
+  },
+  "home": {
+    "tagline": "Phase 7 skeleton — customer projects add domain logic.",
+    "signIn": "Sign in",
+    "continueAs": "Continue as {email}"
+  },
+  "login": {
+    "title": "Sign in",
+    "subtitle": "Authenticate via your organisation's identity provider.",
+    "cta": "Continue with Keycloak",
+    "errors": {
+      "refresh": "Your session has expired. Please sign in again.",
+      "generic": "Sign-in failed. Please try again."
+    }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "signOut": "Sign out",
+    "signedInUser": "Signed-in user",
+    "displayName": "Display name",
+    "email": "Email",
+    "locale": "Locale",
+    "roles": "Roles",
+    "internalId": "Internal id",
+    "demoQueue": {
+      "title": "Demo queue",
+      "description": "Enqueues a no-op job on the `demo` queue. Worker logs the message and returns.",
+      "trigger": "Trigger demo job",
+      "openBoard": "Open Bull Board →"
+    },
+    "phaseFooter": "Phase 7 skeleton — auth + jobs + observability + hardening. Customer projects extend roles, dashboards, and route guards."
+  }
+}
