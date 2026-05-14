@@ -26,12 +26,16 @@ export default auth((req) => {
   const isPublic =
     PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
   const isAuthed = !!req.auth;
+  const isApi = pathname.startsWith('/api/');
 
   if (!isPublic && !isAuthed) {
+    // API routes get a JSON 401 instead of an HTML redirect — REST clients
+    // expect a parseable error envelope. Page routes redirect to /login with
+    // a safe `from` so the user lands back where they started after sign-in.
+    if (isApi) {
+      return Response.json({ error: 'unauthorised' }, { status: 401 });
+    }
     const loginUrl = new URL('/login', req.url);
-    // `pathname` here originates from req.nextUrl, so it is already a
-    // path on our origin — but normalising through safeRedirect makes
-    // the contract explicit and guards future refactors.
     loginUrl.searchParams.set('from', safeRedirect(pathname, '/dashboard'));
     return Response.redirect(loginUrl);
   }

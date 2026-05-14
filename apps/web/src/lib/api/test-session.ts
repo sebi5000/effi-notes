@@ -1,0 +1,78 @@
+import type { AppUser, Role } from '@app/auth/types';
+import { prisma } from '@app/db';
+
+/**
+ * Test-only helper: create a real DB user and return an AppUser projection
+ * matching the JWT-derived shape. Pair with a vi.mock('@/auth', ...) at the
+ * top of the test file (hoisted) so route handlers see a controlled session.
+ *
+ * The mocked auth() returns either { user: AppUser } (authed) or null. The
+ * type system can't model both without casts because NextAuth's `auth` is a
+ * 4-way overload — the helpers below hide the cast in one place.
+ */
+
+type WithMockResolved = { mockResolvedValue(value: unknown): unknown };
+
+export const authedAs = (mock: unknown, user: AppUser): void => {
+  (mock as WithMockResolved).mockResolvedValue({ user });
+};
+
+export const unauthed = (mock: unknown): void => {
+  (mock as WithMockResolved).mockResolvedValue(null);
+};
+
+export type TestUser = {
+  user: AppUser;
+};
+
+const TEST_PREFIX = 'api-test-';
+
+const randSuffix = (): string => crypto.randomUUID().slice(0, 8);
+
+export const makeTestUser = async (
+  opts: { roles?: ReadonlyArray<Role> } = {},
+): Promise<TestUser> => {
+  const roles: ReadonlyArray<Role> = opts.roles ?? ['user'];
+  const sub = `${TEST_PREFIX}sub-${randSuffix()}`;
+  const email = `${TEST_PREFIX}${randSuffix()}@example.invalid`;
+  const created = await prisma.user.create({
+    data: {
+      keycloakSub: sub,
+      email,
+      displayName: 'Test User',
+      roles: [...roles],
+    },
+    select: { id: true, keycloakSub: true, email: true, displayName: true, locale: true },
+  });
+
+  const user: AppUser = {
+    id: created.id,
+    keycloakSub: created.keycloakSub,
+    email: created.email,
+    displayName: created.displayName,
+    locale: created.locale,
+    roles,
+  };
+
+  return { user };
+};
+
+/**
+ * Bulk cleanup for the notes domain. Matches the test prefix used by
+ * makeTestUser plus tagged/folder rows created by tests. Cascade FKs handle
+ * NoteTag/NoteHistory rows once their parents are gone.
+ */
+export const cleanupNotesDomain = async (): Promise<void> => {
+  await prisma.noteHistory.deleteMany({
+    where: { author: { email: { startsWith: TEST_PREFIX } } },
+  });
+  await prisma.noteTag.deleteMany({
+    where: { note: { author: { email: { startsWith: TEST_PREFIX } } } },
+  });
+  await prisma.note.deleteMany({
+    where: { author: { email: { startsWith: TEST_PREFIX } } },
+  });
+  await prisma.folder.deleteMany({ where: { name: { startsWith: TEST_PREFIX } } });
+  await prisma.tag.deleteMany({ where: { name: { startsWith: TEST_PREFIX } } });
+  await prisma.user.deleteMany({ where: { email: { startsWith: TEST_PREFIX } } });
+};

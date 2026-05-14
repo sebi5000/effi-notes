@@ -1,0 +1,208 @@
+import { vi } from 'vitest';
+
+vi.mock('@/auth', () => ({
+  auth: vi.fn(),
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  handlers: { GET: vi.fn(), POST: vi.fn() },
+}));
+
+import { prisma } from '@app/db';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { auth } from '@/auth';
+import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import { DELETE, GET, PATCH } from './route.ts';
+
+const mockedAuth = vi.mocked(auth);
+const setAuthed = (u: Parameters<typeof authedAs>[1]) => authedAs(mockedAuth, u);
+const setUnauthed = () => unauthed(mockedAuth);
+
+beforeEach(async () => {
+  mockedAuth.mockReset();
+  await cleanupNotesDomain();
+});
+afterAll(async () => {
+  await cleanupNotesDomain();
+  await prisma.$disconnect();
+});
+
+describe('GET /api/folders/[id]', () => {
+  it('401 when unauthenticated', async () => {
+    setUnauthed();
+    const res = await GET(new Request('http://localhost/api/folders/x'), {
+      params: Promise.resolve({ id: 'x' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('returns the folder by id', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-detail-folder' } });
+    const res = await GET(new Request(`http://localhost/api/folders/${f.id}`), {
+      params: Promise.resolve({ id: f.id }),
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { id: string; name: string };
+    expect(body.id).toBe(f.id);
+    expect(body.name).toBe('api-test-detail-folder');
+  });
+
+  it('404 when missing', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const res = await GET(new Request('http://localhost/api/folders/missing'), {
+      params: Promise.resolve({ id: 'missing' }),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('PATCH /api/folders/[id]', () => {
+  it('renames a folder', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-rename-old' } });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'api-test-rename-new' }),
+      }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(200);
+    const reloaded = await prisma.folder.findUnique({ where: { id: f.id } });
+    expect(reloaded?.name).toBe('api-test-rename-new');
+  });
+
+  it('rejects self-parent', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-selfparent' } });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ parentId: f.id }),
+      }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 on invalid json', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-jsonerr' } });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: '{x',
+      }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 400 on empty patch', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-empty' } });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 404 when missing', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const res = await PATCH(
+      new Request('http://localhost/api/folders/missing', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'x' }),
+      }),
+      { params: Promise.resolve({ id: 'missing' }) },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it('401 unauthenticated', async () => {
+    setUnauthed();
+    const res = await PATCH(
+      new Request('http://localhost/api/folders/x', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'y' }),
+      }),
+      { params: Promise.resolve({ id: 'x' }) },
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('DELETE /api/folders/[id]', () => {
+  it('401 when unauthenticated', async () => {
+    setUnauthed();
+    const res = await DELETE(new Request('http://localhost/api/folders/x'), {
+      params: Promise.resolve({ id: 'x' }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('deletes an empty folder and writes an audit row', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-delete-empty' } });
+    const res = await DELETE(new Request(`http://localhost/api/folders/${f.id}`), {
+      params: Promise.resolve({ id: f.id }),
+    });
+    expect(res.status).toBe(200);
+    expect(await prisma.folder.count({ where: { id: f.id } })).toBe(0);
+    const audits = await prisma.auditLog.findMany({
+      where: { action: 'folders.deleted', subject: f.id },
+    });
+    expect(audits).toHaveLength(1);
+  });
+
+  it('returns 409 when folder still contains notes', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({ data: { name: 'api-test-nonempty' } });
+    await prisma.note.create({
+      data: { title: 'api-test-blocker', authorId: user.id, folderId: f.id },
+    });
+    const res = await DELETE(new Request(`http://localhost/api/folders/${f.id}`), {
+      params: Promise.resolve({ id: f.id }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 409 when folder has children', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const parent = await prisma.folder.create({ data: { name: 'api-test-haschild' } });
+    await prisma.folder.create({ data: { name: 'api-test-thechild', parentId: parent.id } });
+    const res = await DELETE(new Request(`http://localhost/api/folders/${parent.id}`), {
+      params: Promise.resolve({ id: parent.id }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it('returns 404 when missing', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const res = await DELETE(new Request('http://localhost/api/folders/missing'), {
+      params: Promise.resolve({ id: 'missing' }),
+    });
+    expect(res.status).toBe(404);
+  });
+});

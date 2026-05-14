@@ -1,12 +1,26 @@
+import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  resolve: {
+    alias: {
+      '@/': `${resolve(import.meta.dirname, 'apps/web/src')}/`,
+    },
+  },
   test: {
     include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts', 'apps/*/src/**/*.test.tsx'],
     globals: false,
     environment: 'node',
-    pool: 'threads',
-    threads: { singleThread: true },
+    // Integration tests hit a real shared Postgres (per CLAUDE.md). Run files
+    // sequentially within a single fork to avoid cross-file collisions on
+    // shared rows. fileParallelism is the v4 way to enforce this.
+    fileParallelism: false,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     testTimeout: 10_000,
     // Stub the production env vars so importing @app/config/env at
     // module-load doesn't trip the fail-fast process.exit. Tests that
