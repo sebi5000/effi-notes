@@ -13,14 +13,10 @@ export default defineConfig({
     environment: 'node',
     // Integration tests hit a real shared Postgres (per CLAUDE.md). Run files
     // sequentially within a single fork to avoid cross-file collisions on
-    // shared rows. fileParallelism is the v4 way to enforce this.
+    // shared rows. v4 moved poolOptions to top-level.
     fileParallelism: false,
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    forks: { singleFork: true },
     testTimeout: 10_000,
     // Stub the production env vars so importing @app/config/env at
     // module-load doesn't trip the fail-fast process.exit. Tests that
@@ -37,6 +33,9 @@ export default defineConfig({
       KEYCLOAK_CLIENT_SECRET: 'test-secret-not-used',
       AUTH_SECRET: 'test-secret-must-be-at-least-32-chars-long',
       AUTH_URL: 'http://localhost:3000',
+      COLLAB_WS_PORT: '3101',
+      COLLAB_PUBLIC_URL: 'ws://localhost:3101',
+      NOTES_SNAPSHOT_DEBOUNCE_MS: '30000',
     },
     coverage: {
       provider: 'v8',

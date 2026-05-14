@@ -216,6 +216,9 @@ services:
       OTEL_SERVICE_NAME: app-web
       WORKER_HTTP_PORT: '3100'
       BULL_BOARD_INTERNAL_URL: http://worker:3100
+      COLLAB_WS_PORT: '3101'
+      COLLAB_PUBLIC_URL: ${COLLAB_PUBLIC_URL:-wss://app.example.com}
+      NOTES_SNAPSHOT_DEBOUNCE_MS: '30000'
     networks:
       - net-edge
       - net-app
@@ -262,6 +265,9 @@ services:
       WORKER_CONCURRENCY: '4'
       WORKER_HTTP_PORT: '3100'
       BULL_BOARD_INTERNAL_URL: http://localhost:3100
+      COLLAB_WS_PORT: '3101'
+      COLLAB_PUBLIC_URL: ${COLLAB_PUBLIC_URL:-wss://app.example.com}
+      NOTES_SNAPSHOT_DEBOUNCE_MS: '30000'
     networks:
       - net-app
       - net-data

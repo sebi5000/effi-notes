@@ -33,6 +33,12 @@ services:
     ports:
       - '6379:6379'
 
+  worker:
+    # y-websocket relay on 3101 — only mapped in dev so the browser at
+    # localhost:3000 can connect directly. In prod Caddy proxies /yjs/*.
+    ports:
+      - '3101:3101'
+
   # Observability — only effective when `--profile obs` is also passed.
   otel-collector:
     ports:

@@ -87,14 +87,13 @@ describe('PUT /api/notes/[id]/body', () => {
     const { user } = await makeTestUser();
     setAuthed(user);
     const note = await prisma.note.create({
-      data: { title: 'api-test-conflict', body: 'old', authorId: user.id },
+      data: { title: 'api-test-conflict', body: 'middle', authorId: user.id },
     });
-    // Bump updatedAt by writing through prisma so the test's base becomes stale.
-    await prisma.note.update({ where: { id: note.id }, data: { body: 'middle' } });
-
+    // Use a deliberately stale base — 1 hour before the actual updatedAt.
+    const stale = new Date(note.updatedAt.getTime() - 3_600_000);
     const res = await callPut(note.id, {
       body: '# attempt',
-      baseUpdatedAt: note.updatedAt.toISOString(),
+      baseUpdatedAt: stale.toISOString(),
     });
     expect(res.status).toBe(409);
     const payload = (await res.json()) as { error: string; details: { currentUpdatedAt: string } };

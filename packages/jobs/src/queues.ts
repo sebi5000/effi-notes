@@ -12,6 +12,7 @@ import { getRedis } from './connection.ts';
  */
 export const QUEUES = {
   demo: 'demo',
+  notesSnapshot: 'notes.snapshot',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -23,6 +24,16 @@ export const DemoJobSchema = z.object({
   triggeredBy: z.string(),
 });
 export type DemoJobPayload = z.infer<typeof DemoJobSchema>;
+
+// ── notes.snapshot queue ────────────────────────────────────────────────────
+// Debounces yjs persistence writes. The y-websocket server in the worker
+// enqueues one job per (noteId, idle window) with `jobId: noteId` so BullMQ
+// collapses bursts.
+export const NotesSnapshotJobSchema = z.object({
+  noteId: z.string().min(1),
+  actorId: z.string().min(1).nullable(),
+});
+export type NotesSnapshotPayload = z.infer<typeof NotesSnapshotJobSchema>;
 
 const defaultJobOpts: JobsOptions = {
   attempts: 3,
@@ -78,5 +89,40 @@ export const getDemoQueueCounts = async (): Promise<{
 /** Worker-side accessor — used by Bull Board mounting and the processor. */
 export const getQueueForBullBoard = (name: QueueName): Queue => {
   if (name === QUEUES.demo) return getDemoQueue() as Queue;
+  if (name === QUEUES.notesSnapshot) return getNotesSnapshotQueue() as Queue;
   throw new Error(`Unknown queue: ${name as string}`);
+};
+
+// ── notes.snapshot producer ─────────────────────────────────────────────────
+const notesSnapshotJobOpts: JobsOptions = {
+  // Snapshot bursts are cheap to retry; keep attempts low to avoid pile-ups
+  // when DB is down for a deploy.
+  attempts: 2,
+  backoff: { type: 'exponential', delay: 1_000 },
+  removeOnComplete: { age: 3600, count: 200 },
+  removeOnFail: { age: 86_400 },
+};
+
+let notesSnapshotQueue: Queue<NotesSnapshotPayload> | undefined;
+const getNotesSnapshotQueue = (): Queue<NotesSnapshotPayload> => {
+  if (notesSnapshotQueue) return notesSnapshotQueue;
+  notesSnapshotQueue = new Queue<NotesSnapshotPayload>(QUEUES.notesSnapshot, {
+    connection: getRedis(),
+    defaultJobOptions: notesSnapshotJobOpts,
+  });
+  return notesSnapshotQueue;
+};
+
+export const enqueueNotesSnapshot = async (
+  payload: NotesSnapshotPayload,
+  opts?: Pick<JobsOptions, 'delay'>,
+): Promise<string> => {
+  const validated = NotesSnapshotJobSchema.parse(payload);
+  // Use `jobId = noteId` so BullMQ collapses bursts within the debounce
+  // window into a single pending job.
+  const job = await getNotesSnapshotQueue().add('snapshot', validated, {
+    ...opts,
+    jobId: `snapshot:${validated.noteId}`,
+  });
+  return job.id ?? '';
 };

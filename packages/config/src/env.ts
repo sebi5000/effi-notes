@@ -50,6 +50,19 @@ export const EnvSchema = z.object({
   WORKER_HTTP_PORT: z.coerce.number().int().positive().default(3100),
   /** Internal URL the web app uses to proxy /admin/queues → worker's Bull Board. */
   BULL_BOARD_INTERNAL_URL: z.string().url().default('http://localhost:3100'),
+
+  // Notes collab (y-websocket) -------------------------------------------
+  /** Worker port for the y-websocket relay. Internal — not exposed to the host. */
+  COLLAB_WS_PORT: z.coerce.number().int().positive().default(3101),
+  /**
+   * Public WS URL the browser uses to connect to the collab relay. In prod
+   * this is `wss://${APP_HOSTNAME}` (Caddy routes /yjs/* to the worker);
+   * in dev it is `ws://localhost:3101` because we map the worker port to
+   * the host.
+   */
+  COLLAB_PUBLIC_URL: z.string().min(1).default('ws://localhost:3101'),
+  /** Debounce window for the snapshot processor (ms). Higher = fewer DB writes. */
+  NOTES_SNAPSHOT_DEBOUNCE_MS: z.coerce.number().int().positive().default(30_000),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

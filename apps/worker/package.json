@@ -16,7 +16,10 @@
     "@app/observability": "workspace:*",
     "@bull-board/api": "7.0.0",
     "@bull-board/bun": "7.0.0",
-    "bullmq": "5.76.5"
+    "bullmq": "5.76.5",
+    "lib0": "0.2.99",
+    "y-protocols": "1.0.6",
+    "yjs": "13.6.21"
   },
   "devDependencies": {}
 }

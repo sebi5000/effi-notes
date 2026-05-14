@@ -33,6 +33,20 @@ import /etc/caddy/snippets/*.caddy
         reverse_proxy web:3000
     }
 
+    # y-websocket collab relay — port 3101 on the worker. The Next.js app
+    # has already issued an HMAC-signed token (/api/collab/[noteId]) which
+    # the worker re-verifies before accepting the WebSocket upgrade.
+    @collab path /yjs/*
+    handle @collab {
+        reverse_proxy worker:3101 {
+            # WebSocket upgrade is implicit in Caddy 2.x — preserved by
+            # default. Keep idle long enough for live editing sessions.
+            transport http {
+                read_timeout 24h
+            }
+        }
+    }
+
     handle {
         reverse_proxy web:3000
     }
