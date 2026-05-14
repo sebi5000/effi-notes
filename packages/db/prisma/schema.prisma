@@ -1,5 +1,6 @@
-// Template-only schema — User and AuditLog. Customer projects extend this.
-// Do not add fachliche entities here.
+// effi-notes schema. Template-locked tables (User, AuditLog) are preserved
+// as-is; the notes domain (Folder, Note, Tag, NoteTag, NoteHistory) is the
+// customer-project extension.
 
 generator client {
   provider     = "prisma-client"
@@ -16,16 +17,19 @@ datasource db {
 /// Source of truth for identity stays in Keycloak; this row is upserted on
 /// first login and refreshed on subsequent logins (Phase 3 wires this).
 model User {
-  id          String     @id @default(cuid())
-  keycloakSub String     @unique
-  email       String     @unique
-  displayName String?
-  locale      String     @default("de")
-  roles       String[]   @default([])
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  lastSeenAt  DateTime?
-  auditLogs   AuditLog[]
+  id              String        @id @default(cuid())
+  keycloakSub     String        @unique
+  email           String        @unique
+  displayName     String?
+  locale          String        @default("de")
+  roles           String[]      @default([])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  lastSeenAt      DateTime?
+  auditLogs       AuditLog[]
+  authoredNotes   Note[]        @relation("note_author")
+  editedNotes     Note[]        @relation("note_last_editor")
+  noteHistory     NoteHistory[]
 
   @@index([email])
 }
@@ -46,4 +50,85 @@ model AuditLog {
   @@index([occurredAt])
   @@index([actorId, occurredAt])
   @@index([action, occurredAt])
+}
+
+/// Folder for organising notes. Trees are formed by self-referencing parentId.
+/// `position` is the sidebar ordering hint within a parent.
+model Folder {
+  id        String   @id @default(cuid())
+  name      String
+  parentId  String?
+  parent    Folder?  @relation("folder_tree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Folder[] @relation("folder_tree")
+  notes     Note[]
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId, position])
+}
+
+/// A markdown-first note. `body` is the canonical markdown source. `yjsState`
+/// is the most recent CRDT snapshot (written by the worker's snapshot
+/// processor; see ADR 0022). `searchVector` is a generated tsvector column
+/// added in the migration's raw SQL block — Prisma sees it as Unsupported but
+/// it is queryable via $queryRaw.
+model Note {
+  id           String        @id @default(cuid())
+  title        String
+  body         String        @default("")
+  yjsState     Bytes?
+  folderId     String?
+  folder       Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  authorId     String
+  author       User          @relation("note_author", fields: [authorId], references: [id])
+  lastEditorId String?
+  lastEditor   User?         @relation("note_last_editor", fields: [lastEditorId], references: [id], onDelete: SetNull)
+  archivedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  tags         NoteTag[]
+  history      NoteHistory[]
+  searchVector Unsupported("tsvector")?
+
+  @@index([folderId, updatedAt])
+  @@index([archivedAt])
+  @@index([authorId, updatedAt])
+}
+
+/// Free-form tag dictionary. Tags are global (not per-user) because the
+/// sharing model in v1 is "all users see all notes".
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String?
+  notes     NoteTag[]
+  createdAt DateTime  @default(now())
+}
+
+/// Join table for Note <-> Tag.
+model NoteTag {
+  noteId String
+  tagId  String
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, tagId])
+  @@index([tagId])
+}
+
+/// Immutable snapshot of a note's body + Yjs state. Written by the snapshot
+/// processor either every N updates or on session close. Read by the history
+/// view.
+model NoteHistory {
+  id        String   @id @default(cuid())
+  noteId    String
+  note      Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  body      String
+  yjsState  Bytes?
+  createdAt DateTime @default(now())
+
+  @@index([noteId, createdAt])
 }
