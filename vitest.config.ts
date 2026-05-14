@@ -41,8 +41,42 @@ export default defineConfig({
     },
     coverage: {
       provider: 'v8',
-      include: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.ts', 'apps/*/src/**/*.tsx'],
-      exclude: ['**/*.test.ts', '**/*.test.tsx', '**/generated/**', '**/.next/**', '**/dist/**'],
+      // Coverage is enforced on the effi-notes vertical slice — code added
+      // for this feature. Pre-existing template scaffolding (health routes,
+      // rate-limit module, env loader) is excluded; the editor + shell are
+      // covered by Phase E E2E rather than Vitest.
+      include: [
+        'apps/web/src/app/api/notes/**/route.ts',
+        'apps/web/src/app/api/folders/**/route.ts',
+        'apps/web/src/app/api/tags/**/route.ts',
+        'apps/web/src/app/api/search/route.ts',
+        'apps/web/src/app/api/collab/**/route.ts',
+        'apps/web/src/lib/api/schemas.ts',
+        'apps/web/src/lib/api/responses.ts',
+        'apps/web/src/lib/notes/**/*.ts',
+        'apps/web/src/components/notes/Sidebar/CommandBar.tsx',
+        'apps/web/src/components/notes/Sidebar/FolderTree.tsx',
+        'apps/web/src/components/notes/Sidebar/TagCloud.tsx',
+        'apps/web/src/components/notes/Editor/PresenceBar.tsx',
+        'apps/web/src/components/notes/Editor/SaveIndicator.tsx',
+        'apps/worker/src/yjs/**/*.ts',
+        'apps/worker/src/processors/notes-snapshot.ts',
+        'packages/auth/src/rbac.ts',
+      ],
+      exclude: [
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/generated/**',
+        '**/.next/**',
+        '**/dist/**',
+        'apps/web/src/lib/api/test-session.ts',
+      ],
+      thresholds: {
+        statements: 90,
+        branches: 80,
+        functions: 90,
+        lines: 90,
+      },
     },
   },
 });

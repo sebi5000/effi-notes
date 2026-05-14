@@ -34,3 +34,4 @@ Each non-trivial decision with tradeoffs is captured here. Format follows [MADR]
 | 0019 | Run `prisma migrate deploy` from a dedicated migrator service | Accepted |
 | 0020 | CSP baseline with `'unsafe-inline'` for script/style | Accepted |
 | 0021 | Rate limiting lives in the app, backed by Redis | Accepted |
+| 0022 | Real-time collaboration via Yjs in the worker, gated by HMAC tokens | Accepted |
