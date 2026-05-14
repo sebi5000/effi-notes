@@ -1,9 +1,9 @@
 {
   "app": {
-    "name": "app-template"
+    "name": "effi-notes"
   },
   "home": {
-    "tagline": "Phase 7 skeleton — customer projects add domain logic.",
+    "tagline": "A markdown knowledge base for consulting teams.",
     "signIn": "Sign in",
     "continueAs": "Continue as {email}"
   },
@@ -32,5 +32,30 @@
       "openBoard": "Open Bull Board →"
     },
     "phaseFooter": "Phase 7 skeleton — auth + jobs + observability + hardening. Customer projects extend roles, dashboards, and route guards."
+  },
+  "notes": {
+    "shell": {
+      "welcome": "Pick a note from the sidebar",
+      "emptyHint": "Or hit ⌘K to search across every note in the workspace."
+    },
+    "sidebar": {
+      "foldersHeading": "Folders",
+      "tagsHeading": "Tags",
+      "notesHeading": "Notes",
+      "emptyState": "No notes here yet."
+    },
+    "commandBar": {
+      "label": "Search notes",
+      "placeholder": "Search…"
+    },
+    "saveIndicator": {
+      "idle": "Saved",
+      "dirty": "Unsaved changes",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "conflict": "Conflict — needs review",
+      "offline": "Offline · will retry",
+      "viewing": "{count} viewing"
+    }
   }
 }

@@ -1,17 +1,128 @@
 @import "tailwindcss";
 
+/* effi-notes — Warm Paper visual system.
+ *
+ * Off-white background, slate ink, amber accent. Serif headings (Newsreader),
+ * sans body (Inter, loaded via next/font). One accent does the heavy lifting:
+ * it appears on focus rings, active sidebar items, the save indicator when
+ * the editor is dirty, and the marker around search hits. Everything else
+ * stays paper-quiet.
+ *
+ * Customer projects can override these tokens without touching component
+ * code — the Tailwind config maps these CSS vars to utility classes.
+ */
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #0a0a0a;
-  --color-muted: #f4f4f5;
-  --color-muted-foreground: #71717a;
+  --color-background: #faf6ee;
+  --color-foreground: #1e2230;
+  --color-muted: #f1ebdc;
+  --color-muted-foreground: #4b5066;
+  --color-paper-line: #ece5d2;
+  --color-accent: #c26a20;
+  --color-accent-soft: #e8b884;
+  --color-accent-ink: #7c3f00;
+  --color-danger: #a03a2b;
+  --color-border: #d8cfb8;
+
+  --font-display: var(--font-newsreader), "Iowan Old Style", "Hoefler Text", Georgia, serif;
+  --font-body: var(--font-inter), system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  @theme {
-    --color-background: #0a0a0a;
-    --color-foreground: #fafafa;
-    --color-muted: #18181b;
-    --color-muted-foreground: #a1a1aa;
+/* Subtle paper-grain. 4 KB inline SVG, draws once. Toggled off via the
+ * `prefers-reduced-transparency` media query. */
+.bg-paper {
+  background-color: var(--color-background);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.7  0 0 0 0 0.55  0 0 0 0 0.3  0 0 0 0.03 0'/></filter><rect width='80' height='80' filter='url(%23n)'/></svg>");
+}
+@media (prefers-reduced-transparency: reduce) {
+  .bg-paper {
+    background-image: none;
   }
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+.font-body {
+  font-family: var(--font-body);
+}
+
+/* Editor surface. Comfortable reading width, generous line height. The
+ * inner ProseMirror node gets these via descendant selectors so we don't
+ * have to wrap every block.
+ */
+.prose-paper {
+  max-width: 68ch;
+  color: var(--color-foreground);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.7;
+}
+.prose-paper :where(h1, h2, h3, h4) {
+  font-family: var(--font-display);
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin-top: 1.4em;
+  margin-bottom: 0.4em;
+  line-height: 1.25;
+}
+.prose-paper :where(h1) {
+  font-size: 1.9rem;
+}
+.prose-paper :where(h2) {
+  font-size: 1.5rem;
+}
+.prose-paper :where(h3) {
+  font-size: 1.2rem;
+}
+.prose-paper :where(p, ul, ol, blockquote, pre, table) {
+  margin-bottom: 0.85em;
+}
+.prose-paper :where(blockquote) {
+  border-left: 3px solid var(--color-accent-soft);
+  padding-left: 1em;
+  color: var(--color-muted-foreground);
+  font-style: italic;
+}
+.prose-paper :where(code) {
+  font-family: var(--font-mono);
+  background: var(--color-muted);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  font-size: 0.92em;
+}
+.prose-paper :where(pre) {
+  font-family: var(--font-mono);
+  background: var(--color-muted);
+  padding: 0.85em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.prose-paper :where(a) {
+  color: var(--color-accent-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-accent-soft);
+  text-underline-offset: 3px;
+}
+.prose-paper :where(ul, ol) {
+  padding-left: 1.5em;
+}
+.prose-paper :where(li) {
+  margin-bottom: 0.25em;
+}
+.prose-paper :where(mark) {
+  background: var(--color-accent-soft);
+  color: var(--color-foreground);
+  padding: 0 0.15em;
+  border-radius: 2px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-accent-soft);
 }
