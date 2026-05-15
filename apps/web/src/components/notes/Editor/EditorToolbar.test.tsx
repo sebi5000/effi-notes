@@ -146,4 +146,40 @@ describe('EditorToolbar', () => {
     expect(commands).not.toContain('unsetLink()');
     promptSpy.mockRestore();
   });
+
+  it('every remaining formatting button dispatches its Tiptap command', () => {
+    const cases: Array<[label: string, command: string]> = [
+      ['Heading 1', 'toggleHeading'],
+      ['Heading 3', 'toggleHeading'],
+      ['Strikethrough', 'toggleStrike()'],
+      ['Inline code', 'toggleCode()'],
+      ['Numbered list', 'toggleOrderedList()'],
+      ['Quote', 'toggleBlockquote()'],
+    ];
+    for (const [label, command] of cases) {
+      const { editor, commands } = makeEditor();
+      const { container, unmount } = render(wrap(<EditorToolbar editor={editor} />));
+      fireEvent.click(within(container).getByLabelText(label));
+      expect(commands.join('')).toContain(command);
+      unmount();
+    }
+  });
+
+  it('Heading 1 / Heading 3 pass the right level', () => {
+    const { editor, commands } = makeEditor();
+    const { container } = render(wrap(<EditorToolbar editor={editor} />));
+    fireEvent.click(within(container).getByLabelText('Heading 1'));
+    fireEvent.click(within(container).getByLabelText('Heading 3'));
+    expect(commands.join('')).toContain('"level":1');
+    expect(commands.join('')).toContain('"level":3');
+  });
+
+  it('reflects an active heading level via aria-pressed', () => {
+    const { editor } = makeEditor({ 'heading:{"level":2}': true });
+    const { container } = render(wrap(<EditorToolbar editor={editor} />));
+    expect(within(container).getByLabelText('Heading 2').getAttribute('aria-pressed')).toBe('true');
+    expect(within(container).getByLabelText('Heading 1').getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+  });
 });

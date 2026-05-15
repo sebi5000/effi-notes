@@ -50,11 +50,24 @@ describe('GET /api/notes/[id]/history', () => {
     const note = await prisma.note.create({
       data: { title: 'api-test-history', body: 'current', authorId: user.id },
     });
+    // Explicit, 1-minute-apart timestamps so the newest-first ordering is
+    // deterministic — two inserts in the same millisecond would otherwise
+    // race on `createdAt`.
     await prisma.noteHistory.create({
-      data: { noteId: note.id, authorId: user.id, body: 'v1' },
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        body: 'v1',
+        createdAt: new Date('2026-05-15T10:00:00.000Z'),
+      },
     });
     await prisma.noteHistory.create({
-      data: { noteId: note.id, authorId: user.id, body: 'v22' },
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        body: 'v22',
+        createdAt: new Date('2026-05-15T10:01:00.000Z'),
+      },
     });
     const res = await GET(new Request(`http://localhost/api/notes/${note.id}/history?limit=10`), {
       params: Promise.resolve({ id: note.id }),
