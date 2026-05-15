@@ -99,7 +99,7 @@ describe('GET /api/search', () => {
 
   it('finds a note via an embedded asset filename', async () => {
     const { user } = await makeTestUser();
-    authedAs(mockedAuth, user);
+    setAuthed(user);
     const note = await prisma.note.create({
       data: { title: 'api-test-search-host', body: 'nothing relevant here', authorId: user.id },
     });
@@ -121,7 +121,7 @@ describe('GET /api/search', () => {
 
   it('does not duplicate a note that matches both directly and via an asset', async () => {
     const { user } = await makeTestUser();
-    authedAs(mockedAuth, user);
+    setAuthed(user);
     const note = await prisma.note.create({
       data: { title: 'api-test-rutabaga-note', body: 'about rutabaga', authorId: user.id },
     });
@@ -139,5 +139,28 @@ describe('GET /api/search', () => {
     const res = await GET(new Request('http://localhost/api/search?q=rutabaga'));
     const body = (await res.json()) as { hits: Array<{ id: string }> };
     expect(body.hits.filter((h) => h.id === note.id)).toHaveLength(1);
+  });
+
+  it('finds a note via an embedded asset caption', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({
+      data: { title: 'api-test-caption-host', body: 'unrelated body', authorId: user.id },
+    });
+    await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'plain.png',
+        caption: 'a broccoli closeup',
+        byteSize: 4,
+        data: Buffer.from([1, 2, 3, 4]),
+      },
+    });
+    const res = await GET(new Request('http://localhost/api/search?q=broccoli'));
+    const body = (await res.json()) as { hits: Array<{ id: string }> };
+    expect(body.hits.some((h) => h.id === note.id)).toBe(true);
   });
 });

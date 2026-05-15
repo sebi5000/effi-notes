@@ -49,9 +49,12 @@ export const GET = async (req: Request): Promise<Response> => {
       // match on title if the tsquery comes back empty (very short / all
       // punctuation).
       const useTs = tsquery.length > 0;
-      const noteRows: Row[] = useTs
-        ? await prisma.$queryRawUnsafe<Row[]>(
-            `SELECT n.id,
+      // Direct note hits and asset-driven hits are independent queries —
+      // run them concurrently to keep the search hot path fast.
+      const [noteRows, assetRows]: [Row[], Row[]] = useTs
+        ? await Promise.all([
+            prisma.$queryRawUnsafe<Row[]>(
+              `SELECT n.id,
                   n.title,
                   n."folderId" as "folderId",
                   n."updatedAt",
@@ -63,16 +66,13 @@ export const GET = async (req: Request): Promise<Response> => {
             ORDER BY ts_rank(n."searchVector", to_tsquery('simple', $1)) DESC,
                      n."updatedAt" DESC
             LIMIT $2`,
-            tsquery,
-            limit,
-          )
-        : [];
-
-      // A note also matches when one of its embedded assets matches by
-      // filename / caption / extracted text. Surfaced as the owning note.
-      const assetRows: Row[] = useTs
-        ? await prisma.$queryRawUnsafe<Row[]>(
-            `SELECT DISTINCT n.id,
+              tsquery,
+              limit,
+            ),
+            // A note also matches when one of its embedded assets matches by
+            // filename / caption / extracted text. Surfaced as the owning note.
+            prisma.$queryRawUnsafe<Row[]>(
+              `SELECT DISTINCT n.id,
                   n.title,
                   n."folderId" as "folderId",
                   n."updatedAt",
@@ -83,10 +83,11 @@ export const GET = async (req: Request): Promise<Response> => {
               AND a."searchVector" @@ to_tsquery('simple', $1)
             ORDER BY n."updatedAt" DESC
             LIMIT $2`,
-            tsquery,
-            limit,
-          )
-        : [];
+              tsquery,
+              limit,
+            ),
+          ])
+        : [[], []];
 
       // Merge: direct note hits first, then asset-only hits, de-duplicated.
       const seen = new Set(noteRows.map((r) => r.id));
