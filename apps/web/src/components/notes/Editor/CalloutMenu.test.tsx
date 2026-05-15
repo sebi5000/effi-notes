@@ -88,4 +88,19 @@ describe('CalloutMenu', () => {
     fireEvent.mouseDown(document.body);
     expect(within(container).queryByRole('menu')).toBeNull();
   });
+
+  it('the toggle button prevents the mousedown default (keeps editor focus)', () => {
+    const { editor } = makeEditor();
+    const { container } = render(wrap(<CalloutMenu editor={editor} />));
+    const button = within(container).getByLabelText('Insert callout');
+    expect(fireEvent.mouseDown(button)).toBe(false);
+  });
+
+  it('a menu item prevents the mousedown default (keeps editor focus)', () => {
+    const { editor } = makeEditor();
+    const { container } = render(wrap(<CalloutMenu editor={editor} />));
+    fireEvent.click(within(container).getByLabelText('Insert callout'));
+    const item = within(container).getByRole('menuitem', { name: 'Tip' });
+    expect(fireEvent.mouseDown(item)).toBe(false);
+  });
 });
