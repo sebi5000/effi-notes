@@ -1,8 +1,8 @@
 {
   "realm": "app",
   "enabled": true,
-  "displayName": "App Template (dev)",
-  "displayNameHtml": "<strong>App Template — dev</strong>",
+  "displayName": "effi-notes (dev)",
+  "displayNameHtml": "<strong>effi&middot;notes — dev</strong>",
   "registrationAllowed": false,
   "registrationEmailAsUsername": true,
   "loginWithEmailAllowed": true,

@@ -1,6 +1,6 @@
-# app-template
+# effi-notes
 
-Production-ready Next.js + Bun monorepo template for B2B applications. Single-tenant, customer-self-hosted via Docker Compose, vendor-supported remotely.
+A markdown knowledge base for consulting teams, built on a production-ready Next.js + Bun monorepo template. Single-tenant, customer-self-hosted via Docker Compose, vendor-supported remotely.
 
 ## Quickstart (local dev, < 5 minutes)
 
@@ -9,7 +9,7 @@ Prerequisites:
 - Docker + Docker Compose v2
 
 ```bash
-git clone <this-repo> app-template && cd app-template
+git clone <this-repo> effi-notes && cd effi-notes
 cp .env.example .env.local       # fill in DATABASE_URL, AUTH_SECRET, etc.
 make install                      # bun install + lefthook + prisma generate
 make up-dev                       # postgres, postgres-keycloak, keycloak, redis (host ports exposed)
