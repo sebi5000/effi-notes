@@ -65,7 +65,7 @@ export function Sidebar({
   };
 
   return (
-    <aside className="border-paper-line/80 flex h-full flex-col gap-4 border-r p-4">
+    <aside className="border-paper-line/80 flex h-full min-w-[280px] flex-col gap-4 border-r p-4">
       <header className="flex items-center gap-2">
         <span className="font-display text-foreground text-lg font-semibold tracking-tight">
           effi · notes
@@ -78,7 +78,7 @@ export function Sidebar({
             onClick={onCollapse}
             className="text-muted-foreground/60 hover:text-foreground ml-auto inline-flex h-6 w-6 items-center justify-center rounded text-sm leading-none"
           >
-            «
+            <span aria-hidden="true">«</span>
           </button>
         ) : null}
       </header>

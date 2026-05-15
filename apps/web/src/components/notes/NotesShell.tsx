@@ -196,7 +196,7 @@ export function NotesShell({
             onClick={toggleSidebar}
             className="text-muted-foreground/60 hover:text-foreground absolute left-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded text-sm leading-none"
           >
-            »
+            <span aria-hidden="true">»</span>
           </button>
         ) : null}
         {noteDetail ? (
