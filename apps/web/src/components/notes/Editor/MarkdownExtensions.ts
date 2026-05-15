@@ -6,6 +6,7 @@ import TaskList from '@tiptap/extension-task-list';
 import Typography from '@tiptap/extension-typography';
 import StarterKit from '@tiptap/starter-kit';
 import type * as Y from 'yjs';
+import { Callout } from './CalloutExtension.ts';
 
 type AwarenessLike = {
   setLocalStateField: (field: string, value: unknown) => void;
@@ -36,6 +37,7 @@ export const buildExtensions = (input: {
   Typography,
   TaskList,
   TaskItem.configure({ nested: true }),
+  Callout,
   Collaboration.configure({ document: input.doc }),
   CollaborationCaret.configure({ provider: { awareness: input.awareness }, user: input.user }),
 ];
