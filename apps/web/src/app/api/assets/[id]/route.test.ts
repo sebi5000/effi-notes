@@ -104,6 +104,21 @@ describe('PATCH /api/assets/[id]', () => {
     expect(res.status).toBe(400);
   });
 
+  it('400 on a malformed JSON body', async () => {
+    const { user } = await makeTestUser();
+    authedAs(mockedAuth, user);
+    const asset = await seedAsset(user.id);
+    const res = await PATCH(
+      new Request(`http://localhost/api/assets/${asset.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: 'not json{',
+      }),
+      { params: Promise.resolve({ id: asset.id }) },
+    );
+    expect(res.status).toBe(400);
+  });
+
   it('404 patching an unknown id', async () => {
     const { user } = await makeTestUser();
     authedAs(mockedAuth, user);

@@ -27,6 +27,7 @@ export const GET = async (
       'content-type': asset.contentType,
       'content-disposition': 'inline',
       'cache-control': 'private, max-age=86400',
+      'x-content-type-options': 'nosniff',
     },
   });
 };
