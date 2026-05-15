@@ -181,7 +181,7 @@ export function NotesShell({
       <main className="flex flex-col px-12 py-10">
         {noteDetail ? (
           <>
-            <h1 className="font-display text-foreground mb-4 text-3xl font-semibold">
+            <h1 className="font-body text-foreground mb-4 text-3xl font-semibold">
               {noteDetail.title}
             </h1>
             <NoteEditor
