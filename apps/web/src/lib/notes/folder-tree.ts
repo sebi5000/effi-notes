@@ -210,3 +210,77 @@ export const isNoopReorder = (folders: ReadonlyArray<FolderNode>, plan: ReorderP
   if (current.length !== plan.orderedIds.length) return false;
   return current.every((id, i) => id === plan.orderedIds[i]);
 };
+
+/**
+ * The `/`-joined name path from root to `folderId`, e.g.
+ * `Clients/Intech/Support`. Returns an empty string if `folderId` (or any
+ * ancestor) is unknown.
+ *
+ * Note: a folder whose own name contains `/` is not round-trippable through
+ * a path — an accepted limitation of the path syntax.
+ */
+export const folderPath = (folders: ReadonlyArray<FolderNode>, folderId: string): string => {
+  const byId = new Map<string, FolderNode>();
+  for (const f of folders) byId.set(f.id, f);
+  const names: string[] = [];
+  let cursor: string | null = folderId;
+  const seen = new Set<string>();
+  while (cursor !== null && !seen.has(cursor)) {
+    seen.add(cursor);
+    const node = byId.get(cursor);
+    if (!node) return '';
+    names.unshift(node.name);
+    cursor = node.parentId;
+  }
+  return names.join('/');
+};
+
+/**
+ * Resolve a `/`-style path (`Clients/Intech/Support`) to a folder id by
+ * walking the tree from the root, matching each segment's name
+ * case-insensitively. Returns `null` if any segment has no match. Segments
+ * are trimmed; empty segments (e.g. a trailing slash) are dropped.
+ */
+export const resolveFolderPath = (
+  folders: ReadonlyArray<FolderNode>,
+  path: string,
+): string | null => {
+  const segments = path
+    .split('/')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (segments.length === 0) return null;
+  let parentId: string | null = null;
+  let resolvedId: string | null = null;
+  for (const segment of segments) {
+    const lower = segment.toLowerCase();
+    const match = folders.find(
+      (f) => (f.parentId ?? null) === parentId && f.name.toLowerCase() === lower,
+    );
+    if (!match) return null;
+    resolvedId = match.id;
+    parentId = match.id;
+  }
+  return resolvedId;
+};
+
+/**
+ * Folders whose full path prefix- or substring-matches `needle`
+ * (case-insensitive). Prefix matches rank first — parallels `filterTags`.
+ * An empty needle returns every folder.
+ */
+export const filterFolderPaths = (
+  folders: ReadonlyArray<FolderNode>,
+  needle: string,
+): FolderNode[] => {
+  const n = needle.trim().toLowerCase();
+  if (n === '') return folders.slice();
+  const prefix: FolderNode[] = [];
+  const contains: FolderNode[] = [];
+  for (const f of folders) {
+    const path = folderPath(folders, f.id).toLowerCase();
+    if (path.startsWith(n)) prefix.push(f);
+    else if (path.includes(n)) contains.push(f);
+  }
+  return [...prefix, ...contains];
+};

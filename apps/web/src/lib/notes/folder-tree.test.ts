@@ -6,10 +6,13 @@ import {
   childrenOf,
   computeReorder,
   computeRootReorder,
+  filterFolderPaths,
   flatten,
+  folderPath,
   isDescendant,
   isNoopReorder,
   moveSelection,
+  resolveFolderPath,
 } from './folder-tree.ts';
 
 const f = (id: string, name: string, parentId: string | null = null, position = 0): FolderNode => ({
@@ -240,5 +243,62 @@ describe('isNoopReorder', () => {
 
   it('is false when the membership differs', () => {
     expect(isNoopReorder(fixture, { parentId: 'clients', orderedIds: ['acme'] })).toBe(false);
+  });
+});
+
+describe('folderPath', () => {
+  it('joins the ancestor names from root to the folder', () => {
+    expect(folderPath(fixture, 'acme')).toBe('Clients/Acme');
+    expect(folderPath(fixture, 'playbooks')).toBe('Internal/Playbooks');
+  });
+
+  it('returns the bare name for a root folder', () => {
+    expect(folderPath(fixture, 'clients')).toBe('Clients');
+  });
+
+  it('returns an empty string for an unknown id', () => {
+    expect(folderPath(fixture, 'missing')).toBe('');
+  });
+});
+
+describe('resolveFolderPath', () => {
+  it('resolves a nested path to the leaf folder id', () => {
+    expect(resolveFolderPath(fixture, 'Clients/Acme')).toBe('acme');
+    expect(resolveFolderPath(fixture, 'Internal/Playbooks')).toBe('playbooks');
+  });
+
+  it('matches segment names case-insensitively', () => {
+    expect(resolveFolderPath(fixture, 'clients/acme')).toBe('acme');
+  });
+
+  it('tolerates a trailing slash and surrounding whitespace', () => {
+    expect(resolveFolderPath(fixture, 'Clients/Acme/')).toBe('acme');
+    expect(resolveFolderPath(fixture, ' Clients / Acme ')).toBe('acme');
+  });
+
+  it('returns null when a segment has no match', () => {
+    expect(resolveFolderPath(fixture, 'Clients/Nope')).toBeNull();
+    expect(resolveFolderPath(fixture, 'Acme')).toBeNull(); // Acme is not a root
+  });
+
+  it('returns null for an empty path', () => {
+    expect(resolveFolderPath(fixture, '')).toBeNull();
+    expect(resolveFolderPath(fixture, '   ')).toBeNull();
+  });
+});
+
+describe('filterFolderPaths', () => {
+  it('ranks prefix matches above substring matches', () => {
+    const out = filterFolderPaths(fixture, 'clients');
+    expect(out.map((f) => f.id)).toEqual(['clients', 'acme', 'globex']);
+  });
+
+  it('finds folders by a substring of their nested path', () => {
+    const out = filterFolderPaths(fixture, 'playbooks');
+    expect(out.map((f) => f.id)).toEqual(['playbooks']);
+  });
+
+  it('returns every folder for an empty needle', () => {
+    expect(filterFolderPaths(fixture, '').length).toBe(fixture.length);
   });
 });
