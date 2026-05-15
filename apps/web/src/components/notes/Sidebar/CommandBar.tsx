@@ -62,7 +62,7 @@ export function CommandBar({
     [parsed, folders],
   );
 
-  const fn = search ?? ((qq: string) => searchApi.query(qq));
+  const fn = useMemo(() => search ?? ((qq: string) => searchApi.query(qq)), [search]);
 
   const run = useMemo(
     () =>
@@ -155,6 +155,7 @@ export function CommandBar({
             openHit(hits[0].id);
           }
         }}
+        onBlur={() => setOpen(false)}
         className="border-border bg-background placeholder:text-muted-foreground/70 focus:border-accent focus:ring-accent w-full rounded border py-1.5 pl-3 pr-8 text-sm shadow-sm transition-colors focus:outline-none focus:ring-2"
       />
       {value.length > 0 ? (
@@ -187,6 +188,7 @@ export function CommandBar({
               <li key={tag.id}>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => applyTag(tag)}
                   className="hover:bg-muted flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
                 >
@@ -215,6 +217,7 @@ export function CommandBar({
               <li key={folder.id}>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => applyFolder(folder)}
                   className="hover:bg-muted flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
                 >
@@ -236,6 +239,7 @@ export function CommandBar({
             <li key={hit.id}>
               <button
                 type="button"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={() => openHit(hit.id)}
                 className="hover:bg-muted block w-full px-3 py-2 text-left text-sm"
               >

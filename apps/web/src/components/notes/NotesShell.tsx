@@ -100,15 +100,18 @@ export function NotesShell({
     [setQuery, folders],
   );
 
-  const openNote = async (id: string) => {
-    router.push(`/notes/${id}${qSuffix(query)}`);
-    try {
-      const detail = await notesApi.get(id);
-      setNoteDetail(detail);
-    } catch {
-      // ignore — the destination page re-fetches server-side
-    }
-  };
+  const openNote = useCallback(
+    async (id: string) => {
+      router.push(`/notes/${id}${qSuffix(query)}`);
+      try {
+        const detail = await notesApi.get(id);
+        setNoteDetail(detail);
+      } catch {
+        // ignore — the destination page re-fetches server-side
+      }
+    },
+    [router, query],
+  );
 
   const refreshFolders = useCallback(async () => {
     try {

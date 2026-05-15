@@ -111,6 +111,19 @@ describe('CommandBar — text-search mode', () => {
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(onSelect).toHaveBeenCalledWith('n1');
   });
+
+  it('hides the results list once the input is cleared', async () => {
+    const search = vi.fn(async () => ({
+      hits: [{ id: 'n1', title: 'Hit One', snippet: '', folderId: null, updatedAt: '' }],
+      total: 1,
+    }));
+    const { container } = render(wrap(<Controlled search={search} />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'h' } });
+    await waitFor(() => expect(within(container).queryByText('Hit One')).not.toBeNull());
+    fireEvent.change(input, { target: { value: '' } });
+    await waitFor(() => expect(within(container).queryByText('Hit One')).toBeNull());
+  });
 });
 
 describe('CommandBar — tag mode', () => {
@@ -203,5 +216,14 @@ describe('CommandBar — clear button', () => {
     expect(input.value).toBe('#discovery');
     fireEvent.click(within(container).getByLabelText('Clear search'));
     await waitFor(() => expect(input.value).toBe(''));
+  });
+
+  it('closes the suggestion dropdown when the input loses focus', () => {
+    const { container } = render(wrap(<Controlled />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#dis' } });
+    expect(within(container).queryByLabelText('Tag suggestions')).not.toBeNull();
+    fireEvent.blur(input);
+    expect(within(container).queryByLabelText('Tag suggestions')).toBeNull();
   });
 });
