@@ -10,7 +10,7 @@ describe('htmlToMarkdown', () => {
 
   it('converts bold and italic', () => {
     expect(htmlToMarkdown('<p><strong>bold</strong> and <em>italic</em></p>')).toBe(
-      '**bold** and _italic_',
+      '**bold** and *italic*',
     );
   });
 
@@ -32,19 +32,15 @@ describe('htmlToMarkdown', () => {
     expect(htmlToMarkdown('<p>run <code>bun test</code></p>')).toBe('run `bun test`');
   });
 
-  it('converts GFM task lists — items appear as list entries', () => {
-    // Tiptap wraps checkbox inputs in <label> and content in <div><p>, which
-    // prevents the turndown-plugin-gfm taskListItems rule from matching the
-    // checkbox. The list items are still converted; the actual output contains
-    // the item text as plain bullet entries.
+  it('converts GFM task lists to checkbox syntax', () => {
     const html =
       '<ul data-type="taskList">' +
       '<li data-type="taskItem" data-checked="true"><label><input type="checkbox" checked></label><div><p>done</p></div></li>' +
       '<li data-type="taskItem" data-checked="false"><label><input type="checkbox"></label><div><p>todo</p></div></li>' +
       '</ul>';
     const md = htmlToMarkdown(html);
-    expect(md).toContain('done');
-    expect(md).toContain('todo');
+    expect(md).toContain('- [x] done');
+    expect(md).toContain('- [ ] todo');
   });
 
   it('returns an empty string for empty input', () => {
