@@ -87,7 +87,10 @@ export const createTagSchema = z.object({
     .string()
     .min(1)
     .max(TAG_NAME_MAX)
-    .regex(/^[\p{L}\p{N}_-]+$/u, 'letters, numbers, _ and - only'),
+    .regex(
+      /^[\p{L}\p{N}_-]+(?:#[\p{L}\p{N}_-]+)*$/u,
+      'letters, numbers, _ and -, with # as an interior level separator',
+    ),
   color: z.string().regex(HEX_COLOR, 'expect #RRGGBB').nullable().optional(),
 });
 export type CreateTagInput = z.infer<typeof createTagSchema>;
