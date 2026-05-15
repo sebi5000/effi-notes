@@ -35,7 +35,7 @@ export function CopyMarkdownButton({ editor }: Props) {
     <button
       type="button"
       onClick={() => void copy()}
-      aria-label={t('copyMarkdown')}
+      aria-label={copied ? t('copied') : t('copyMarkdown')}
       title={t('copyMarkdown')}
       className="text-muted-foreground/50 hover:text-foreground inline-flex items-center gap-1 rounded text-xs transition-colors"
     >
