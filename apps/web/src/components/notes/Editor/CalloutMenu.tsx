@@ -54,7 +54,7 @@ export function CalloutMenu({ editor }: Props) {
           open ? 'bg-accent text-white' : 'text-foreground'
         }`}
       >
-        ▤
+        <span aria-hidden="true">▤</span>
       </button>
       {open ? (
         <div
