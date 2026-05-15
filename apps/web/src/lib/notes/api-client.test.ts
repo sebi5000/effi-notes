@@ -1,5 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, collabApi, foldersApi, notesApi, searchApi, tagsApi } from './api-client.ts';
+import {
+  ApiError,
+  assetsApi,
+  collabApi,
+  foldersApi,
+  notesApi,
+  searchApi,
+  tagsApi,
+} from './api-client.ts';
 
 const fakeOk = (body: unknown, status = 200): typeof fetch =>
   vi.fn(
@@ -132,5 +140,41 @@ describe('foldersApi / tagsApi / searchApi / collabApi', () => {
     const fetcher = fakeOk({ url: 'ws://x/yjs/n', token: 't', expiresAt: 'x' });
     const out = await collabApi.issueToken('n', fetcher);
     expect(out.url).toContain('/yjs/');
+  });
+});
+
+describe('assetsApi', () => {
+  it('upload posts the file to the note assets endpoint and returns id + url', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetcher = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({ id: 'a1', url: '/api/assets/a1' }), { status: 201 });
+    }) as unknown as typeof fetch;
+    const file = new File([new Uint8Array([1, 2, 3])], 'pic.png', { type: 'image/png' });
+    const res = await assetsApi.upload('note1', file, fetcher);
+    expect(res).toEqual({ id: 'a1', url: '/api/assets/a1' });
+    expect(calls[0]?.url).toBe('/api/notes/note1/assets?filename=pic.png');
+    expect(calls[0]?.init?.method).toBe('POST');
+  });
+
+  it('upload throws an ApiError on a non-ok response', async () => {
+    const fetcher = (async () =>
+      new Response(JSON.stringify({ error: 'too large' }), {
+        status: 413,
+      })) as unknown as typeof fetch;
+    const file = new File([new Uint8Array([1])], 'big.png', { type: 'image/png' });
+    await expect(assetsApi.upload('note1', file, fetcher)).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it('patchCaption sends a PATCH with the caption body', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetcher = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({ id: 'a1', caption: 'hi' }), { status: 200 });
+    }) as unknown as typeof fetch;
+    await assetsApi.patchCaption('a1', 'hi', fetcher);
+    expect(calls[0]?.url).toBe('/api/assets/a1');
+    expect(calls[0]?.init?.method).toBe('PATCH');
+    expect(String(calls[0]?.init?.body)).toContain('hi');
   });
 });

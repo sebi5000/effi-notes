@@ -162,3 +162,34 @@ export const collabApi = {
   ): Promise<{ url: string; token: string; expiresAt: string }> =>
     request(`/api/collab/${noteId}`, fetcher ? { fetcher } : {}),
 };
+
+export const assetsApi = {
+  /** Uploads a file as a note asset. Returns the new asset's id + serve URL. */
+  upload: async (
+    noteId: string,
+    file: File,
+    fetcher?: typeof fetch,
+  ): Promise<{ id: string; url: string }> => {
+    const f = fetcher ?? fetch;
+    const res = await f(`/api/notes/${noteId}/assets?filename=${encodeURIComponent(file.name)}`, {
+      method: 'POST',
+      body: file,
+    });
+    if (!res.ok) {
+      throw new ApiError(res.status, `HTTP ${res.status}`, null);
+    }
+    return (await res.json()) as { id: string; url: string };
+  },
+
+  /** Updates an asset's searchable caption. */
+  patchCaption: (
+    id: string,
+    caption: string,
+    fetcher?: typeof fetch,
+  ): Promise<{ id: string; caption: string }> =>
+    request(`/api/assets/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ caption }),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+};
