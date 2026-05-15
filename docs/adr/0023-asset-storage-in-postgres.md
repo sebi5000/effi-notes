@@ -1,8 +1,7 @@
-# 0023 — Asset storage in PostgreSQL
+# ADR 0023 — Asset storage in PostgreSQL
 
-## Status
-
-Accepted
+**Status:** Accepted
+**Date:** 2026-05-16
 
 ## Context
 
@@ -29,3 +28,8 @@ column, alongside metadata and a generated `tsvector` `searchVector` over
   `Asset` interface (the upload/serve routes are the only readers of `data`).
 - Rejected: a filesystem volume — it would split bytes from search text,
   require extending the backup script, and complicate horizontal scaling.
+
+## References
+
+- `docs/superpowers/specs/2026-05-16-asset-storage-images-design.md`
+- `docs/superpowers/plans/2026-05-16-asset-storage-images.md`
