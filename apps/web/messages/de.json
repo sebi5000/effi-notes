@@ -71,6 +71,10 @@
       "offline": "Offline · wird erneut versucht",
       "viewing": "{count} aktiv"
     },
+    "editorActions": {
+      "copyMarkdown": "Als Markdown kopieren",
+      "copied": "Kopiert"
+    },
     "editorToolbar": {
       "label": "Formatierung",
       "h1": "Überschrift 1",

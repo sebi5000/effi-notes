@@ -7,6 +7,7 @@ import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
+import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
 import { EditorToolbar } from './EditorToolbar.tsx';
 import { buildExtensions } from './MarkdownExtensions.ts';
 import { initialsFromName, PresenceBar, type PresenceUser } from './PresenceBar.tsx';
@@ -195,7 +196,10 @@ function CollaborativeEditor({
     <div className="relative flex h-full flex-col">
       <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
         <PresenceBar users={presence} />
-        <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
+        <div className="flex items-center gap-3">
+          <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
+          <CopyMarkdownButton editor={editor} />
+        </div>
       </div>
       {/* The A4 sheet has a fixed 210mm width — center it and let the rail
           scroll horizontally on narrow viewports rather than clipping. */}

@@ -71,6 +71,10 @@
       "offline": "Offline · will retry",
       "viewing": "{count} viewing"
     },
+    "editorActions": {
+      "copyMarkdown": "Copy as Markdown",
+      "copied": "Copied"
+    },
     "editorToolbar": {
       "label": "Formatting",
       "h1": "Heading 1",

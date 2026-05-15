@@ -62,6 +62,7 @@ export default defineConfig({
         'apps/web/src/components/notes/Sidebar/CommandBar.tsx',
         'apps/web/src/components/notes/Sidebar/FolderTree.tsx',
         'apps/web/src/components/notes/Editor/EditorToolbar.tsx',
+        'apps/web/src/components/notes/Editor/CopyMarkdownButton.tsx',
         'apps/web/src/components/notes/Editor/PresenceBar.tsx',
         'apps/web/src/components/notes/Editor/SaveIndicator.tsx',
         'apps/worker/src/yjs/**/*.ts',
