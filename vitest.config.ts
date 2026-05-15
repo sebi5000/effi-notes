@@ -13,6 +13,11 @@ export default defineConfig({
     include: ['packages/*/src/**/*.test.ts', 'apps/*/src/**/*.test.ts', 'apps/*/src/**/*.test.tsx'],
     globals: false,
     environment: 'node',
+    // Node.js ≥ 22 ships a built-in `localStorage` stub without setItem/clear.
+    // vitest's jsdom populateGlobal skips keys already on the global unless
+    // they are in its hard-coded allow-list. The setup file below patches the
+    // global with jsdom's real Storage implementation inside jsdom environments.
+    setupFiles: ['./apps/web/src/test-setup-jsdom.ts'],
     // Integration tests hit a real shared Postgres (per CLAUDE.md). Run files
     // sequentially within a single fork to avoid cross-file collisions on
     // shared rows. v4 moved poolOptions to top-level.
