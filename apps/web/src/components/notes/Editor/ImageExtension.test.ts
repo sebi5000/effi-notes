@@ -35,4 +35,19 @@ describe('NoteImage extension', () => {
     expect(node?.attrs?.width).toBe(180);
     expect(node?.attrs?.caption).toBe('Cat');
   });
+
+  it('parses an <img> with no width or caption to null width and empty caption', () => {
+    const e = make('<img src="/api/assets/a3">');
+    const node = e.getJSON().content?.[0];
+    expect(node?.attrs?.width).toBeNull();
+    expect(node?.attrs?.caption).toBe('');
+  });
+
+  it('omits the width and data-caption attributes when they are unset', () => {
+    const e = make();
+    e.commands.insertContent({ type: 'image', attrs: { src: '/api/assets/a4' } });
+    const html = e.getHTML();
+    expect(html).not.toContain('width=');
+    expect(html).not.toContain('data-caption=');
+  });
 });
