@@ -9,7 +9,8 @@ export const MIN_IMAGE_WIDTH = 80;
  * this keeps the stored `width` attribute sane.
  */
 export const clampImageWidth = (desired: number, available: number): number => {
-  const max = Math.max(MIN_IMAGE_WIDTH, Math.floor(available));
+  const safeAvailable = Number.isFinite(available) ? available : MIN_IMAGE_WIDTH;
+  const max = Math.max(MIN_IMAGE_WIDTH, Math.floor(safeAvailable));
   if (!Number.isFinite(desired)) return max;
   return Math.min(max, Math.max(MIN_IMAGE_WIDTH, Math.round(desired)));
 };

@@ -1,6 +1,9 @@
 /** Per-asset byte cap (10 MB). Enforced by the upload route. */
 export const MAX_ASSET_BYTES = 10 * 1024 * 1024;
 
+/** The canonical MIME types this app accepts for image assets. */
+export type SupportedImageType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+
 /**
  * Detect a supported image type from a file's leading magic bytes. Returns
  * the canonical MIME type, or `null` if the bytes are not one of the four
@@ -8,7 +11,7 @@ export const MAX_ASSET_BYTES = 10 * 1024 * 1024;
  * client-supplied Content-Type. SVG is intentionally unsupported
  * (inline-SVG XSS risk).
  */
-export const sniffImageType = (bytes: Uint8Array): string | null => {
+export const sniffImageType = (bytes: Uint8Array): SupportedImageType | null => {
   const b = bytes;
   if (b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) {
     return 'image/png';

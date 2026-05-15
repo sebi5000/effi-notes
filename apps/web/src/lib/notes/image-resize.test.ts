@@ -17,4 +17,7 @@ describe('clampImageWidth', () => {
   it('never returns less than the minimum even when available is tiny', () => {
     expect(clampImageWidth(20, 10)).toBe(MIN_IMAGE_WIDTH);
   });
+  it('falls back to the minimum width when available is non-finite', () => {
+    expect(clampImageWidth(200, Number.NaN)).toBe(MIN_IMAGE_WIDTH);
+  });
 });
