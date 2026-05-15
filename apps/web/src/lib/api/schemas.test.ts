@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createTagSchema } from './schemas.ts';
+import { assetUploadQuerySchema, createTagSchema, patchCaptionSchema } from './schemas.ts';
 
 describe('createTagSchema — tag name', () => {
   it('accepts a plain name', () => {
@@ -28,5 +28,29 @@ describe('createTagSchema — tag name', () => {
 
   it('accepts a name with unicode letters', () => {
     expect(createTagSchema.safeParse({ name: 'café#découverte' }).success).toBe(true);
+  });
+});
+
+describe('asset schemas', () => {
+  it('assetUploadQuerySchema accepts a filename', () => {
+    const r = assetUploadQuerySchema.safeParse({ filename: 'photo.png' });
+    expect(r.success).toBe(true);
+  });
+
+  it('assetUploadQuerySchema rejects a missing filename', () => {
+    expect(assetUploadQuerySchema.safeParse({}).success).toBe(false);
+  });
+
+  it('assetUploadQuerySchema rejects an over-long filename', () => {
+    expect(assetUploadQuerySchema.safeParse({ filename: 'x'.repeat(300) }).success).toBe(false);
+  });
+
+  it('patchCaptionSchema accepts a caption', () => {
+    expect(patchCaptionSchema.safeParse({ caption: 'A photo' }).success).toBe(true);
+    expect(patchCaptionSchema.safeParse({ caption: '' }).success).toBe(true);
+  });
+
+  it('patchCaptionSchema rejects an over-long caption', () => {
+    expect(patchCaptionSchema.safeParse({ caption: 'x'.repeat(2000) }).success).toBe(false);
   });
 });

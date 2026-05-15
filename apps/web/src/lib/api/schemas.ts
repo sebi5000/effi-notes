@@ -13,6 +13,8 @@ const TAG_NAME_MAX = 64;
 const FOLDER_NAME_MAX = 120;
 const BODY_MAX = 1_000_000; // 1 MB markdown ceiling — well above any realistic note
 const SEARCH_QUERY_MAX = 200;
+const FILENAME_MAX = 255;
+const CAPTION_MAX = 1000;
 
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
 
@@ -141,3 +143,15 @@ export type SearchHit = {
 };
 
 export type ApiError = { error: string; details?: unknown };
+
+/** Query params for `POST /api/notes/[noteId]/assets` — the raw file is the body. */
+export const assetUploadQuerySchema = z.object({
+  filename: z.string().min(1).max(FILENAME_MAX),
+});
+export type AssetUploadQuery = z.infer<typeof assetUploadQuerySchema>;
+
+/** Body for `PATCH /api/assets/[id]` — updates the searchable caption. */
+export const patchCaptionSchema = z.object({
+  caption: z.string().max(CAPTION_MAX),
+});
+export type PatchCaptionInput = z.infer<typeof patchCaptionSchema>;
