@@ -52,6 +52,7 @@ export default defineConfig({
       // covered by Phase E E2E rather than Vitest.
       include: [
         'apps/web/src/app/api/notes/**/route.ts',
+        'apps/web/src/app/api/assets/**/route.ts',
         'apps/web/src/app/api/folders/**/route.ts',
         'apps/web/src/app/api/tags/**/route.ts',
         'apps/web/src/app/api/search/route.ts',
