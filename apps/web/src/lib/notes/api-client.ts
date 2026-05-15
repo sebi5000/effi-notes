@@ -5,6 +5,7 @@ import type {
   FolderNode,
   NoteDetail,
   NoteListItem,
+  PatchFolderInput,
   PatchNoteInput,
   PutNoteBodyInput,
   SearchHit,
@@ -107,6 +108,17 @@ export const foldersApi = {
     request('/api/folders', {
       method: 'POST',
       body: JSON.stringify(input),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  patch: (id: string, input: PatchFolderInput, fetcher?: typeof fetch): Promise<FolderNode> =>
+    request(`/api/folders/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  delete: (id: string, fetcher?: typeof fetch): Promise<{ deleted: true }> =>
+    request(`/api/folders/${id}`, {
+      method: 'DELETE',
       ...(fetcher ? { fetcher } : {}),
     }),
 };

@@ -44,6 +44,12 @@
       "notesHeading": "Notes",
       "emptyState": "No notes here yet."
     },
+    "folderActions": {
+      "newFolder": "New folder",
+      "newFolderPlaceholder": "Folder name",
+      "rename": "Rename folder",
+      "delete": "Delete folder"
+    },
     "commandBar": {
       "label": "Search notes",
       "placeholder": "Search…"

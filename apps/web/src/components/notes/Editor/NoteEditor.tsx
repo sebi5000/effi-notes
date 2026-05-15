@@ -1,6 +1,7 @@
 'use client';
 
 import { EditorContent, useEditor } from '@tiptap/react';
+import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
@@ -24,10 +25,12 @@ const pickColor = (n: number): string =>
   PRESENCE_COLORS[Math.abs(n) % PRESENCE_COLORS.length] ?? '#C26A20';
 
 /**
- * Connects a Tiptap editor to the worker's y-websocket relay via the
- * /api/collab/[noteId] token endpoint. Tracks save state via the
- * reduceSaveState machine and persists markdown via PUT /api/notes/[id]/body
- * on graceful disconnect / periodic flush.
+ * Outer component: owns the Y.Doc and the WebSocket lifecycle. Renders a
+ * lightweight skeleton while the collab session is being established, then
+ * mounts the inner editor once the provider exists. Splitting like this
+ * avoids calling useEditor with an empty extensions list — Tiptap requires
+ * a Schema (with a `doc` top-level node) at mount time, and the cleanest
+ * way to satisfy that is to not mount until the schema is ready.
  */
 export function NoteEditor({
   noteId,
@@ -36,13 +39,13 @@ export function NoteEditor({
   initialUpdatedAt,
   currentUser,
 }: Props) {
+  // The parent passes `key={noteId}` so this component remounts per note
+  // and we get a fresh Y.Doc without depending on noteId here.
   const ydoc = useMemo(() => new Y.Doc(), []);
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
   const [presence, setPresence] = useState<ReadonlyArray<PresenceUser>>([]);
-  const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
-  const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
+  const [connError, setConnError] = useState(false);
 
-  // Open the WebSocket once we have a token.
   useEffect(() => {
     let cancelled = false;
     let wsProvider: WebsocketProvider | null = null;
@@ -51,9 +54,6 @@ export function NoteEditor({
         const { url, token } = await collabApi.issueToken(noteId);
         if (cancelled) return;
         const parsed = new URL(url);
-        // y-websocket's WebsocketProvider signature: (serverUrl, room, doc)
-        // The full URL is `${serverUrl}/${room}?…` — we pass our origin and
-        // use the note id as the "room" so the path resolves to /yjs/<id>.
         const serverUrl = `${parsed.protocol}//${parsed.host}`;
         wsProvider = new WebsocketProvider(serverUrl, `yjs/${noteId}`, ydoc, {
           params: { token },
@@ -68,12 +68,12 @@ export function NoteEditor({
           if (!states) return;
           const users: PresenceUser[] = [];
           for (const [clientId, state] of states.entries()) {
-            const user = (state as { user?: { name?: string; color?: string } }).user;
             if (clientId === wsProvider?.awareness.clientID) continue;
+            const u = (state as { user?: { name?: string; color?: string } }).user;
             users.push({
               clientId,
-              initials: initialsFromName(user?.name ?? null),
-              colorHex: user?.color ?? pickColor(clientId),
+              initials: initialsFromName(u?.name ?? null),
+              colorHex: u?.color ?? pickColor(clientId),
             });
           }
           setPresence(users);
@@ -81,8 +81,7 @@ export function NoteEditor({
         wsProvider.awareness.on('change', updatePresence);
         updatePresence();
       } catch {
-        // Token issuance failed — fall back to offline mode silently.
-        dispatch({ kind: 'save-network-error' });
+        if (!cancelled) setConnError(true);
       }
     })();
     return () => {
@@ -92,19 +91,70 @@ export function NoteEditor({
     };
   }, [noteId, ydoc, currentUser.color, currentUser.name]);
 
+  if (provider === null) {
+    return <NoteEditorSkeleton viewerCount={1} error={connError} />;
+  }
+
+  return (
+    <CollaborativeEditor
+      noteId={noteId}
+      ydoc={ydoc}
+      provider={provider}
+      presence={presence}
+      initialBody={initialBody}
+      initialUpdatedAt={initialUpdatedAt}
+      currentUser={currentUser}
+    />
+  );
+}
+
+function NoteEditorSkeleton({ viewerCount, error }: { viewerCount: number; error: boolean }) {
+  const t = useTranslations('notes.saveIndicator');
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
+        <div className="text-muted-foreground/70 text-xs">{t(error ? 'offline' : 'saving')}</div>
+        <span className="text-muted-foreground/60 text-xs">
+          {viewerCount > 1 ? `${viewerCount} viewing` : null}
+        </span>
+      </div>
+      <div className="prose-paper text-muted-foreground/60 min-h-[60vh] animate-pulse">
+        Connecting…
+      </div>
+    </div>
+  );
+}
+
+function CollaborativeEditor({
+  noteId,
+  ydoc,
+  provider,
+  presence,
+  initialBody,
+  initialUpdatedAt,
+  currentUser,
+}: {
+  noteId: string;
+  ydoc: Y.Doc;
+  provider: WebsocketProvider;
+  presence: ReadonlyArray<PresenceUser>;
+  initialBody: string;
+  initialUpdatedAt: string;
+  currentUser: { id: string; name: string; color: string };
+}) {
+  const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
+
   const editor = useEditor(
     {
-      extensions:
-        provider !== null
-          ? buildExtensions({
-              doc: ydoc,
-              awareness: provider.awareness as unknown as {
-                setLocalStateField: (k: string, v: unknown) => void;
-                getStates: () => Map<number, unknown>;
-              },
-              user: { name: currentUser.name, color: currentUser.color },
-            })
-          : [],
+      extensions: buildExtensions({
+        doc: ydoc,
+        awareness: provider.awareness as unknown as {
+          setLocalStateField: (k: string, v: unknown) => void;
+          getStates: () => Map<number, unknown>;
+        },
+        user: { name: currentUser.name, color: currentUser.color },
+      }),
       content: initialBody,
       editorProps: {
         attributes: {
@@ -114,20 +164,15 @@ export function NoteEditor({
       onUpdate: () => dispatch({ kind: 'edit' }),
       immediatelyRender: false,
     },
-    [provider],
+    [provider, ydoc],
   );
 
-  // Periodic markdown autosave via PUT /api/notes/[id]/body. Reads the
-  // current editor markdown (via getJSON → server-side serialisation in a
-  // real prod build; here we just stringify) every 5s while dirty.
   useEffect(() => {
     if (!editor) return;
     const interval = window.setInterval(async () => {
       if (saveState !== 'dirty') return;
       try {
         dispatch({ kind: 'save-start' });
-        // Markdown serialisation isn't part of Tiptap core — fall back to
-        // editor.getText(). Future: add a Tiptap markdown extension.
         const text = editor.getText();
         const res = await notesApi.putBody(noteId, { body: text, baseUpdatedAt });
         setBaseUpdatedAt(res.updatedAt);

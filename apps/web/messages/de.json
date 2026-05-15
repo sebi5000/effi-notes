@@ -44,6 +44,12 @@
       "notesHeading": "Notizen",
       "emptyState": "Hier gibt es noch keine Notizen."
     },
+    "folderActions": {
+      "newFolder": "Neuer Ordner",
+      "newFolderPlaceholder": "Ordnername",
+      "rename": "Ordner umbenennen",
+      "delete": "Ordner löschen"
+    },
     "commandBar": {
       "label": "Notizen durchsuchen",
       "placeholder": "Suchen…"

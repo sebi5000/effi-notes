@@ -2,9 +2,9 @@
 
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
-import { notesApi } from '@/lib/notes/api-client.ts';
+import { foldersApi, notesApi } from '@/lib/notes/api-client.ts';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
 
@@ -16,9 +16,16 @@ type Props = {
   initialNote: NoteDetail | null;
 };
 
-export function NotesShell({ folders, tags, initialNotes, currentUser, initialNote }: Props) {
+export function NotesShell({
+  folders: initialFolders,
+  tags,
+  initialNotes,
+  currentUser,
+  initialNote,
+}: Props) {
   const router = useRouter();
   const t = useTranslations('notes.shell');
+  const [folders, setFolders] = useState<ReadonlyArray<FolderNode>>(initialFolders);
   const [notes, setNotes] = useState<ReadonlyArray<NoteListItem>>(initialNotes);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [tagId, setTagId] = useState<string | null>(null);
@@ -52,6 +59,43 @@ export function NotesShell({ folders, tags, initialNotes, currentUser, initialNo
     }
   };
 
+  const refreshFolders = useCallback(async () => {
+    try {
+      const res = await foldersApi.list();
+      setFolders(res.folders);
+    } catch {
+      // ignore — keep current state
+    }
+  }, []);
+
+  const handleCreateFolder = useCallback(
+    async (name: string, parentId: string | null) => {
+      await foldersApi.create({
+        name,
+        ...(parentId !== null ? { parentId } : {}),
+      });
+      await refreshFolders();
+    },
+    [refreshFolders],
+  );
+
+  const handleRenameFolder = useCallback(
+    async (id: string, name: string) => {
+      await foldersApi.patch(id, { name });
+      await refreshFolders();
+    },
+    [refreshFolders],
+  );
+
+  const handleDeleteFolder = useCallback(
+    async (id: string) => {
+      await foldersApi.delete(id);
+      await refreshFolders();
+      if (folderId === id) setFolderId(null);
+    },
+    [refreshFolders, folderId],
+  );
+
   return (
     <div className="grid h-screen grid-cols-[280px_1fr]">
       <Sidebar
@@ -64,6 +108,11 @@ export function NotesShell({ folders, tags, initialNotes, currentUser, initialNo
         onSelectFolder={setFolderId}
         onSelectTag={setTagId}
         onSelectNote={openNote}
+        folderMutations={{
+          onCreate: handleCreateFolder,
+          onRename: handleRenameFolder,
+          onDelete: handleDeleteFolder,
+        }}
       />
       <main className="flex flex-col px-12 py-10">
         {noteDetail ? (

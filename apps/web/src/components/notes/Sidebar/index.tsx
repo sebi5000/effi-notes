@@ -1,9 +1,10 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { CommandBar } from './CommandBar.tsx';
-import { FolderTree } from './FolderTree.tsx';
+import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
 import { TagCloud } from './TagCloud.tsx';
 
 type Props = {
@@ -16,6 +17,13 @@ type Props = {
   onSelectFolder: (id: string | null) => void;
   onSelectTag: (id: string | null) => void;
   onSelectNote: (id: string) => void;
+  /**
+   * Folder mutation handlers (Phase D2 — user story: add/edit/delete folders
+   * in the sidebar). When omitted, the folder section is read-only.
+   */
+  folderMutations?: FolderMutationHandlers & {
+    onCreate: (name: string, parentId: string | null) => Promise<void>;
+  };
 };
 
 export function Sidebar({
@@ -28,8 +36,32 @@ export function Sidebar({
   onSelectFolder,
   onSelectTag,
   onSelectNote,
+  folderMutations,
 }: Props) {
   const t = useTranslations('notes.sidebar');
+  const tA = useTranslations('notes.folderActions');
+  const [creating, setCreating] = useState(false);
+  const [createName, setCreateName] = useState('');
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const submitCreate = async () => {
+    if (!folderMutations) return;
+    const name = createName.trim();
+    if (name.length === 0) {
+      setCreating(false);
+      setCreateName('');
+      return;
+    }
+    try {
+      await folderMutations.onCreate(name, selectedFolderId);
+      setCreating(false);
+      setCreateName('');
+      setCreateError(null);
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'create failed');
+    }
+  };
+
   return (
     <aside className="border-paper-line/80 flex h-full flex-col gap-4 border-r p-4">
       <header className="flex items-center gap-2">
@@ -41,10 +73,69 @@ export function Sidebar({
       <CommandBar onSelect={onSelectNote} />
 
       <section aria-label={t('foldersHeading')} className="flex-1 overflow-y-auto">
-        <h3 className="text-muted-foreground mb-1 text-xs font-medium uppercase tracking-wide">
-          {t('foldersHeading')}
-        </h3>
-        <FolderTree folders={folders} selectedId={selectedFolderId} onSelect={onSelectFolder} />
+        <div className="mb-1 flex items-center justify-between">
+          <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+            {t('foldersHeading')}
+          </h3>
+          {folderMutations ? (
+            <button
+              type="button"
+              aria-label={tA('newFolder')}
+              title={tA('newFolder')}
+              onClick={() => setCreating(true)}
+              className="text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-sm leading-none"
+            >
+              +
+            </button>
+          ) : null}
+        </div>
+
+        {creating && folderMutations ? (
+          <div className="mb-1 flex items-center gap-1 px-2 py-1">
+            <span aria-hidden="true" className="inline-block h-4 w-4" />
+            <input
+              ref={(el) => {
+                if (el) el.focus();
+              }}
+              aria-label={tA('newFolder')}
+              value={createName}
+              placeholder={tA('newFolderPlaceholder')}
+              onChange={(e) => setCreateName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void submitCreate();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  setCreating(false);
+                  setCreateName('');
+                }
+              }}
+              onBlur={() => void submitCreate()}
+              className="border-border bg-background font-display flex-1 rounded border px-1 py-0.5 text-sm focus:outline-none"
+            />
+          </div>
+        ) : null}
+
+        <FolderTree
+          folders={folders}
+          selectedId={selectedFolderId}
+          onSelect={onSelectFolder}
+          {...(folderMutations
+            ? {
+                mutations: {
+                  onRename: folderMutations.onRename,
+                  onDelete: folderMutations.onDelete,
+                },
+              }
+            : {})}
+        />
+
+        {createError !== null ? (
+          <div role="alert" className="text-danger mt-2 rounded bg-red-50 px-2 py-1 text-xs">
+            {createError}
+          </div>
+        ) : null}
 
         <h3 className="text-muted-foreground mb-1 mt-4 text-xs font-medium uppercase tracking-wide">
           {t('tagsHeading')}
