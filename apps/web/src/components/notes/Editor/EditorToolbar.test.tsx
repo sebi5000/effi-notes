@@ -10,6 +10,14 @@ afterEach(cleanup);
 
 const messages = {
   notes: {
+    callouts: {
+      label: 'Insert callout',
+      note: 'Note',
+      tip: 'Tip',
+      important: 'Important',
+      warning: 'Warning',
+      caution: 'Caution',
+    },
     editorToolbar: {
       label: 'Formatting',
       h1: 'Heading 1',
@@ -181,5 +189,11 @@ describe('EditorToolbar', () => {
     expect(within(container).getByLabelText('Heading 1').getAttribute('aria-pressed')).toBe(
       'false',
     );
+  });
+
+  it('renders the callout menu button', () => {
+    const { editor } = makeEditor();
+    const { container } = render(wrap(<EditorToolbar editor={editor} />));
+    expect(within(container).getByLabelText('Insert callout')).toBeTruthy();
   });
 });

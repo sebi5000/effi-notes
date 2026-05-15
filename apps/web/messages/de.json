@@ -71,6 +71,14 @@
       "offline": "Offline · wird erneut versucht",
       "viewing": "{count} aktiv"
     },
+    "callouts": {
+      "label": "Callout einfügen",
+      "note": "Hinweis",
+      "tip": "Tipp",
+      "important": "Wichtig",
+      "warning": "Warnung",
+      "caution": "Vorsicht"
+    },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",
       "copied": "Kopiert"

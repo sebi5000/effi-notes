@@ -63,6 +63,7 @@ export default defineConfig({
         'apps/web/src/components/notes/Sidebar/FolderTree.tsx',
         'apps/web/src/components/notes/Editor/EditorToolbar.tsx',
         'apps/web/src/components/notes/Editor/CalloutExtension.ts',
+        'apps/web/src/components/notes/Editor/CalloutMenu.tsx',
         'apps/web/src/components/notes/Editor/CopyMarkdownButton.tsx',
         'apps/web/src/components/notes/Editor/PresenceBar.tsx',
         'apps/web/src/components/notes/Editor/SaveIndicator.tsx',

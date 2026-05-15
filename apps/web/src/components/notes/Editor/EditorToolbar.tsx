@@ -2,6 +2,7 @@
 
 import type { Editor } from '@tiptap/react';
 import { useTranslations } from 'next-intl';
+import { CalloutMenu } from './CalloutMenu.tsx';
 
 type Props = {
   editor: Editor | null;
@@ -132,6 +133,12 @@ export function EditorToolbar({ editor }: Props) {
 
         <Group>
           <Btn label={t('link')} short="🔗" isActive={isActive('link')} onClick={promptLink} />
+        </Group>
+
+        <Divider />
+
+        <Group>
+          <CalloutMenu editor={editor} />
         </Group>
       </div>
     </div>
