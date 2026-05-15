@@ -58,6 +58,11 @@ describe('POST /api/notes/[noteId]/assets', () => {
     expect(asset?.contentType).toBe('image/png');
     expect(asset?.noteId).toBe(note.id);
     expect(asset?.filename).toBe('pic.png');
+    const audits = await prisma.auditLog.findMany({
+      where: { action: 'assets.uploaded', subject: body.id },
+    });
+    expect(audits).toHaveLength(1);
+    expect(audits[0]?.actorId).toBe(user.id);
   });
 
   it('415 for a non-image body (magic bytes mismatch)', async () => {
