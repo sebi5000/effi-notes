@@ -81,7 +81,8 @@
     },
     "editorImage": {
       "captionPlaceholder": "Add a caption…",
-      "uploadFailed": "Image upload failed"
+      "uploadFailed": "Image upload failed",
+      "dismiss": "Dismiss"
     },
     "editorActions": {
       "copyMarkdown": "Copy as Markdown",

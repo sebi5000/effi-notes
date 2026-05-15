@@ -31,7 +31,12 @@ export const buildExtensions = (input: {
   awareness: AwarenessLike;
   user: { name: string; color: string };
   noteId: string;
+  onUploadError: () => void;
 }) => {
+  // Each dropped/pasted file uploads independently and inserts at its
+  // originally-captured position once it resolves. When several files are
+  // dropped or pasted at once, slower uploads land after faster ones, so the
+  // inserted images may not preserve drop order — an accepted v1 limitation.
   const uploadAndInsert = (editor: Editor, file: File, pos: number): void => {
     void assetsApi
       .upload(input.noteId, file)
@@ -42,7 +47,8 @@ export const buildExtensions = (input: {
           .run();
       })
       .catch(() => {
-        // upload failed — the editor stays usable
+        // upload failed — surface a non-blocking notice; the editor stays usable
+        input.onUploadError();
       });
   };
 
@@ -63,7 +69,9 @@ export const buildExtensions = (input: {
     FileHandler.configure({
       allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
       onDrop: (currentEditor, files, pos) => {
-        for (const file of files) uploadAndInsert(currentEditor, file, pos);
+        for (const file of files) {
+          uploadAndInsert(currentEditor, file, pos);
+        }
       },
       onPaste: (currentEditor, files) => {
         for (const file of files) {

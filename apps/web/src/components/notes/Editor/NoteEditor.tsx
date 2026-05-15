@@ -144,8 +144,10 @@ function CollaborativeEditor({
   initialUpdatedAt: string;
   currentUser: { id: string; name: string; color: string };
 }) {
+  const tImage = useTranslations('notes.editorImage');
   const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
+  const [uploadError, setUploadError] = useState(false);
 
   const editor = useEditor(
     {
@@ -157,6 +159,7 @@ function CollaborativeEditor({
         },
         user: { name: currentUser.name, color: currentUser.color },
         noteId,
+        onUploadError: () => setUploadError(true),
       }),
       content: initialBody,
       editorProps: {
@@ -193,6 +196,14 @@ function CollaborativeEditor({
     return () => window.clearInterval(interval);
   }, [editor, noteId, saveState, baseUpdatedAt]);
 
+  // Auto-dismiss the upload-failure notice so it stays transient and
+  // non-blocking — the user can also close it early via the dismiss button.
+  useEffect(() => {
+    if (!uploadError) return;
+    const timer = window.setTimeout(() => setUploadError(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [uploadError]);
+
   return (
     <div className="relative flex h-full flex-col">
       <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
@@ -202,6 +213,17 @@ function CollaborativeEditor({
           <CopyMarkdownButton editor={editor} />
         </div>
       </div>
+      {uploadError ? (
+        <div
+          role="alert"
+          className="text-danger mb-2 flex items-center justify-between gap-2 rounded bg-red-50 px-2 py-1 text-xs"
+        >
+          <span>{tImage('uploadFailed')}</span>
+          <button type="button" onClick={() => setUploadError(false)} className="underline">
+            {tImage('dismiss')}
+          </button>
+        </div>
+      ) : null}
       {/* The A4 sheet has a fixed 210mm width — center it and let the rail
           scroll horizontally on narrow viewports rather than clipping. */}
       <EditorContent editor={editor} className="flex-1 overflow-x-auto pb-24" />

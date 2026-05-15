@@ -81,7 +81,8 @@
     },
     "editorImage": {
       "captionPlaceholder": "Bildunterschrift hinzufügen…",
-      "uploadFailed": "Bild-Upload fehlgeschlagen"
+      "uploadFailed": "Bild-Upload fehlgeschlagen",
+      "dismiss": "Schließen"
     },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",
