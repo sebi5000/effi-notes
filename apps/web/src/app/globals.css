@@ -161,41 +161,52 @@
 
 /* Task lists (Tiptap TaskList / TaskItem).
  *
- * TaskItem renders each row as `<li><label><input/></label><div>…</div></li>`.
- * Both children are block-level by default, so the checkbox and the text
- * stack on two lines. Lay the row out as a flex line: checkbox fixed-width,
- * content flexes and may wrap on its own.
+ * TaskItem renders via a NodeView that builds `<li data-checked>` →
+ * `<label><input/><span/></label>` + `<div><p>…</p></div>`. The live `<li>`
+ * carries `data-checked` but NOT `data-type` (that attribute only exists in
+ * the static renderHTML used for paste-parsing) — so the row hook is
+ * `li[data-checked]`.
+ *
+ * Both children are block-level by default, which stacked the checkbox
+ * above the text. Lay each row out as a single flex line: a fixed-width
+ * checkbox aligned to the first line of text, content flexing beside it.
+ * Plain selectors (not `:where`) so they reliably beat the generic `li`
+ * rule above.
  */
-.prose-paper :where(ul[data-type="taskList"]) {
+.prose-paper ul[data-type="taskList"] {
   list-style: none;
   padding-left: 0;
 }
-.prose-paper :where(li[data-type="taskItem"]) {
+.prose-paper li[data-checked] {
   display: flex;
   align-items: flex-start;
-  gap: 0.55em;
-  margin-bottom: 0.3em;
+  gap: 0.5em;
+  margin-bottom: 0.2em;
 }
-.prose-paper :where(li[data-type="taskItem"] > label) {
+.prose-paper li[data-checked] > label {
   flex: 0 0 auto;
-  /* nudge the checkbox onto the first text line's baseline */
-  margin-top: 0.28em;
+  display: inline-flex;
+  align-items: center;
+  /* match the body line-height so the box sits on the first text line */
+  height: 1.7em;
+  margin: 0;
   user-select: none;
 }
-.prose-paper :where(li[data-type="taskItem"] > div) {
+.prose-paper li[data-checked] > div {
   flex: 1 1 auto;
   min-width: 0;
 }
-.prose-paper :where(li[data-type="taskItem"] > div > p) {
+.prose-paper li[data-checked] > div > p {
   margin-bottom: 0;
 }
-.prose-paper :where(li[data-type="taskItem"] input[type="checkbox"]) {
-  width: 1em;
-  height: 1em;
+.prose-paper li[data-checked] input[type="checkbox"] {
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0;
   accent-color: var(--color-accent);
   cursor: pointer;
 }
-.prose-paper :where(li[data-type="taskItem"][data-checked="true"] > div) {
+.prose-paper li[data-checked="true"] > div {
   color: var(--color-muted-foreground);
   text-decoration: line-through;
 }

@@ -96,12 +96,12 @@ export function NotesShell({
     [refreshFolders, folderId],
   );
 
-  const handleMoveFolder = useCallback(
-    async (id: string, parentId: string | null) => {
-      // PATCH /api/folders/[id] with parentId — `null` re-parents to root.
-      // The PatchFolderInput schema treats `parentId: null` as a valid value,
-      // so we pass it through directly.
-      await foldersApi.patch(id, { parentId });
+  const handleReorderFolders = useCallback(
+    async (parentId: string | null, orderedIds: string[]) => {
+      // One transaction-backed call handles both same-level reordering and
+      // cross-hierarchy moves: every id becomes a child of `parentId` at its
+      // array index.
+      await foldersApi.reorder(parentId, orderedIds);
       await refreshFolders();
     },
     [refreshFolders],
@@ -123,7 +123,7 @@ export function NotesShell({
           onCreate: handleCreateFolder,
           onRename: handleRenameFolder,
           onDelete: handleDeleteFolder,
-          onMove: handleMoveFolder,
+          onReorder: handleReorderFolders,
         }}
       />
       <main className="flex flex-col px-12 py-10">

@@ -3,9 +3,14 @@ import type { FolderNode } from '@/lib/api/schemas.ts';
 import {
   ancestorChain,
   buildFolderTree,
+  childrenOf,
+  computeReorder,
+  computeRootReorder,
   flatten,
   isDescendant,
+  isNoopReorder,
   moveSelection,
+  resolveDropMode,
 } from './folder-tree.ts';
 
 const f = (id: string, name: string, parentId: string | null = null, position = 0): FolderNode => ({
@@ -141,5 +146,116 @@ describe('isDescendant (cycle guard)', () => {
   it('does not infinite-loop on a cyclic graph', () => {
     const cyclic: FolderNode[] = [f('a', 'A', 'b', 0), f('b', 'B', 'a', 0)];
     expect(isDescendant(cyclic, 'a', 'b')).toBe(true);
+  });
+});
+
+describe('childrenOf', () => {
+  it('returns the direct children of a parent, position-ordered', () => {
+    expect(childrenOf(fixture, 'clients').map((c) => c.id)).toEqual(['acme', 'globex']);
+  });
+
+  it('returns root folders for parentId null', () => {
+    expect(childrenOf(fixture, null).map((c) => c.id)).toEqual(['clients', 'internal']);
+  });
+
+  it('breaks position ties by name', () => {
+    const tied: FolderNode[] = [f('z', 'Zeta', null, 0), f('a', 'Alpha', null, 0)];
+    expect(childrenOf(tied, null).map((c) => c.id)).toEqual(['a', 'z']);
+  });
+
+  it('returns an empty list for a leaf folder', () => {
+    expect(childrenOf(fixture, 'acme')).toEqual([]);
+  });
+});
+
+describe('resolveDropMode', () => {
+  const rect = { top: 100, height: 40 };
+  it('maps the top quarter to before', () => {
+    expect(resolveDropMode(rect, 105)).toBe('before'); // ratio 0.125
+  });
+  it('maps the middle half to inside', () => {
+    expect(resolveDropMode(rect, 120)).toBe('inside'); // ratio 0.5
+  });
+  it('maps the bottom quarter to after', () => {
+    expect(resolveDropMode(rect, 135)).toBe('after'); // ratio 0.875
+  });
+  it('falls back to inside for a zero-height rect (jsdom)', () => {
+    expect(resolveDropMode({ top: 0, height: 0 }, 0)).toBe('inside');
+  });
+});
+
+describe('computeReorder', () => {
+  it('inside: appends the dragged folder to the target children', () => {
+    // globex has no children → drop internal inside it
+    const plan = computeReorder(fixture, 'internal', 'globex', 'inside');
+    expect(plan).toEqual({ parentId: 'globex', orderedIds: ['internal'] });
+  });
+
+  it('inside: nesting into a populated folder appends after existing children', () => {
+    const plan = computeReorder(fixture, 'internal', 'clients', 'inside');
+    expect(plan).toEqual({ parentId: 'clients', orderedIds: ['acme', 'globex', 'internal'] });
+  });
+
+  it('before: inserts the dragged folder ahead of the target sibling', () => {
+    const plan = computeReorder(fixture, 'globex', 'acme', 'before');
+    expect(plan).toEqual({ parentId: 'clients', orderedIds: ['globex', 'acme'] });
+  });
+
+  it('after: inserts the dragged folder behind the target sibling', () => {
+    const plan = computeReorder(fixture, 'acme', 'globex', 'after');
+    expect(plan).toEqual({ parentId: 'clients', orderedIds: ['globex', 'acme'] });
+  });
+
+  it('before/after re-parents when the target lives elsewhere', () => {
+    // internal is a root; dropping it before acme makes it a child of clients
+    const plan = computeReorder(fixture, 'internal', 'acme', 'before');
+    expect(plan).toEqual({ parentId: 'clients', orderedIds: ['internal', 'acme', 'globex'] });
+  });
+
+  it('returns null when dropping a folder onto itself', () => {
+    expect(computeReorder(fixture, 'acme', 'acme', 'inside')).toBeNull();
+  });
+
+  it('returns null for an inside-drop into the folder’s own subtree (cycle)', () => {
+    expect(computeReorder(fixture, 'clients', 'acme', 'inside')).toBeNull();
+  });
+
+  it('returns null for an unknown dragged or target id', () => {
+    expect(computeReorder(fixture, 'ghost', 'acme', 'inside')).toBeNull();
+    expect(computeReorder(fixture, 'acme', 'ghost', 'before')).toBeNull();
+  });
+});
+
+describe('computeRootReorder', () => {
+  it('appends the dragged folder to the root level', () => {
+    const plan = computeRootReorder(fixture, 'acme');
+    expect(plan).toEqual({ parentId: null, orderedIds: ['clients', 'internal', 'acme'] });
+  });
+
+  it('keeps an already-root folder, moved to the end', () => {
+    const plan = computeRootReorder(fixture, 'clients');
+    expect(plan).toEqual({ parentId: null, orderedIds: ['internal', 'clients'] });
+  });
+
+  it('returns null for an unknown id', () => {
+    expect(computeRootReorder(fixture, 'ghost')).toBeNull();
+  });
+});
+
+describe('isNoopReorder', () => {
+  it('is true when the plan matches the current order exactly', () => {
+    expect(isNoopReorder(fixture, { parentId: 'clients', orderedIds: ['acme', 'globex'] })).toBe(
+      true,
+    );
+  });
+
+  it('is false when the order differs', () => {
+    expect(isNoopReorder(fixture, { parentId: 'clients', orderedIds: ['globex', 'acme'] })).toBe(
+      false,
+    );
+  });
+
+  it('is false when the membership differs', () => {
+    expect(isNoopReorder(fixture, { parentId: 'clients', orderedIds: ['acme'] })).toBe(false);
   });
 });

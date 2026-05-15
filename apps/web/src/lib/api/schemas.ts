@@ -70,6 +70,18 @@ export const patchFolderSchema = z
   .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
 export type PatchFolderInput = z.infer<typeof patchFolderSchema>;
 
+/**
+ * Bulk reorder: assign every id in `orderedIds` the parent `parentId` and a
+ * contiguous `position` (0..n) in array order. Powers drag-and-drop —
+ * handles both same-level reordering and cross-hierarchy moves in one
+ * transaction.
+ */
+export const reorderFoldersSchema = z.object({
+  parentId: cuidSchema.nullable(),
+  orderedIds: z.array(cuidSchema).min(1).max(500),
+});
+export type ReorderFoldersInput = z.infer<typeof reorderFoldersSchema>;
+
 export const createTagSchema = z.object({
   name: z
     .string()

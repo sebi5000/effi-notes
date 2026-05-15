@@ -5,10 +5,15 @@ import { type DragEvent, type KeyboardEvent, useMemo, useState } from 'react';
 import type { FolderNode } from '@/lib/api/schemas.ts';
 import {
   buildFolderTree,
+  computeReorder,
+  computeRootReorder,
+  type DropMode,
   type FlatFolder,
   flatten,
   isDescendant,
+  isNoopReorder,
   moveSelection,
+  resolveDropMode,
 } from '@/lib/notes/folder-tree.ts';
 
 export type FolderMutationHandlers = {
@@ -16,19 +21,26 @@ export type FolderMutationHandlers = {
   onRename: (id: string, name: string) => Promise<void>;
   /** Delete `id`. Throws on 409 (non-empty) or other errors. */
   onDelete: (id: string) => Promise<void>;
-  /** Optional: move `id` under `parentId` (null = root). When omitted, DnD is disabled. */
-  onMove?: (id: string, parentId: string | null) => Promise<void>;
+  /**
+   * Persist a drag-and-drop result: every id in `orderedIds` becomes a
+   * child of `parentId` (null = root) at its array index. When omitted,
+   * drag-and-drop is disabled.
+   */
+  onReorder?: (parentId: string | null, orderedIds: string[]) => Promise<void>;
 };
 
 type Props = {
   folders: ReadonlyArray<FolderNode>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  /** Optional mutation surface — when provided, hover-reveals rename/delete + DnD if `onMove` is set. */
+  /** Optional mutation surface — when provided, hover-reveals rename/delete + DnD if `onReorder` is set. */
   mutations?: FolderMutationHandlers;
 };
 
 const DND_MIME = 'application/x-effi-folder';
+
+/** Active drop target while dragging — a row + which third the pointer is over. */
+type DropTarget = { id: string; mode: DropMode } | { id: '__root__'; mode: 'inside' };
 
 /**
  * Accessible folder tree. Uses ARIA tree pattern: container has role="tree",
@@ -40,10 +52,14 @@ const DND_MIME = 'application/x-effi-folder';
  *   F2    rename (when mutations provided)
  *   Del   delete (when mutations provided)
  *
- * Drag-and-drop: when `mutations.onMove` is supplied, each row becomes
- * draggable. Drop on another row → make it a child of that row. Drop on
- * the root drop-zone → make it a root. A cycle guard rejects drops where
- * the candidate parent is a descendant of the dragged folder.
+ * Drag-and-drop (when `mutations.onReorder` is set): each row is draggable.
+ * The drop lands in one of three zones of the hovered row —
+ *   - top quarter    → drop *before* it (same level, reorder)
+ *   - middle half    → drop *inside* it (nest as a child)
+ *   - bottom quarter → drop *after* it (same level, reorder)
+ * Dropping on the root zone moves the folder to the top level. A folder
+ * dropped *inside* a target auto-expands that target so it doesn't appear
+ * to vanish. Cycle drops (into your own subtree) are rejected.
  */
 export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) {
   const t = useTranslations('notes.folderActions');
@@ -57,8 +73,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  /** Highlighted drop target: a folder id, or `__root__` for the root zone. */
-  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
 
   const tree = useMemo(() => buildFolderTree(folders), [folders]);
   const visible = useMemo(() => flatten(tree, expanded), [tree, expanded]);
@@ -70,6 +85,10 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
       else next.add(id);
       return next;
     });
+  };
+
+  const expand = (id: string) => {
+    setExpanded((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
   };
 
   const commitRename = async (id: string, name: string) => {
@@ -99,25 +118,32 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     }
   };
 
-  /** Validates a drop, then calls onMove. Returns true iff the move actually fired. */
-  const tryMove = async (draggedId: string, newParentId: string | null): Promise<boolean> => {
-    if (!mutations?.onMove) return false;
-    // No-op: dropping onto the current parent.
-    const dragged = folders.find((f) => f.id === draggedId);
-    if (!dragged) return false;
-    if ((dragged.parentId ?? null) === newParentId) return false;
-    // Cycle guard.
-    if (newParentId !== null && isDescendant(folders, draggedId, newParentId)) {
+  const dndEnabled = mutations?.onReorder !== undefined;
+
+  /** Resolve + persist a drop. Returns once the reorder (if any) has run. */
+  const applyDrop = async (draggedId: string, target: DropTarget): Promise<void> => {
+    if (!mutations?.onReorder) return;
+    const plan =
+      target.id === '__root__'
+        ? computeRootReorder(folders, draggedId)
+        : computeReorder(folders, draggedId, target.id, target.mode);
+    if (plan === null) {
+      // Only an in-subtree drop reaches here as a hard reject (the dragOver
+      // guard blocks the rest) — surface the cycle reason.
       setActionError(t('cycle'));
-      return false;
+      return;
+    }
+    if (isNoopReorder(folders, plan)) return;
+    // Optimistically reveal the destination so a nested folder isn't hidden
+    // behind a collapsed parent after the refresh.
+    if (target.id !== '__root__' && target.mode === 'inside') {
+      expand(target.id);
     }
     try {
-      await mutations.onMove(draggedId, newParentId);
+      await mutations.onReorder(plan.parentId, plan.orderedIds);
       setActionError(null);
-      return true;
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'move failed');
-      return false;
     }
   };
 
@@ -183,8 +209,6 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     }
   };
 
-  const dndEnabled = mutations?.onMove !== undefined;
-
   const onRowDragStart = (id: string) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled) return;
     e.dataTransfer.setData(DND_MIME, id);
@@ -194,44 +218,50 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
 
   const onRowDragOver = (id: string) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled || draggingId === null) return;
-    if (draggingId === id) return;
+    // A row inside the dragged folder's own subtree (or the row itself) can
+    // never be a legal drop target — skip it entirely.
     if (isDescendant(folders, draggingId, id)) return;
-    // Stop the event reaching the root drop-zone — a row drop is more
-    // specific than "drop to root".
     e.stopPropagation();
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dropTargetId !== id) setDropTargetId(id);
+    const mode = resolveDropMode(e.currentTarget.getBoundingClientRect(), e.clientY);
+    setDropTarget((prev) =>
+      prev !== null && prev.id === id && prev.mode === mode ? prev : { id, mode },
+    );
   };
 
   const onRowDragLeave = (id: string) => () => {
-    if (dropTargetId === id) setDropTargetId(null);
+    setDropTarget((prev) => (prev !== null && prev.id === id ? null : prev));
   };
 
   const onRowDrop = (id: string) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled) return;
-    // Prevent the drop from also bubbling to the root drop-zone handler.
     e.stopPropagation();
     e.preventDefault();
     const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
+    const mode =
+      dropTarget !== null && dropTarget.id === id
+        ? dropTarget.mode
+        : resolveDropMode(e.currentTarget.getBoundingClientRect(), e.clientY);
     setDraggingId(null);
-    setDropTargetId(null);
-    if (!draggedId || draggedId === id) return;
-    void tryMove(draggedId, id);
+    setDropTarget(null);
+    if (!draggedId || isDescendant(folders, draggedId, id)) return;
+    void applyDrop(draggedId, { id, mode });
   };
 
   const onRootDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled || draggingId === null) return;
     const dragged = folders.find((f) => f.id === draggingId);
-    if (!dragged) return;
-    if (dragged.parentId === null) return; // already at root
+    if (!dragged || dragged.parentId === null) return; // already at root
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    if (dropTargetId !== '__root__') setDropTargetId('__root__');
+    setDropTarget((prev) =>
+      prev !== null && prev.id === '__root__' ? prev : { id: '__root__', mode: 'inside' },
+    );
   };
 
   const onRootDragLeave = () => {
-    if (dropTargetId === '__root__') setDropTargetId(null);
+    setDropTarget((prev) => (prev !== null && prev.id === '__root__' ? null : prev));
   };
 
   const onRootDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -239,14 +269,14 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     e.preventDefault();
     const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
     setDraggingId(null);
-    setDropTargetId(null);
+    setDropTarget(null);
     if (!draggedId) return;
-    void tryMove(draggedId, null);
+    void applyDrop(draggedId, { id: '__root__', mode: 'inside' });
   };
 
   const onAnyDragEnd = () => {
     setDraggingId(null);
-    setDropTargetId(null);
+    setDropTarget(null);
   };
 
   return (
@@ -257,7 +287,9 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
       onDragLeave={dndEnabled ? onRootDragLeave : undefined}
       onDrop={dndEnabled ? onRootDrop : undefined}
       className={
-        dropTargetId === '__root__' ? 'ring-accent rounded ring-2 ring-inset transition' : undefined
+        dropTarget?.id === '__root__'
+          ? 'ring-accent rounded ring-2 ring-inset transition'
+          : undefined
       }
     >
       <div
@@ -275,7 +307,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
             isSelected={row.id === selectedId}
             isRenaming={renamingId === row.id}
             isDragging={draggingId === row.id}
-            isDropTarget={dropTargetId === row.id}
+            dropMode={dropTarget !== null && dropTarget.id === row.id ? dropTarget.mode : null}
             draggable={dndEnabled}
             onDragStart={dndEnabled ? onRowDragStart(row.id) : undefined}
             onDragOver={dndEnabled ? onRowDragOver(row.id) : undefined}
@@ -310,7 +342,8 @@ type RowProps = {
   isSelected: boolean;
   isRenaming: boolean;
   isDragging: boolean;
-  isDropTarget: boolean;
+  /** Non-null while this row is the active drop target. */
+  dropMode: DropMode | null;
   draggable: boolean;
   onDragStart?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
   onDragOver?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
@@ -325,13 +358,20 @@ type RowProps = {
   onRequestDelete?: (() => void) | undefined;
 };
 
+/** before/after → an inset accent line at the top/bottom edge (no layout shift). */
+const dropShadow: Record<DropMode, string | undefined> = {
+  before: 'inset 0 2px 0 0 var(--color-accent)',
+  after: 'inset 0 -2px 0 0 var(--color-accent)',
+  inside: undefined,
+};
+
 function FolderRow({
   row,
   isExpanded,
   isSelected,
   isRenaming,
   isDragging,
-  isDropTarget,
+  dropMode,
   draggable,
   onDragStart,
   onDragOver,
@@ -361,12 +401,15 @@ function FolderRow({
       aria-expanded={row.hasChildren ? isExpanded : undefined}
       aria-grabbed={isDragging ? 'true' : undefined}
       data-id={row.id}
-      data-drop-target={isDropTarget ? 'true' : undefined}
-      style={{ paddingLeft: `${row.depth * 14 + 8}px` }}
+      data-drop-mode={dropMode ?? undefined}
+      style={{
+        paddingLeft: `${row.depth * 14 + 8}px`,
+        ...(dropMode !== null ? { boxShadow: dropShadow[dropMode] } : {}),
+      }}
       className={`hover:bg-muted/60 group flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
         isSelected ? 'bg-muted text-foreground' : 'text-muted-foreground'
       } ${isDragging ? 'opacity-50' : ''} ${
-        isDropTarget ? 'bg-accent-soft/40 ring-accent ring-1' : ''
+        dropMode === 'inside' ? 'bg-accent-soft/40 ring-accent ring-1' : ''
       }`}
       onClick={() => !isRenaming && onSelect(row.id)}
       onKeyDown={(e) => {

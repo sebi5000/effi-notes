@@ -121,6 +121,16 @@ export const foldersApi = {
       method: 'DELETE',
       ...(fetcher ? { fetcher } : {}),
     }),
+  reorder: (
+    parentId: string | null,
+    orderedIds: ReadonlyArray<string>,
+    fetcher?: typeof fetch,
+  ): Promise<{ reordered: number }> =>
+    request('/api/folders/reorder', {
+      method: 'PATCH',
+      body: JSON.stringify({ parentId, orderedIds }),
+      ...(fetcher ? { fetcher } : {}),
+    }),
 };
 
 export const tagsApi = {

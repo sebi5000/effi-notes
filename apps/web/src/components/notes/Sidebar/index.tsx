@@ -18,7 +18,6 @@ type Props = {
   onSelectNote: (id: string) => void;
   folderMutations?: FolderMutationHandlers & {
     onCreate: (name: string, parentId: string | null) => Promise<void>;
-    onMove?: (id: string, parentId: string | null) => Promise<void>;
   };
 };
 
@@ -141,7 +140,7 @@ export function Sidebar({
                 mutations: {
                   onRename: folderMutations.onRename,
                   onDelete: folderMutations.onDelete,
-                  ...(folderMutations.onMove ? { onMove: folderMutations.onMove } : {}),
+                  ...(folderMutations.onReorder ? { onReorder: folderMutations.onReorder } : {}),
                 },
               }
             : {})}

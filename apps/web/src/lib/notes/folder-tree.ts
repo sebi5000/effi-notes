@@ -119,3 +119,111 @@ export const ancestorChain = (folders: ReadonlyArray<FolderNode>, targetId: stri
   }
   return chain;
 };
+
+/**
+ * Direct children of `parentId` (`null` = root level), ordered the way the
+ * tree renders them: by `position`, then name as a stable tiebreak.
+ */
+export const childrenOf = (
+  folders: ReadonlyArray<FolderNode>,
+  parentId: string | null,
+): FolderNode[] =>
+  folders
+    .filter((f) => (f.parentId ?? null) === parentId)
+    .slice()
+    .sort((a, b) => a.position - b.position || a.name.localeCompare(b.name));
+
+/** Where a drop lands relative to the target row. */
+export type DropMode = 'before' | 'inside' | 'after';
+
+export type ReorderPlan = {
+  /** New parent for the whole `orderedIds` group (`null` = root). */
+  parentId: string | null;
+  /** Final, fully-ordered sibling list for `parentId`, including the dragged folder. */
+  orderedIds: string[];
+};
+
+/**
+ * Pure drop resolver for folder drag-and-drop.
+ *
+ * Given the flat folder list, the dragged folder, a target row and a drop
+ * mode, returns the new parent + the complete ordered sibling list for that
+ * parent (the dragged folder spliced into place). Returns `null` for an
+ * illegal drop:
+ *   - dragging onto itself,
+ *   - `inside` a folder that is the dragged folder's own descendant
+ *     (would create a cycle),
+ *   - `before`/`after` a row whose parent is the dragged folder's descendant.
+ *
+ * The caller persists the plan via the reorder endpoint, which sets
+ * `parentId` + contiguous `position` for every id in `orderedIds`.
+ */
+export const computeReorder = (
+  folders: ReadonlyArray<FolderNode>,
+  draggedId: string,
+  targetId: string,
+  mode: DropMode,
+): ReorderPlan | null => {
+  if (draggedId === targetId) return null;
+  const dragged = folders.find((f) => f.id === draggedId);
+  const target = folders.find((f) => f.id === targetId);
+  if (!dragged || !target) return null;
+
+  if (mode === 'inside') {
+    // Nesting into the dragged folder's own subtree would orphan the branch.
+    if (isDescendant(folders, draggedId, targetId)) return null;
+    const kids = childrenOf(folders, targetId).filter((f) => f.id !== draggedId);
+    return { parentId: targetId, orderedIds: [...kids.map((k) => k.id), draggedId] };
+  }
+
+  // before / after — the dragged folder becomes a sibling of `target`.
+  const parentId = target.parentId ?? null;
+  if (parentId !== null && isDescendant(folders, draggedId, parentId)) return null;
+  const siblings = childrenOf(folders, parentId).filter((f) => f.id !== draggedId);
+  const targetIdx = siblings.findIndex((s) => s.id === targetId);
+  if (targetIdx === -1) return null;
+  const insertAt = mode === 'before' ? targetIdx : targetIdx + 1;
+  const orderedIds = siblings.map((s) => s.id);
+  orderedIds.splice(insertAt, 0, draggedId);
+  return { parentId, orderedIds };
+};
+
+/** Reorder plan for dropping a folder onto the root drop-zone. */
+export const computeRootReorder = (
+  folders: ReadonlyArray<FolderNode>,
+  draggedId: string,
+): ReorderPlan | null => {
+  if (!folders.some((f) => f.id === draggedId)) return null;
+  const roots = childrenOf(folders, null)
+    .filter((f) => f.id !== draggedId)
+    .map((f) => f.id);
+  return { parentId: null, orderedIds: [...roots, draggedId] };
+};
+
+/**
+ * Maps a pointer Y position within a row's bounding box to a drop mode:
+ * the top quarter is `before`, the bottom quarter is `after`, the middle
+ * half is `inside`. A non-positive height (e.g. jsdom's zeroed rect)
+ * falls back to `inside`.
+ */
+export const resolveDropMode = (
+  rect: { top: number; height: number },
+  clientY: number,
+): DropMode => {
+  if (rect.height <= 0) return 'inside';
+  const ratio = (clientY - rect.top) / rect.height;
+  if (ratio < 0.25) return 'before';
+  if (ratio > 0.75) return 'after';
+  return 'inside';
+};
+
+/**
+ * True iff `plan` would leave every folder exactly where it already is
+ * (same parent, same order). Lets the caller skip a redundant network
+ * round-trip when a drag ends without really moving anything.
+ */
+export const isNoopReorder = (folders: ReadonlyArray<FolderNode>, plan: ReorderPlan): boolean => {
+  const current = childrenOf(folders, plan.parentId).map((f) => f.id);
+  if (current.length !== plan.orderedIds.length) return false;
+  return current.every((id, i) => id === plan.orderedIds[i]);
+};
