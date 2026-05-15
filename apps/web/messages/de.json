@@ -43,8 +43,7 @@
       "tagsHeading": "Tags",
       "notesHeading": "Notizen",
       "emptyState": "Hier gibt es noch keine Notizen.",
-      "filterByTag": "Filter:",
-      "clearTag": "Tag-Filter entfernen"
+      "loading": "Wird geladen…"
     },
     "folderActions": {
       "newFolder": "Neuer Ordner",
@@ -55,9 +54,11 @@
     },
     "commandBar": {
       "label": "Notizen durchsuchen",
-      "placeholder": "Suchen · #tag…",
-      "hint": "Tippen Sie #, um nach Tag zu filtern (z. B. #discovery)",
-      "noTagMatch": "Keine passenden Tags."
+      "placeholder": "Suchen · #tag · /ordner…",
+      "hint": "# für Tags, / für Ordner",
+      "noTagMatch": "Keine passenden Tags.",
+      "noFolderMatch": "Keine passenden Ordner.",
+      "clearSearch": "Suche löschen"
     },
     "saveIndicator": {
       "idle": "Gespeichert",

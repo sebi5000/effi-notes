@@ -43,8 +43,7 @@
       "tagsHeading": "Tags",
       "notesHeading": "Notes",
       "emptyState": "No notes here yet.",
-      "filterByTag": "Filter:",
-      "clearTag": "Clear tag filter"
+      "loading": "Loading…"
     },
     "folderActions": {
       "newFolder": "New folder",
@@ -55,9 +54,11 @@
     },
     "commandBar": {
       "label": "Search notes",
-      "placeholder": "Search · #tag…",
-      "hint": "Type # to filter by tag (e.g. #discovery)",
-      "noTagMatch": "No tags match."
+      "placeholder": "Search · #tag · /folder…",
+      "hint": "Type # for tags, / for folders",
+      "noTagMatch": "No tags match.",
+      "noFolderMatch": "No folders match.",
+      "clearSearch": "Clear search"
     },
     "saveIndicator": {
       "idle": "Saved",
