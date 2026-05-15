@@ -10,7 +10,6 @@ import {
   isDescendant,
   isNoopReorder,
   moveSelection,
-  resolveDropMode,
 } from './folder-tree.ts';
 
 const f = (id: string, name: string, parentId: string | null = null, position = 0): FolderNode => ({
@@ -165,22 +164,6 @@ describe('childrenOf', () => {
 
   it('returns an empty list for a leaf folder', () => {
     expect(childrenOf(fixture, 'acme')).toEqual([]);
-  });
-});
-
-describe('resolveDropMode', () => {
-  const rect = { top: 100, height: 40 };
-  it('maps the top quarter to before', () => {
-    expect(resolveDropMode(rect, 105)).toBe('before'); // ratio 0.125
-  });
-  it('maps the middle half to inside', () => {
-    expect(resolveDropMode(rect, 120)).toBe('inside'); // ratio 0.5
-  });
-  it('maps the bottom quarter to after', () => {
-    expect(resolveDropMode(rect, 135)).toBe('after'); // ratio 0.875
-  });
-  it('falls back to inside for a zero-height rect (jsdom)', () => {
-    expect(resolveDropMode({ top: 0, height: 0 }, 0)).toBe('inside');
   });
 });
 

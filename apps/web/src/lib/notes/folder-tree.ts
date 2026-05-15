@@ -201,23 +201,6 @@ export const computeRootReorder = (
 };
 
 /**
- * Maps a pointer Y position within a row's bounding box to a drop mode:
- * the top quarter is `before`, the bottom quarter is `after`, the middle
- * half is `inside`. A non-positive height (e.g. jsdom's zeroed rect)
- * falls back to `inside`.
- */
-export const resolveDropMode = (
-  rect: { top: number; height: number },
-  clientY: number,
-): DropMode => {
-  if (rect.height <= 0) return 'inside';
-  const ratio = (clientY - rect.top) / rect.height;
-  if (ratio < 0.25) return 'before';
-  if (ratio > 0.75) return 'after';
-  return 'inside';
-};
-
-/**
  * True iff `plan` would leave every folder exactly where it already is
  * (same parent, same order). Lets the caller skip a redundant network
  * round-trip when a drag ends without really moving anything.

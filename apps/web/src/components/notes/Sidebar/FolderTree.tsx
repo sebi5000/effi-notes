@@ -13,7 +13,6 @@ import {
   isDescendant,
   isNoopReorder,
   moveSelection,
-  resolveDropMode,
 } from '@/lib/notes/folder-tree.ts';
 
 export type FolderMutationHandlers = {
@@ -39,27 +38,30 @@ type Props = {
 
 const DND_MIME = 'application/x-effi-folder';
 
-/** Active drop target while dragging — a row + which third the pointer is over. */
+/** Active drop target while dragging — a row + which zone, or the root zone. */
 type DropTarget = { id: string; mode: DropMode } | { id: '__root__'; mode: 'inside' };
 
 /**
- * Accessible folder tree. Uses ARIA tree pattern: container has role="tree",
- * each row has role="treeitem" + aria-level + aria-expanded. Keyboard:
+ * Accessible folder tree. Uses the ARIA tree pattern: container has
+ * role="tree", each row has role="treeitem" + aria-level + aria-expanded.
+ * Keyboard:
  *   ↓/↑   move selection
  *   →     expand collapsed node
  *   ←     collapse expanded node (or move to parent)
- *   Enter / Space  activate
+ *   Enter / Space  toggle
  *   F2    rename (when mutations provided)
  *   Del   delete (when mutations provided)
  *
  * Drag-and-drop (when `mutations.onReorder` is set): each row is draggable.
- * The drop lands in one of three zones of the hovered row —
- *   - top quarter    → drop *before* it (same level, reorder)
- *   - middle half    → drop *inside* it (nest as a child)
- *   - bottom quarter → drop *after* it (same level, reorder)
- * Dropping on the root zone moves the folder to the top level. A folder
- * dropped *inside* a target auto-expands that target so it doesn't appear
- * to vanish. Cycle drops (into your own subtree) are rejected.
+ * While a drag is in progress every eligible row reveals three explicit
+ * drop zones —
+ *   - top quarter    → drop *before* it  (reorder at the same level)
+ *   - middle half    → drop *inside* it  (nest as a child)
+ *   - bottom quarter → drop *after* it   (reorder at the same level)
+ * The zones are real elements (not coordinate math) so the hit target is
+ * unambiguous. Dropping on the root zone moves the folder to the top level.
+ * A folder dropped *inside* a target auto-expands that target so it doesn't
+ * appear to vanish. Cycle drops (into your own subtree) are rejected.
  */
 export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) {
   const t = useTranslations('notes.folderActions');
@@ -128,8 +130,6 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
         ? computeRootReorder(folders, draggedId)
         : computeReorder(folders, draggedId, target.id, target.mode);
     if (plan === null) {
-      // Only an in-subtree drop reaches here as a hard reject (the dragOver
-      // guard blocks the rest) — surface the cycle reason.
       setActionError(t('cycle'));
       return;
     }
@@ -216,36 +216,31 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     setDraggingId(id);
   };
 
-  const onRowDragOver = (id: string) => (e: DragEvent<HTMLDivElement>) => {
+  const onAnyDragEnd = () => {
+    setDraggingId(null);
+    setDropTarget(null);
+  };
+
+  /** A row's drop zone received dragover — highlight it. */
+  const onZoneDragOver = (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled || draggingId === null) return;
-    // A row inside the dragged folder's own subtree (or the row itself) can
-    // never be a legal drop target — skip it entirely.
-    if (isDescendant(folders, draggingId, id)) return;
     e.stopPropagation();
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    const mode = resolveDropMode(e.currentTarget.getBoundingClientRect(), e.clientY);
     setDropTarget((prev) =>
       prev !== null && prev.id === id && prev.mode === mode ? prev : { id, mode },
     );
   };
 
-  const onRowDragLeave = (id: string) => () => {
-    setDropTarget((prev) => (prev !== null && prev.id === id ? null : prev));
-  };
-
-  const onRowDrop = (id: string) => (e: DragEvent<HTMLDivElement>) => {
+  /** A row's drop zone received drop — resolve + persist. */
+  const onZoneDrop = (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled) return;
     e.stopPropagation();
     e.preventDefault();
     const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
-    const mode =
-      dropTarget !== null && dropTarget.id === id
-        ? dropTarget.mode
-        : resolveDropMode(e.currentTarget.getBoundingClientRect(), e.clientY);
     setDraggingId(null);
     setDropTarget(null);
-    if (!draggedId || isDescendant(folders, draggedId, id)) return;
+    if (!draggedId) return;
     void applyDrop(draggedId, { id, mode });
   };
 
@@ -274,13 +269,8 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     void applyDrop(draggedId, { id: '__root__', mode: 'inside' });
   };
 
-  const onAnyDragEnd = () => {
-    setDraggingId(null);
-    setDropTarget(null);
-  };
-
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: HTML5 DnD drop-zone, not a click/keyboard control; the accessible surface is the keyboard-navigable tree below
+    // biome-ignore lint/a11y/noStaticElementInteractions: HTML5 DnD root drop-zone, not a click/keyboard control; the accessible surface is the keyboard-navigable tree below
     <div
       data-testid="folder-tree-root"
       onDragOver={dndEnabled ? onRootDragOver : undefined}
@@ -309,11 +299,15 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
             isDragging={draggingId === row.id}
             dropMode={dropTarget !== null && dropTarget.id === row.id ? dropTarget.mode : null}
             draggable={dndEnabled}
+            // Drop zones appear only while a drag is active and only on rows
+            // that are NOT inside the dragged folder's own subtree.
+            showDropZones={
+              dndEnabled && draggingId !== null && !isDescendant(folders, draggingId, row.id)
+            }
             onDragStart={dndEnabled ? onRowDragStart(row.id) : undefined}
-            onDragOver={dndEnabled ? onRowDragOver(row.id) : undefined}
-            onDragLeave={dndEnabled ? onRowDragLeave(row.id) : undefined}
-            onDrop={dndEnabled ? onRowDrop(row.id) : undefined}
             onDragEnd={dndEnabled ? onAnyDragEnd : undefined}
+            onZoneDragOver={onZoneDragOver}
+            onZoneDrop={onZoneDrop}
             onSelect={onSelect}
             onToggle={toggle}
             {...(mutations
@@ -345,11 +339,11 @@ type RowProps = {
   /** Non-null while this row is the active drop target. */
   dropMode: DropMode | null;
   draggable: boolean;
+  showDropZones: boolean;
   onDragStart?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
-  onDragOver?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
-  onDragLeave?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
-  onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
   onDragEnd?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
+  onZoneDragOver: (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => void;
+  onZoneDrop: (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => void;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onRequestRename?: (() => void) | undefined;
@@ -373,11 +367,11 @@ function FolderRow({
   isDragging,
   dropMode,
   draggable,
+  showDropZones,
   onDragStart,
-  onDragOver,
-  onDragLeave,
-  onDrop,
   onDragEnd,
+  onZoneDragOver,
+  onZoneDrop,
   onSelect,
   onToggle,
   onRequestRename,
@@ -392,9 +386,6 @@ function FolderRow({
       tabIndex={-1}
       draggable={draggable && !isRenaming}
       onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
       onDragEnd={onDragEnd}
       aria-level={row.depth + 1}
       aria-selected={isSelected}
@@ -406,7 +397,7 @@ function FolderRow({
         paddingLeft: `${row.depth * 14 + 8}px`,
         ...(dropMode !== null ? { boxShadow: dropShadow[dropMode] } : {}),
       }}
-      className={`hover:bg-muted/60 group flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
+      className={`hover:bg-muted/60 group relative flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
         isSelected ? 'bg-muted text-foreground' : 'text-muted-foreground'
       } ${isDragging ? 'opacity-50' : ''} ${
         dropMode === 'inside' ? 'bg-accent-soft/40 ring-accent ring-1' : ''
@@ -475,7 +466,46 @@ function FolderRow({
           ) : null}
         </span>
       ) : null}
+
+      {showDropZones ? (
+        <>
+          <DropZone rowId={row.id} mode="before" onDragOver={onZoneDragOver} onDrop={onZoneDrop} />
+          <DropZone rowId={row.id} mode="inside" onDragOver={onZoneDragOver} onDrop={onZoneDrop} />
+          <DropZone rowId={row.id} mode="after" onDragOver={onZoneDragOver} onDrop={onZoneDrop} />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * One of a row's three drag-drop hit areas. Rendered only mid-drag and
+ * stacked over the row: `before` covers the top quarter, `inside` the
+ * middle half, `after` the bottom quarter. An explicit element per zone
+ * means the drop target is the element itself — no pointer-coordinate math.
+ */
+function DropZone({
+  rowId,
+  mode,
+  onDragOver,
+  onDrop,
+}: {
+  rowId: string;
+  mode: DropMode;
+  onDragOver: (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => void;
+  onDrop: (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => void;
+}) {
+  const position =
+    mode === 'before' ? 'top-0 h-1/4' : mode === 'after' ? 'bottom-0 h-1/4' : 'top-1/4 h-1/2';
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: transient HTML5 DnD hit area, only present mid-drag
+    <div
+      data-drop-zone={mode}
+      data-drop-zone-row={rowId}
+      onDragOver={onDragOver(rowId, mode)}
+      onDrop={onDrop(rowId, mode)}
+      className={`absolute inset-x-0 z-10 ${position}`}
+    />
   );
 }
 

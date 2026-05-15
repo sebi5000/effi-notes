@@ -8,18 +8,18 @@ import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
 afterEach(cleanup);
 
 /**
- * jsdom's synthetic drag events drop unknown MouseEvent init props such as
- * `clientY`, so it has to be pinned onto the event object directly. These
- * helpers build the event, attach `dataTransfer` + `clientY`, then dispatch.
+ * jsdom has no DragEvent and drops a `dataTransfer` init prop, so build the
+ * event explicitly and pin `dataTransfer` on before dispatching. The
+ * drop-zone DnD design needs no pointer coordinates — `dataTransfer` is all
+ * that travels.
  */
 const fireDrag = (
   type: 'dragOver' | 'drop' | 'dragStart',
-  el: HTMLElement,
+  el: Element,
   dataTransfer: DataTransfer,
-  clientY?: number,
 ) => {
-  const ev = createEvent[type](el, { dataTransfer });
-  if (clientY !== undefined) Object.defineProperty(ev, 'clientY', { value: clientY });
+  const ev = createEvent[type](el);
+  Object.defineProperty(ev, 'dataTransfer', { value: dataTransfer });
   fireEvent(el, ev);
 };
 
@@ -344,14 +344,13 @@ describe('FolderTree (mutations)', () => {
 });
 
 /**
- * The 3-zone drop detection reads each row's bounding box. jsdom returns a
- * zeroed rect, so stub `getBoundingClientRect` to a 100px-tall row: a
- * `clientY` of 10 lands in the top quarter (before), 50 in the middle
- * (inside), 90 in the bottom quarter (after).
+ * Drag-and-drop. Each row exposes three explicit drop-zone elements while a
+ * drag is in progress (`[data-drop-zone="before|inside|after"]`) — the test
+ * dispatches drag events straight at the zone, so there is no dependency on
+ * pointer coordinates or `getBoundingClientRect` (both unreliable in jsdom).
  */
 describe('FolderTree (drag-and-drop)', () => {
   let mutations: FolderMutationHandlers;
-  let rectSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     mutations = {
@@ -359,34 +358,20 @@ describe('FolderTree (drag-and-drop)', () => {
       onDelete: vi.fn(async () => undefined),
       onReorder: vi.fn(async () => undefined),
     };
-    // jsdom returns a zeroed rect; stub a 100px-tall row so a clientY of 8
-    // lands in the top quarter (before), 50 in the middle (inside), 92 in
-    // the bottom quarter (after).
-    rectSpy = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
-      top: 0,
-      bottom: 100,
-      height: 100,
-      left: 0,
-      right: 0,
-      width: 0,
-      x: 0,
-      y: 0,
-      toJSON: () => undefined,
-    });
   });
-  afterEach(() => rectSpy.mockRestore());
 
-  const renderTree = (folders = fixture) =>
+  const renderTree = (folders = fixture, m: FolderMutationHandlers = mutations) =>
     render(
       wrap(
-        <FolderTree
-          folders={folders}
-          selectedId={null}
-          onSelect={() => undefined}
-          mutations={mutations}
-        />,
+        <FolderTree folders={folders} selectedId={null} onSelect={() => undefined} mutations={m} />,
       ),
     );
+
+  /** A row's drop zone for a given mode. Present only mid-drag. */
+  const zone = (container: HTMLElement, rowId: string, mode: 'before' | 'inside' | 'after') =>
+    container.querySelector(
+      `[data-drop-zone="${mode}"][data-drop-zone-row="${rowId}"]`,
+    ) as HTMLElement | null;
 
   it('makes rows draggable only when onReorder is supplied', () => {
     const { container, rerender } = render(
@@ -418,15 +403,24 @@ describe('FolderTree (drag-and-drop)', () => {
     ).toBe('true');
   });
 
-  it('dropping in the middle of a folder nests the dragged folder inside it', async () => {
+  it('drop zones appear only once a drag has started', () => {
+    const { container } = renderTree();
+    expect(zone(container, 'clients', 'inside')).toBeNull();
+
+    const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
+    fireDrag('dragStart', internalRow, makeDataTransfer());
+    expect(zone(container, 'clients', 'inside')).not.toBeNull();
+  });
+
+  it('dropping on the inside zone nests the dragged folder', async () => {
     const { container } = renderTree();
     const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
-    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
     const dt = makeDataTransfer();
 
     fireDrag('dragStart', internalRow, dt);
-    fireDrag('dragOver', clientsRow, dt, 50);
-    fireDrag('drop', clientsRow, dt, 50);
+    const inside = zone(container, 'clients', 'inside') as HTMLElement;
+    fireDrag('dragOver', inside, dt);
+    fireDrag('drop', inside, dt);
 
     // clients' children were [acme, globex] → internal appended.
     await waitFor(() =>
@@ -434,33 +428,31 @@ describe('FolderTree (drag-and-drop)', () => {
     );
   });
 
-  it('dropping on the top quarter reorders the folder *before* the target', async () => {
+  it('dropping on the before zone reorders the folder *before* the target', async () => {
     const { container } = renderTree();
     const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
-    const globexRow = container.querySelector('[data-id="globex"]') as HTMLElement;
     const dt = makeDataTransfer();
 
     fireDrag('dragStart', internalRow, dt);
-    fireDrag('dragOver', globexRow, dt, 8);
-    fireDrag('drop', globexRow, dt, 8);
+    const before = zone(container, 'globex', 'before') as HTMLElement;
+    fireDrag('dragOver', before, dt);
+    fireDrag('drop', before, dt);
 
-    // internal inserted before globex among clients' children.
     await waitFor(() =>
       expect(mutations.onReorder).toHaveBeenCalledWith('clients', ['acme', 'internal', 'globex']),
     );
   });
 
-  it('dropping on the bottom quarter reorders the folder *after* the target', async () => {
+  it('dropping on the after zone reorders the folder *after* the target', async () => {
     const { container } = renderTree();
     const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
-    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
     const dt = makeDataTransfer();
 
     fireDrag('dragStart', internalRow, dt);
-    fireDrag('dragOver', acmeRow, dt, 92);
-    fireDrag('drop', acmeRow, dt, 92);
+    const after = zone(container, 'acme', 'after') as HTMLElement;
+    fireDrag('dragOver', after, dt);
+    fireDrag('drop', after, dt);
 
-    // internal inserted after acme among clients' children.
     await waitFor(() =>
       expect(mutations.onReorder).toHaveBeenCalledWith('clients', ['acme', 'internal', 'globex']),
     );
@@ -469,14 +461,13 @@ describe('FolderTree (drag-and-drop)', () => {
   it('reorders two roots at the same level', async () => {
     const { container } = renderTree();
     const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
-    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
     const dt = makeDataTransfer();
 
     fireDrag('dragStart', internalRow, dt);
-    fireDrag('dragOver', clientsRow, dt, 5);
-    fireDrag('drop', clientsRow, dt, 5);
+    const before = zone(container, 'clients', 'before') as HTMLElement;
+    fireDrag('dragOver', before, dt);
+    fireDrag('drop', before, dt);
 
-    // internal moved before clients at the root level.
     await waitFor(() =>
       expect(mutations.onReorder).toHaveBeenCalledWith(null, ['internal', 'clients']),
     );
@@ -492,7 +483,6 @@ describe('FolderTree (drag-and-drop)', () => {
     fireEvent.dragOver(root, { dataTransfer: dt });
     fireEvent.drop(root, { dataTransfer: dt });
 
-    // acme appended after the existing roots.
     await waitFor(() =>
       expect(mutations.onReorder).toHaveBeenCalledWith(null, ['clients', 'internal', 'acme']),
     );
@@ -510,40 +500,40 @@ describe('FolderTree (drag-and-drop)', () => {
     expect(container.querySelector('[data-id="sub"]')).toBeNull();
 
     const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
-    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
     const dt = makeDataTransfer();
     fireDrag('dragStart', internalRow, dt);
-    fireDrag('dragOver', acmeRow, dt, 50);
-    fireDrag('drop', acmeRow, dt, 50);
+    const inside = zone(container, 'acme', 'inside') as HTMLElement;
+    fireDrag('dragOver', inside, dt);
+    fireDrag('drop', inside, dt);
 
     // Dropping inside acme auto-expands it → its child `sub` becomes visible.
     await waitFor(() => expect(container.querySelector('[data-id="sub"]')).not.toBeNull());
   });
 
-  it('refuses to drop a folder into its own descendant (cycle guard)', async () => {
+  it('shows no drop zones on rows inside the dragged folder (cycle guard)', () => {
     const { container } = renderTree();
     const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
-    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
-    const dt = makeDataTransfer();
 
-    fireDrag('dragStart', clientsRow, dt);
-    fireDrag('dragOver', acmeRow, dt, 50);
-    fireDrag('drop', acmeRow, dt, 50);
-
-    await new Promise((r) => setTimeout(r, 10));
-    expect(mutations.onReorder).not.toHaveBeenCalled();
+    fireDrag('dragStart', clientsRow, makeDataTransfer());
+    // acme + globex live under clients → not valid drop targets.
+    expect(zone(container, 'acme', 'inside')).toBeNull();
+    expect(zone(container, 'globex', 'before')).toBeNull();
+    // the dragged folder itself gets no zones either.
+    expect(zone(container, 'clients', 'inside')).toBeNull();
+    // internal (unrelated root) is still droppable.
+    expect(zone(container, 'internal', 'inside')).not.toBeNull();
   });
 
   it('skips a no-op reorder (drop that changes nothing)', async () => {
     const { container } = renderTree();
     // globex dropped just after acme → order [acme, globex] is unchanged.
     const globexRow = container.querySelector('[data-id="globex"]') as HTMLElement;
-    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
     const dt = makeDataTransfer();
 
     fireDrag('dragStart', globexRow, dt);
-    fireDrag('dragOver', acmeRow, dt, 92);
-    fireDrag('drop', acmeRow, dt, 92);
+    const after = zone(container, 'acme', 'after') as HTMLElement;
+    fireDrag('dragOver', after, dt);
+    fireDrag('drop', after, dt);
 
     await new Promise((r) => setTimeout(r, 10));
     expect(mutations.onReorder).not.toHaveBeenCalled();
@@ -557,23 +547,14 @@ describe('FolderTree (drag-and-drop)', () => {
         throw new Error('move rejected by server');
       }),
     };
-    const { container } = render(
-      wrap(
-        <FolderTree
-          folders={fixture}
-          selectedId={null}
-          onSelect={() => undefined}
-          mutations={failing}
-        />,
-      ),
-    );
+    const { container } = renderTree(fixture, failing);
     const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
-    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
     const dt = makeDataTransfer();
 
     fireDrag('dragStart', internalRow, dt);
-    fireDrag('dragOver', clientsRow, dt, 50);
-    fireDrag('drop', clientsRow, dt, 50);
+    const inside = zone(container, 'clients', 'inside') as HTMLElement;
+    fireDrag('dragOver', inside, dt);
+    fireDrag('drop', inside, dt);
 
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('move rejected by server'),
