@@ -235,3 +235,73 @@ input[type="search"]::-webkit-search-decoration {
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* GitHub-style callouts. The per-type colour, tint and icon are CSS custom
+ * properties set on any element carrying `data-callout`, so both the editor
+ * block (.callout) and the toolbar-dropdown icon (.callout-icon) consume the
+ * same definitions. Icons are inline SVGs applied via `mask` so they take the
+ * type colour. */
+[data-callout="note"] {
+  --callout-color: #3b6fd6;
+  --callout-bg: #f3f7fd;
+  --callout-icon: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='9'/><line x1='12' y1='11' x2='12' y2='16'/><line x1='12' y1='8' x2='12' y2='8'/></svg>");
+}
+[data-callout="tip"] {
+  --callout-color: #3f9142;
+  --callout-bg: #f2f9f2;
+  --callout-icon: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M9 18h6'/><path d='M10 22h4'/><path d='M12 2a7 7 0 0 0-4 12.8c.6.4 1 1.2 1 2.2h6c0-1 .4-1.8 1-2.2A7 7 0 0 0 12 2z'/></svg>");
+}
+[data-callout="important"] {
+  --callout-color: #8a3fb8;
+  --callout-bg: #f9f3fb;
+  --callout-icon: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/><line x1='12' y1='7' x2='12' y2='11'/><line x1='12' y1='14.5' x2='12' y2='14.5'/></svg>");
+}
+[data-callout="warning"] {
+  --callout-color: #b8860b;
+  --callout-bg: #fcfaf0;
+  --callout-icon: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M10.3 4 2 18a2 2 0 0 0 1.7 3h16.6a2 2 0 0 0 1.7-3L13.7 4a2 2 0 0 0-3.4 0z'/><line x1='12' y1='9' x2='12' y2='13'/><line x1='12' y1='16.5' x2='12' y2='16.5'/></svg>");
+}
+[data-callout="caution"] {
+  --callout-color: #d2691e;
+  --callout-bg: #fcf5ef;
+  --callout-icon: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2h8l6 6v8l-6 6H8l-6-6V8z'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='15.5' x2='12' y2='15.5'/></svg>");
+}
+
+.prose-paper .callout {
+  position: relative;
+  margin-bottom: 0.85em;
+  padding: 0.75em 1em 0.75em 2.9em;
+  border-radius: 6px;
+  border-left: 3px solid var(--callout-color);
+  background: var(--callout-bg);
+}
+.prose-paper .callout::before {
+  content: "";
+  position: absolute;
+  left: 0.95em;
+  top: 0.95em;
+  width: 1.2em;
+  height: 1.2em;
+  background-color: var(--callout-color);
+  -webkit-mask: var(--callout-icon) center / contain no-repeat;
+  mask: var(--callout-icon) center / contain no-repeat;
+}
+.prose-paper .callout > :first-child {
+  margin-top: 0;
+  font-weight: 600;
+  color: var(--callout-color);
+}
+.prose-paper .callout > :last-child {
+  margin-bottom: 0;
+}
+
+/* Small masked icon for the toolbar dropdown rows. */
+.callout-icon {
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  flex: 0 0 auto;
+  background-color: var(--callout-color);
+  -webkit-mask: var(--callout-icon) center / contain no-repeat;
+  mask: var(--callout-icon) center / contain no-repeat;
+}
