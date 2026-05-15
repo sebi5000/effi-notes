@@ -14,9 +14,21 @@ const messages = {
       newFolderPlaceholder: 'Folder name',
       rename: 'Rename folder',
       delete: 'Delete folder',
+      cycle: "A folder can't be moved into one of its own descendants.",
     },
   },
 } as const;
+
+/** Minimal DataTransfer stand-in — jsdom doesn't implement the real one. */
+const makeDataTransfer = (): DataTransfer => {
+  const store = new Map<string, string>();
+  return {
+    setData: (type: string, value: string) => store.set(type, value),
+    getData: (type: string) => store.get(type) ?? '',
+    effectAllowed: 'all',
+    dropEffect: 'none',
+  } as unknown as DataTransfer;
+};
 
 const wrap = (ui: React.ReactNode) => (
   <NextIntlClientProvider locale="en" messages={messages}>
@@ -312,5 +324,170 @@ describe('FolderTree (mutations)', () => {
     fireEvent.keyDown(within(container).getByRole('tree'), { key: 'Delete' });
     await waitFor(() => expect(mutations.onDelete).toHaveBeenCalledWith('acme'));
     confirmSpy.mockRestore();
+  });
+});
+
+describe('FolderTree (drag-and-drop)', () => {
+  let mutations: FolderMutationHandlers;
+  beforeEach(() => {
+    mutations = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onMove: vi.fn(async () => undefined),
+    };
+  });
+
+  it('makes rows draggable only when onMove is supplied', () => {
+    const { container, rerender } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={{ onRename: mutations.onRename, onDelete: mutations.onDelete }}
+        />,
+      ),
+    );
+    expect(
+      (container.querySelector('[data-id="acme"]') as HTMLElement).getAttribute('draggable'),
+    ).toBe('false');
+
+    rerender(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    expect(
+      (container.querySelector('[data-id="acme"]') as HTMLElement).getAttribute('draggable'),
+    ).toBe('true');
+  });
+
+  it('dropping a folder onto another folder calls onMove with the new parent', async () => {
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    // Drag "internal" (a root) onto "clients" (another root) → reparent.
+    const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    const dt = makeDataTransfer();
+
+    fireEvent.dragStart(internalRow, { dataTransfer: dt });
+    fireEvent.dragOver(clientsRow, { dataTransfer: dt });
+    fireEvent.drop(clientsRow, { dataTransfer: dt });
+
+    await waitFor(() => expect(mutations.onMove).toHaveBeenCalledWith('internal', 'clients'));
+  });
+
+  it('dropping on the root zone reparents a child to root (parentId null)', async () => {
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    // "acme" is a child of "clients" — drag it onto the root drop zone.
+    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    const root = container.querySelector('[data-testid="folder-tree-root"]') as HTMLElement;
+    const dt = makeDataTransfer();
+
+    fireEvent.dragStart(acmeRow, { dataTransfer: dt });
+    fireEvent.dragOver(root, { dataTransfer: dt });
+    fireEvent.drop(root, { dataTransfer: dt });
+
+    await waitFor(() => expect(mutations.onMove).toHaveBeenCalledWith('acme', null));
+  });
+
+  it('refuses to drop a folder into its own descendant (cycle guard)', async () => {
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    // Drag "clients" onto its own child "acme" — must be rejected.
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    const dt = makeDataTransfer();
+
+    fireEvent.dragStart(clientsRow, { dataTransfer: dt });
+    fireEvent.dragOver(acmeRow, { dataTransfer: dt });
+    fireEvent.drop(acmeRow, { dataTransfer: dt });
+
+    // onMove never fires; the descendant guard short-circuits in dragOver/drop.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mutations.onMove).not.toHaveBeenCalled();
+  });
+
+  it('dropping a folder onto its current parent is a no-op', async () => {
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    // "acme" already lives under "clients" — dropping it back is a no-op.
+    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    const dt = makeDataTransfer();
+
+    fireEvent.dragStart(acmeRow, { dataTransfer: dt });
+    fireEvent.drop(clientsRow, { dataTransfer: dt });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mutations.onMove).not.toHaveBeenCalled();
+  });
+
+  it('surfaces an onMove failure in the alert region', async () => {
+    const failing: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onMove: vi.fn(async () => {
+        throw new Error('move rejected by server');
+      }),
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={failing}
+        />,
+      ),
+    );
+    const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    const dt = makeDataTransfer();
+
+    fireEvent.dragStart(internalRow, { dataTransfer: dt });
+    fireEvent.drop(clientsRow, { dataTransfer: dt });
+
+    await waitFor(() =>
+      expect(within(container).getByRole('alert').textContent).toContain('move rejected by server'),
+    );
   });
 });

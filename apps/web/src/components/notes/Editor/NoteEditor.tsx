@@ -7,6 +7,7 @@ import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
+import { EditorToolbar } from './EditorToolbar.tsx';
 import { buildExtensions } from './MarkdownExtensions.ts';
 import { initialsFromName, PresenceBar, type PresenceUser } from './PresenceBar.tsx';
 import { SaveIndicator } from './SaveIndicator.tsx';
@@ -189,12 +190,13 @@ function CollaborativeEditor({
   }, [editor, noteId, saveState, baseUpdatedAt]);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
         <PresenceBar users={presence} />
         <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
       </div>
-      <EditorContent editor={editor} className="flex-1" />
+      <EditorContent editor={editor} className="flex-1 pb-24" />
+      <EditorToolbar editor={editor} />
     </div>
   );
 }

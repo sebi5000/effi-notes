@@ -1,12 +1,13 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { type KeyboardEvent, useMemo, useState } from 'react';
+import { type DragEvent, type KeyboardEvent, useMemo, useState } from 'react';
 import type { FolderNode } from '@/lib/api/schemas.ts';
 import {
   buildFolderTree,
   type FlatFolder,
   flatten,
+  isDescendant,
   moveSelection,
 } from '@/lib/notes/folder-tree.ts';
 
@@ -15,15 +16,19 @@ export type FolderMutationHandlers = {
   onRename: (id: string, name: string) => Promise<void>;
   /** Delete `id`. Throws on 409 (non-empty) or other errors. */
   onDelete: (id: string) => Promise<void>;
+  /** Optional: move `id` under `parentId` (null = root). When omitted, DnD is disabled. */
+  onMove?: (id: string, parentId: string | null) => Promise<void>;
 };
 
 type Props = {
   folders: ReadonlyArray<FolderNode>;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  /** Optional mutation surface — when provided, hover-reveals rename/delete. */
+  /** Optional mutation surface — when provided, hover-reveals rename/delete + DnD if `onMove` is set. */
   mutations?: FolderMutationHandlers;
 };
+
+const DND_MIME = 'application/x-effi-folder';
 
 /**
  * Accessible folder tree. Uses ARIA tree pattern: container has role="tree",
@@ -35,12 +40,14 @@ type Props = {
  *   F2    rename (when mutations provided)
  *   Del   delete (when mutations provided)
  *
- * Stateless w.r.t. data — `folders` flows in. Expansion is component-local
- * because the sidebar should remember which rows you opened across re-renders.
+ * Drag-and-drop: when `mutations.onMove` is supplied, each row becomes
+ * draggable. Drop on another row → make it a child of that row. Drop on
+ * the root drop-zone → make it a root. A cycle guard rejects drops where
+ * the candidate parent is a descendant of the dragged folder.
  */
 export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) {
+  const t = useTranslations('notes.folderActions');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
-    // By default expand the roots so users see the tree.
     const roots = new Set<string>();
     for (const f of folders) {
       if (f.parentId === null) roots.add(f.id);
@@ -49,6 +56,9 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
   });
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  /** Highlighted drop target: a folder id, or `__root__` for the root zone. */
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const tree = useMemo(() => buildFolderTree(folders), [folders]);
   const visible = useMemo(() => flatten(tree, expanded), [tree, expanded]);
@@ -89,6 +99,28 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     }
   };
 
+  /** Validates a drop, then calls onMove. Returns true iff the move actually fired. */
+  const tryMove = async (draggedId: string, newParentId: string | null): Promise<boolean> => {
+    if (!mutations?.onMove) return false;
+    // No-op: dropping onto the current parent.
+    const dragged = folders.find((f) => f.id === draggedId);
+    if (!dragged) return false;
+    if ((dragged.parentId ?? null) === newParentId) return false;
+    // Cycle guard.
+    if (newParentId !== null && isDescendant(folders, draggedId, newParentId)) {
+      setActionError(t('cycle'));
+      return false;
+    }
+    try {
+      await mutations.onMove(draggedId, newParentId);
+      setActionError(null);
+      return true;
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'move failed');
+      return false;
+    }
+  };
+
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     const row = visible.find((r) => r.id === selectedId);
     if (!row) {
@@ -99,7 +131,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
       }
       return;
     }
-    if (renamingId !== null) return; // editing input has its own keymap
+    if (renamingId !== null) return;
     switch (e.key) {
       case 'ArrowDown': {
         e.preventDefault();
@@ -151,8 +183,83 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
     }
   };
 
+  const dndEnabled = mutations?.onMove !== undefined;
+
+  const onRowDragStart = (id: string) => (e: DragEvent<HTMLDivElement>) => {
+    if (!dndEnabled) return;
+    e.dataTransfer.setData(DND_MIME, id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingId(id);
+  };
+
+  const onRowDragOver = (id: string) => (e: DragEvent<HTMLDivElement>) => {
+    if (!dndEnabled || draggingId === null) return;
+    if (draggingId === id) return;
+    if (isDescendant(folders, draggingId, id)) return;
+    // Stop the event reaching the root drop-zone — a row drop is more
+    // specific than "drop to root".
+    e.stopPropagation();
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropTargetId !== id) setDropTargetId(id);
+  };
+
+  const onRowDragLeave = (id: string) => () => {
+    if (dropTargetId === id) setDropTargetId(null);
+  };
+
+  const onRowDrop = (id: string) => (e: DragEvent<HTMLDivElement>) => {
+    if (!dndEnabled) return;
+    // Prevent the drop from also bubbling to the root drop-zone handler.
+    e.stopPropagation();
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
+    setDraggingId(null);
+    setDropTargetId(null);
+    if (!draggedId || draggedId === id) return;
+    void tryMove(draggedId, id);
+  };
+
+  const onRootDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (!dndEnabled || draggingId === null) return;
+    const dragged = folders.find((f) => f.id === draggingId);
+    if (!dragged) return;
+    if (dragged.parentId === null) return; // already at root
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dropTargetId !== '__root__') setDropTargetId('__root__');
+  };
+
+  const onRootDragLeave = () => {
+    if (dropTargetId === '__root__') setDropTargetId(null);
+  };
+
+  const onRootDrop = (e: DragEvent<HTMLDivElement>) => {
+    if (!dndEnabled) return;
+    e.preventDefault();
+    const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
+    setDraggingId(null);
+    setDropTargetId(null);
+    if (!draggedId) return;
+    void tryMove(draggedId, null);
+  };
+
+  const onAnyDragEnd = () => {
+    setDraggingId(null);
+    setDropTargetId(null);
+  };
+
   return (
-    <div>
+    // biome-ignore lint/a11y/noStaticElementInteractions: HTML5 DnD drop-zone, not a click/keyboard control; the accessible surface is the keyboard-navigable tree below
+    <div
+      data-testid="folder-tree-root"
+      onDragOver={dndEnabled ? onRootDragOver : undefined}
+      onDragLeave={dndEnabled ? onRootDragLeave : undefined}
+      onDrop={dndEnabled ? onRootDrop : undefined}
+      className={
+        dropTargetId === '__root__' ? 'ring-accent rounded ring-2 ring-inset transition' : undefined
+      }
+    >
       <div
         role="tree"
         aria-label="Folders"
@@ -167,6 +274,14 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
             isExpanded={expanded.has(row.id)}
             isSelected={row.id === selectedId}
             isRenaming={renamingId === row.id}
+            isDragging={draggingId === row.id}
+            isDropTarget={dropTargetId === row.id}
+            draggable={dndEnabled}
+            onDragStart={dndEnabled ? onRowDragStart(row.id) : undefined}
+            onDragOver={dndEnabled ? onRowDragOver(row.id) : undefined}
+            onDragLeave={dndEnabled ? onRowDragLeave(row.id) : undefined}
+            onDrop={dndEnabled ? onRowDrop(row.id) : undefined}
+            onDragEnd={dndEnabled ? onAnyDragEnd : undefined}
             onSelect={onSelect}
             onToggle={toggle}
             {...(mutations
@@ -194,12 +309,20 @@ type RowProps = {
   isExpanded: boolean;
   isSelected: boolean;
   isRenaming: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
+  draggable: boolean;
+  onDragStart?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
+  onDragOver?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
+  onDragLeave?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
+  onDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
+  onDragEnd?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
-  onRequestRename?: () => void;
-  onCommitRename?: (name: string) => void;
-  onCancelRename?: () => void;
-  onRequestDelete?: () => void;
+  onRequestRename?: (() => void) | undefined;
+  onCommitRename?: ((name: string) => void) | undefined;
+  onCancelRename?: (() => void) | undefined;
+  onRequestDelete?: (() => void) | undefined;
 };
 
 function FolderRow({
@@ -207,6 +330,14 @@ function FolderRow({
   isExpanded,
   isSelected,
   isRenaming,
+  isDragging,
+  isDropTarget,
+  draggable,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
   onSelect,
   onToggle,
   onRequestRename,
@@ -219,13 +350,23 @@ function FolderRow({
     <div
       role="treeitem"
       tabIndex={-1}
+      draggable={draggable && !isRenaming}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
       aria-level={row.depth + 1}
       aria-selected={isSelected}
       aria-expanded={row.hasChildren ? isExpanded : undefined}
+      aria-grabbed={isDragging ? 'true' : undefined}
       data-id={row.id}
+      data-drop-target={isDropTarget ? 'true' : undefined}
       style={{ paddingLeft: `${row.depth * 14 + 8}px` }}
       className={`hover:bg-muted/60 group flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
         isSelected ? 'bg-muted text-foreground' : 'text-muted-foreground'
+      } ${isDragging ? 'opacity-50' : ''} ${
+        isDropTarget ? 'bg-accent-soft/40 ring-accent ring-1' : ''
       }`}
       onClick={() => !isRenaming && onSelect(row.id)}
       onKeyDown={(e) => {
@@ -308,8 +449,6 @@ function RenameInput({
   return (
     <input
       ref={(el) => {
-        // Focus on mount without using autoFocus (Biome a11y rule). Setting
-        // selectionEnd here also picks the name for instant overwrite.
         if (el) {
           el.focus();
           el.select();

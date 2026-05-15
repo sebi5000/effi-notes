@@ -96,6 +96,17 @@ export function NotesShell({
     [refreshFolders, folderId],
   );
 
+  const handleMoveFolder = useCallback(
+    async (id: string, parentId: string | null) => {
+      // PATCH /api/folders/[id] with parentId — `null` re-parents to root.
+      // The PatchFolderInput schema treats `parentId: null` as a valid value,
+      // so we pass it through directly.
+      await foldersApi.patch(id, { parentId });
+      await refreshFolders();
+    },
+    [refreshFolders],
+  );
+
   return (
     <div className="grid h-screen grid-cols-[280px_1fr]">
       <Sidebar
@@ -112,6 +123,7 @@ export function NotesShell({
           onCreate: handleCreateFolder,
           onRename: handleRenameFolder,
           onDelete: handleDeleteFolder,
+          onMove: handleMoveFolder,
         }}
       />
       <main className="flex flex-col px-12 py-10">

@@ -1,11 +1,10 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { CommandBar } from './CommandBar.tsx';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
-import { TagCloud } from './TagCloud.tsx';
 
 type Props = {
   folders: ReadonlyArray<FolderNode>;
@@ -17,12 +16,9 @@ type Props = {
   onSelectFolder: (id: string | null) => void;
   onSelectTag: (id: string | null) => void;
   onSelectNote: (id: string) => void;
-  /**
-   * Folder mutation handlers (Phase D2 — user story: add/edit/delete folders
-   * in the sidebar). When omitted, the folder section is read-only.
-   */
   folderMutations?: FolderMutationHandlers & {
     onCreate: (name: string, parentId: string | null) => Promise<void>;
+    onMove?: (id: string, parentId: string | null) => Promise<void>;
   };
 };
 
@@ -43,6 +39,11 @@ export function Sidebar({
   const [creating, setCreating] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
+
+  const activeTag = useMemo(
+    () => tags.find((tg) => tg.id === selectedTagId) ?? null,
+    [tags, selectedTagId],
+  );
 
   const submitCreate = async () => {
     if (!folderMutations) return;
@@ -70,7 +71,21 @@ export function Sidebar({
         </span>
       </header>
 
-      <CommandBar onSelect={onSelectNote} />
+      <CommandBar onSelect={onSelectNote} onTagSelect={onSelectTag} tags={tags} />
+
+      {activeTag !== null ? (
+        <div className="flex items-center gap-1 text-xs">
+          <span className="text-muted-foreground">{t('filterByTag')}</span>
+          <button
+            type="button"
+            onClick={() => onSelectTag(null)}
+            className="bg-accent inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-white"
+          >
+            <span>#{activeTag.name}</span>
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
+      ) : null}
 
       <section aria-label={t('foldersHeading')} className="flex-1 overflow-y-auto">
         <div className="mb-1 flex items-center justify-between">
@@ -126,6 +141,7 @@ export function Sidebar({
                 mutations: {
                   onRename: folderMutations.onRename,
                   onDelete: folderMutations.onDelete,
+                  ...(folderMutations.onMove ? { onMove: folderMutations.onMove } : {}),
                 },
               }
             : {})}
@@ -136,11 +152,6 @@ export function Sidebar({
             {createError}
           </div>
         ) : null}
-
-        <h3 className="text-muted-foreground mb-1 mt-4 text-xs font-medium uppercase tracking-wide">
-          {t('tagsHeading')}
-        </h3>
-        <TagCloud tags={tags} selectedId={selectedTagId} onToggle={onSelectTag} />
 
         <h3 className="text-muted-foreground mb-1 mt-4 text-xs font-medium uppercase tracking-wide">
           {t('notesHeading')}

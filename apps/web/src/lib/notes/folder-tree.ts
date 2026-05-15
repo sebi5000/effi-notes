@@ -79,6 +79,30 @@ export const moveSelection = (
   return visible[next]?.id ?? current;
 };
 
+/**
+ * True iff `candidateId` is a (strict or non-strict) descendant of
+ * `ancestorId`. Used as the drop-target guard so a user can't drag a
+ * folder into its own subtree (which would create a cycle and orphan
+ * the entire branch on the server).
+ */
+export const isDescendant = (
+  folders: ReadonlyArray<FolderNode>,
+  ancestorId: string,
+  candidateId: string,
+): boolean => {
+  if (ancestorId === candidateId) return true;
+  const byId = new Map<string, FolderNode>();
+  for (const f of folders) byId.set(f.id, f);
+  let cursor: string | null | undefined = byId.get(candidateId)?.parentId ?? null;
+  const seen = new Set<string>();
+  while (cursor !== null && cursor !== undefined && !seen.has(cursor)) {
+    if (cursor === ancestorId) return true;
+    seen.add(cursor);
+    cursor = byId.get(cursor)?.parentId ?? null;
+  }
+  return false;
+};
+
 /** Returns the ancestor chain (root → child → … → target). */
 export const ancestorChain = (folders: ReadonlyArray<FolderNode>, targetId: string): string[] => {
   const byId = new Map<string, FolderNode>();

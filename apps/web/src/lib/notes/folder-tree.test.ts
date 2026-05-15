@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { FolderNode } from '@/lib/api/schemas.ts';
-import { ancestorChain, buildFolderTree, flatten, moveSelection } from './folder-tree.ts';
+import {
+  ancestorChain,
+  buildFolderTree,
+  flatten,
+  isDescendant,
+  moveSelection,
+} from './folder-tree.ts';
 
 const f = (id: string, name: string, parentId: string | null = null, position = 0): FolderNode => ({
   id,
@@ -103,5 +109,37 @@ describe('ancestorChain', () => {
     const cyclic: FolderNode[] = [f('a', 'A', 'b', 0), f('b', 'B', 'a', 0)];
     const chain = ancestorChain(cyclic, 'a');
     expect(chain.length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('isDescendant (cycle guard)', () => {
+  it('is true for the same id (a folder is its own descendant)', () => {
+    expect(isDescendant(fixture, 'acme', 'acme')).toBe(true);
+  });
+
+  it('is true for a direct child', () => {
+    expect(isDescendant(fixture, 'clients', 'acme')).toBe(true);
+  });
+
+  it('is false for a sibling', () => {
+    expect(isDescendant(fixture, 'acme', 'globex')).toBe(false);
+  });
+
+  it('is false for an unrelated tree', () => {
+    expect(isDescendant(fixture, 'clients', 'playbooks')).toBe(false);
+  });
+
+  it('is true for a grandchild via nested fixture', () => {
+    const nested: FolderNode[] = [
+      f('root', 'Root', null, 0),
+      f('mid', 'Mid', 'root', 0),
+      f('leaf', 'Leaf', 'mid', 0),
+    ];
+    expect(isDescendant(nested, 'root', 'leaf')).toBe(true);
+  });
+
+  it('does not infinite-loop on a cyclic graph', () => {
+    const cyclic: FolderNode[] = [f('a', 'A', 'b', 0), f('b', 'B', 'a', 0)];
+    expect(isDescendant(cyclic, 'a', 'b')).toBe(true);
   });
 });
