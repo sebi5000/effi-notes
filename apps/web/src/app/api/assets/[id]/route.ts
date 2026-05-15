@@ -1,6 +1,10 @@
 import { prisma } from '@app/db';
+import { createLogger } from '@app/observability/logger';
+import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { patchCaptionSchema } from '@/lib/api/schemas.ts';
+
+const log = createLogger({ component: 'api.assets.id' });
 
 /** GET /api/assets/[id] — serve the raw asset bytes (auth-gated). */
 export const GET = async (
@@ -49,6 +53,9 @@ export const PATCH = async (
   const existing = await prisma.asset.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return jsonError(404, 'asset not found');
 
-  await prisma.asset.update({ where: { id }, data: { caption: parsed.data.caption } });
-  return jsonOk({ id, caption: parsed.data.caption });
+  return withSpan('assets.caption.patch', { 'asset.id': id }, async () => {
+    await prisma.asset.update({ where: { id }, data: { caption: parsed.data.caption } });
+    log.info({ assetId: id }, 'asset caption updated');
+    return jsonOk({ id, caption: parsed.data.caption });
+  });
 };
