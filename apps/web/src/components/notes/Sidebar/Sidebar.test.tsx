@@ -14,6 +14,7 @@ const messages = {
       tagsHeading: 'Tags',
       notesHeading: 'Notes',
       emptyState: 'No notes here yet.',
+      loading: 'Loading…',
     },
     folderActions: {
       newFolder: 'New folder',
@@ -21,7 +22,14 @@ const messages = {
       rename: 'Rename folder',
       delete: 'Delete folder',
     },
-    commandBar: { label: 'Search', placeholder: 'Search…' },
+    commandBar: {
+      label: 'Search',
+      placeholder: 'Search…',
+      hint: 'Type # for tags, / for folders',
+      noTagMatch: 'No tags match.',
+      noFolderMatch: 'No folders match.',
+      clearSearch: 'Clear search',
+    },
   },
 } as const;
 
@@ -53,10 +61,10 @@ describe('Sidebar — folder mutations', () => {
           tags={tags}
           notes={notes}
           selectedFolderId={null}
-          selectedTagId={null}
           selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
           onSelectFolder={() => undefined}
-          onSelectTag={() => undefined}
           onSelectNote={() => undefined}
         />,
       ),
@@ -70,10 +78,10 @@ describe('Sidebar — folder mutations', () => {
           tags={tags}
           notes={notes}
           selectedFolderId={null}
-          selectedTagId={null}
           selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
           onSelectFolder={() => undefined}
-          onSelectTag={() => undefined}
           onSelectNote={() => undefined}
           folderMutations={{
             onCreate: vi.fn(async () => undefined),
@@ -95,10 +103,10 @@ describe('Sidebar — folder mutations', () => {
           tags={tags}
           notes={notes}
           selectedFolderId="clients"
-          selectedTagId={null}
           selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
           onSelectFolder={() => undefined}
-          onSelectTag={() => undefined}
           onSelectNote={() => undefined}
           folderMutations={{
             onCreate,
@@ -127,10 +135,10 @@ describe('Sidebar — folder mutations', () => {
           tags={tags}
           notes={notes}
           selectedFolderId={null}
-          selectedTagId={null}
           selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
           onSelectFolder={() => undefined}
-          onSelectTag={() => undefined}
           onSelectNote={() => undefined}
           folderMutations={{
             onCreate,
@@ -158,10 +166,10 @@ describe('Sidebar — folder mutations', () => {
           tags={tags}
           notes={notes}
           selectedFolderId={null}
-          selectedTagId={null}
           selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
           onSelectFolder={() => undefined}
-          onSelectTag={() => undefined}
           onSelectNote={() => undefined}
           folderMutations={{
             onCreate,
@@ -178,5 +186,57 @@ describe('Sidebar — folder mutations', () => {
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('parent folder not found'),
     );
+  });
+});
+
+describe('Sidebar — notes list', () => {
+  it('shows the loading row while pending and the list is empty', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={notes}
+          pending
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query="/Clients"
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    expect(within(container).getByText('Loading…')).toBeTruthy();
+  });
+
+  it('lists notes once loaded', () => {
+    const loaded: NoteListItem[] = [
+      {
+        id: 'n1',
+        title: 'First note',
+        folderId: null,
+        authorId: 'u1',
+        archivedAt: null,
+        updatedAt: '2026-05-14T00:00:00.000Z',
+        tags: [],
+      },
+    ];
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={loaded}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    expect(within(container).getByText('First note')).toBeTruthy();
   });
 });

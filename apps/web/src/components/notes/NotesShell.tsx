@@ -1,10 +1,12 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { foldersApi, notesApi } from '@/lib/notes/api-client.ts';
+import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
+import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
 
@@ -16,6 +18,13 @@ type Props = {
   initialNote: NoteDetail | null;
 };
 
+/** ISO timestamps sort lexically; newest-edited first. Defensive guard on top
+ *  of the API's own `orderBy: { updatedAt: 'desc' }`. */
+const byUpdatedAtDesc = (notes: ReadonlyArray<NoteListItem>): NoteListItem[] =>
+  [...notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+const qSuffix = (q: string): string => (q.length > 0 ? `?q=${encodeURIComponent(q)}` : '');
+
 export function NotesShell({
   folders: initialFolders,
   tags,
@@ -24,24 +33,51 @@ export function NotesShell({
   initialNote,
 }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const t = useTranslations('notes.shell');
+
+  const query = searchParams.get('q') ?? '';
   const [folders, setFolders] = useState<ReadonlyArray<FolderNode>>(initialFolders);
-  const [notes, setNotes] = useState<ReadonlyArray<NoteListItem>>(initialNotes);
-  const [folderId, setFolderId] = useState<string | null>(null);
-  const [tagId, setTagId] = useState<string | null>(null);
   const [noteDetail, setNoteDetail] = useState<NoteDetail | null>(initialNote);
 
+  // The URL `?q=` param is the single source of truth for the filter. It is
+  // parsed into a resolved folder/tag id; an unresolvable partial path (still
+  // being typed) leaves both null → the list shows all notes.
+  const parsed = useMemo(() => parseCommand(query), [query]);
+  const folderId = useMemo(
+    () => (parsed.kind === 'folder' ? resolveFolderPath(folders, parsed.path) : null),
+    [parsed, folders],
+  );
+  const tagId = useMemo(
+    () => (parsed.kind === 'tag' ? resolveTagId(tags, parsed.needle) : null),
+    [parsed, tags],
+  );
+
+  const filterActive = folderId !== null || tagId !== null;
+  const [notes, setNotes] = useState<ReadonlyArray<NoteListItem>>(() =>
+    filterActive ? [] : byUpdatedAtDesc(initialNotes),
+  );
+  const [pending, setPending] = useState(filterActive);
+
+  // Re-fetch whenever the resolved filter changes. Keyed on folderId/tagId —
+  // not raw `query` — so typing free text never triggers a list fetch.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Inside the async IIFE — not the synchronous effect body — so the
+      // react-hooks/set-state-in-effect rule does not flag a cascading render.
+      setPending(true);
       try {
         const list = await notesApi.list({
           ...(folderId !== null ? { folderId } : {}),
           ...(tagId !== null ? { tagId } : {}),
         });
-        if (!cancelled) setNotes(list.notes);
+        if (!cancelled) setNotes(byUpdatedAtDesc(list.notes));
       } catch {
-        // keep previous list on error
+        // keep the previous list on error
+      } finally {
+        if (!cancelled) setPending(false);
       }
     })();
     return () => {
@@ -49,13 +85,28 @@ export function NotesShell({
     };
   }, [folderId, tagId]);
 
+  const setQuery = useCallback(
+    (next: string) => {
+      router.replace(`${pathname}${qSuffix(next)}`);
+    },
+    [router, pathname],
+  );
+
+  const selectFolder = useCallback(
+    (id: string | null) => {
+      if (id === null) setQuery('');
+      else setQuery(`/${folderPath(folders, id)}`);
+    },
+    [setQuery, folders],
+  );
+
   const openNote = async (id: string) => {
-    router.push(`/notes/${id}`);
+    router.push(`/notes/${id}${qSuffix(query)}`);
     try {
       const detail = await notesApi.get(id);
       setNoteDetail(detail);
     } catch {
-      // ignore
+      // ignore — the destination page re-fetches server-side
     }
   };
 
@@ -91,16 +142,13 @@ export function NotesShell({
     async (id: string) => {
       await foldersApi.delete(id);
       await refreshFolders();
-      if (folderId === id) setFolderId(null);
+      if (folderId === id) setQuery('');
     },
-    [refreshFolders, folderId],
+    [refreshFolders, folderId, setQuery],
   );
 
   const handleReorderFolders = useCallback(
     async (parentId: string | null, orderedIds: string[]) => {
-      // One transaction-backed call handles both same-level reordering and
-      // cross-hierarchy moves: every id becomes a child of `parentId` at its
-      // array index.
       await foldersApi.reorder(parentId, orderedIds);
       await refreshFolders();
     },
@@ -113,11 +161,12 @@ export function NotesShell({
         folders={folders}
         tags={tags}
         notes={notes}
+        pending={pending}
+        query={query}
         selectedFolderId={folderId}
-        selectedTagId={tagId}
         selectedNoteId={noteDetail?.id ?? null}
-        onSelectFolder={setFolderId}
-        onSelectTag={setTagId}
+        onQueryChange={setQuery}
+        onSelectFolder={selectFolder}
         onSelectNote={openNote}
         folderMutations={{
           onCreate: handleCreateFolder,

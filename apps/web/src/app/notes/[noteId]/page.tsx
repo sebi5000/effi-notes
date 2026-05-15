@@ -1,5 +1,6 @@
 import { prisma } from '@app/db';
 import { notFound, redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { auth } from '@/auth';
 import { NotesShell } from '@/components/notes/NotesShell.tsx';
 
@@ -66,39 +67,41 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
   if (!note) notFound();
 
   return (
-    <NotesShell
-      folders={folders.map((f) => ({
-        ...f,
-        createdAt: f.createdAt.toISOString(),
-        updatedAt: f.updatedAt.toISOString(),
-      }))}
-      tags={tags}
-      initialNotes={notes.map((n) => ({
-        id: n.id,
-        title: n.title,
-        folderId: n.folderId,
-        authorId: n.authorId,
-        archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
-        updatedAt: n.updatedAt.toISOString(),
-        tags: n.tags.map((t) => t.tag),
-      }))}
-      currentUser={{
-        id: session.user.id,
-        name: session.user.displayName ?? session.user.email,
-        color: hashToColor(session.user.id),
-      }}
-      initialNote={{
-        id: note.id,
-        title: note.title,
-        body: note.body,
-        folderId: note.folderId,
-        authorId: note.authorId,
-        lastEditorId: note.lastEditorId,
-        archivedAt: note.archivedAt ? note.archivedAt.toISOString() : null,
-        createdAt: note.createdAt.toISOString(),
-        updatedAt: note.updatedAt.toISOString(),
-        tags: note.tags.map((t) => t.tag),
-      }}
-    />
+    <Suspense fallback={null}>
+      <NotesShell
+        folders={folders.map((f) => ({
+          ...f,
+          createdAt: f.createdAt.toISOString(),
+          updatedAt: f.updatedAt.toISOString(),
+        }))}
+        tags={tags}
+        initialNotes={notes.map((n) => ({
+          id: n.id,
+          title: n.title,
+          folderId: n.folderId,
+          authorId: n.authorId,
+          archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
+          updatedAt: n.updatedAt.toISOString(),
+          tags: n.tags.map((t) => t.tag),
+        }))}
+        currentUser={{
+          id: session.user.id,
+          name: session.user.displayName ?? session.user.email,
+          color: hashToColor(session.user.id),
+        }}
+        initialNote={{
+          id: note.id,
+          title: note.title,
+          body: note.body,
+          folderId: note.folderId,
+          authorId: note.authorId,
+          lastEditorId: note.lastEditorId,
+          archivedAt: note.archivedAt ? note.archivedAt.toISOString() : null,
+          createdAt: note.createdAt.toISOString(),
+          updatedAt: note.updatedAt.toISOString(),
+          tags: note.tags.map((t) => t.tag),
+        }}
+      />
+    </Suspense>
   );
 }

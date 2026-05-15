@@ -1,5 +1,6 @@
 import { prisma } from '@app/db';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { auth } from '@/auth';
 import { NotesShell } from '@/components/notes/NotesShell.tsx';
 
@@ -48,28 +49,30 @@ export default async function NotesIndexPage() {
   ]);
 
   return (
-    <NotesShell
-      folders={folders.map((f) => ({
-        ...f,
-        createdAt: f.createdAt.toISOString(),
-        updatedAt: f.updatedAt.toISOString(),
-      }))}
-      tags={tags}
-      initialNotes={notes.map((n) => ({
-        id: n.id,
-        title: n.title,
-        folderId: n.folderId,
-        authorId: n.authorId,
-        archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
-        updatedAt: n.updatedAt.toISOString(),
-        tags: n.tags.map((t) => t.tag),
-      }))}
-      currentUser={{
-        id: session.user.id,
-        name: session.user.displayName ?? session.user.email,
-        color: hashToColor(session.user.id),
-      }}
-      initialNote={null}
-    />
+    <Suspense fallback={null}>
+      <NotesShell
+        folders={folders.map((f) => ({
+          ...f,
+          createdAt: f.createdAt.toISOString(),
+          updatedAt: f.updatedAt.toISOString(),
+        }))}
+        tags={tags}
+        initialNotes={notes.map((n) => ({
+          id: n.id,
+          title: n.title,
+          folderId: n.folderId,
+          authorId: n.authorId,
+          archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
+          updatedAt: n.updatedAt.toISOString(),
+          tags: n.tags.map((t) => t.tag),
+        }))}
+        currentUser={{
+          id: session.user.id,
+          name: session.user.displayName ?? session.user.email,
+          color: hashToColor(session.user.id),
+        }}
+        initialNote={null}
+      />
+    </Suspense>
   );
 }

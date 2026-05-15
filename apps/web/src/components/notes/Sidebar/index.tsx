@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { CommandBar } from './CommandBar.tsx';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
@@ -10,11 +10,14 @@ type Props = {
   folders: ReadonlyArray<FolderNode>;
   tags: ReadonlyArray<TagItem>;
   notes: ReadonlyArray<NoteListItem>;
+  /** True while the filtered notes list is being fetched. */
+  pending?: boolean;
+  /** Current command-bar query — the single source of truth for the filter. */
+  query: string;
   selectedFolderId: string | null;
-  selectedTagId: string | null;
   selectedNoteId: string | null;
+  onQueryChange: (next: string) => void;
   onSelectFolder: (id: string | null) => void;
-  onSelectTag: (id: string | null) => void;
   onSelectNote: (id: string) => void;
   folderMutations?: FolderMutationHandlers & {
     onCreate: (name: string, parentId: string | null) => Promise<void>;
@@ -25,11 +28,12 @@ export function Sidebar({
   folders,
   tags,
   notes,
+  pending = false,
+  query,
   selectedFolderId,
-  selectedTagId,
   selectedNoteId,
+  onQueryChange,
   onSelectFolder,
-  onSelectTag,
   onSelectNote,
   folderMutations,
 }: Props) {
@@ -38,11 +42,6 @@ export function Sidebar({
   const [creating, setCreating] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
-
-  const activeTag = useMemo(
-    () => tags.find((tg) => tg.id === selectedTagId) ?? null,
-    [tags, selectedTagId],
-  );
 
   const submitCreate = async () => {
     if (!folderMutations) return;
@@ -70,21 +69,13 @@ export function Sidebar({
         </span>
       </header>
 
-      <CommandBar onSelect={onSelectNote} onTagSelect={onSelectTag} tags={tags} />
-
-      {activeTag !== null ? (
-        <div className="flex items-center gap-1 text-xs">
-          <span className="text-muted-foreground">{t('filterByTag')}</span>
-          <button
-            type="button"
-            onClick={() => onSelectTag(null)}
-            className="bg-accent inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-white"
-          >
-            <span>#{activeTag.name}</span>
-            <span aria-hidden="true">×</span>
-          </button>
-        </div>
-      ) : null}
+      <CommandBar
+        value={query}
+        onChange={onQueryChange}
+        onSelect={onSelectNote}
+        folders={folders}
+        tags={tags}
+      />
 
       <section aria-label={t('foldersHeading')} className="flex-1 overflow-y-auto">
         <div className="mb-1 flex items-center justify-between">
@@ -156,7 +147,9 @@ export function Sidebar({
           {t('notesHeading')}
         </h3>
         <ul aria-label={t('notesHeading')} className="space-y-0.5">
-          {notes.length === 0 ? (
+          {pending && notes.length === 0 ? (
+            <li className="text-muted-foreground/70 px-2 py-1 text-sm italic">{t('loading')}</li>
+          ) : notes.length === 0 ? (
             <li className="text-muted-foreground/70 px-2 py-1 text-sm italic">{t('emptyState')}</li>
           ) : (
             notes.map((n) => {
