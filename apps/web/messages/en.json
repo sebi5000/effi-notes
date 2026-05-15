@@ -36,14 +36,16 @@
   "notes": {
     "shell": {
       "welcome": "Pick a note from the sidebar",
-      "emptyHint": "Or hit ⌘K to search across every note in the workspace."
+      "emptyHint": "Or hit ⌘K to search across every note in the workspace.",
+      "expandSidebar": "Expand sidebar"
     },
     "sidebar": {
       "foldersHeading": "Folders",
       "tagsHeading": "Tags",
       "notesHeading": "Notes",
       "emptyState": "No notes here yet.",
-      "loading": "Loading…"
+      "loading": "Loading…",
+      "collapseSidebar": "Collapse sidebar"
     },
     "folderActions": {
       "newFolder": "New folder",

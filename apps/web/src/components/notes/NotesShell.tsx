@@ -7,6 +7,7 @@ import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/sc
 import { foldersApi, notesApi } from '@/lib/notes/api-client.ts';
 import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
 import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
+import { useSidebarCollapsed } from '@/lib/notes/use-sidebar-collapsed.ts';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
 
@@ -36,6 +37,7 @@ export function NotesShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const t = useTranslations('notes.shell');
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
 
   const query = searchParams.get('q') ?? '';
   const [folders, setFolders] = useState<ReadonlyArray<FolderNode>>(initialFolders);
@@ -159,26 +161,44 @@ export function NotesShell({
   );
 
   return (
-    <div className="grid h-screen grid-cols-[280px_1fr]">
-      <Sidebar
-        folders={folders}
-        tags={tags}
-        notes={notes}
-        pending={pending}
-        query={query}
-        selectedFolderId={folderId}
-        selectedNoteId={noteDetail?.id ?? null}
-        onQueryChange={setQuery}
-        onSelectFolder={selectFolder}
-        onSelectNote={openNote}
-        folderMutations={{
-          onCreate: handleCreateFolder,
-          onRename: handleRenameFolder,
-          onDelete: handleDeleteFolder,
-          onReorder: handleReorderFolders,
-        }}
-      />
-      <main className="flex flex-col px-12 py-10">
+    <div
+      className={`grid h-screen transition-[grid-template-columns] duration-200 ${
+        sidebarCollapsed ? 'grid-cols-[0px_1fr]' : 'grid-cols-[280px_1fr]'
+      }`}
+    >
+      <div className="overflow-hidden">
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={notes}
+          pending={pending}
+          query={query}
+          selectedFolderId={folderId}
+          selectedNoteId={noteDetail?.id ?? null}
+          onQueryChange={setQuery}
+          onSelectFolder={selectFolder}
+          onSelectNote={openNote}
+          onCollapse={toggleSidebar}
+          folderMutations={{
+            onCreate: handleCreateFolder,
+            onRename: handleRenameFolder,
+            onDelete: handleDeleteFolder,
+            onReorder: handleReorderFolders,
+          }}
+        />
+      </div>
+      <main className="relative flex flex-col px-12 py-10">
+        {sidebarCollapsed ? (
+          <button
+            type="button"
+            aria-label={t('expandSidebar')}
+            title={t('expandSidebar')}
+            onClick={toggleSidebar}
+            className="text-muted-foreground/60 hover:text-foreground absolute left-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center rounded text-sm leading-none"
+          >
+            »
+          </button>
+        ) : null}
         {noteDetail ? (
           <>
             <h1 className="font-body text-foreground mb-4 text-3xl font-semibold">

@@ -22,6 +22,8 @@ type Props = {
   folderMutations?: FolderMutationHandlers & {
     onCreate: (name: string, parentId: string | null) => Promise<void>;
   };
+  /** When provided, a collapse button is shown in the sidebar header. */
+  onCollapse?: () => void;
 };
 
 export function Sidebar({
@@ -36,6 +38,7 @@ export function Sidebar({
   onSelectFolder,
   onSelectNote,
   folderMutations,
+  onCollapse,
 }: Props) {
   const t = useTranslations('notes.sidebar');
   const tA = useTranslations('notes.folderActions');
@@ -67,6 +70,17 @@ export function Sidebar({
         <span className="font-display text-foreground text-lg font-semibold tracking-tight">
           effi · notes
         </span>
+        {onCollapse ? (
+          <button
+            type="button"
+            aria-label={t('collapseSidebar')}
+            title={t('collapseSidebar')}
+            onClick={onCollapse}
+            className="text-muted-foreground/60 hover:text-foreground ml-auto inline-flex h-6 w-6 items-center justify-center rounded text-sm leading-none"
+          >
+            «
+          </button>
+        ) : null}
       </header>
 
       <CommandBar

@@ -15,6 +15,7 @@ const messages = {
       notesHeading: 'Notes',
       emptyState: 'No notes here yet.',
       loading: 'Loading…',
+      collapseSidebar: 'Collapse sidebar',
     },
     folderActions: {
       newFolder: 'New folder',
@@ -186,6 +187,49 @@ describe('Sidebar — folder mutations', () => {
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('parent folder not found'),
     );
+  });
+});
+
+describe('Sidebar — collapse control', () => {
+  it('shows no collapse button when onCollapse is omitted', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={notes}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    expect(within(container).queryByLabelText('Collapse sidebar')).toBeNull();
+  });
+
+  it('renders a collapse button that calls onCollapse', () => {
+    const onCollapse = vi.fn();
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={notes}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          onCollapse={onCollapse}
+        />,
+      ),
+    );
+    fireEvent.click(within(container).getByLabelText('Collapse sidebar'));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
   });
 });
 

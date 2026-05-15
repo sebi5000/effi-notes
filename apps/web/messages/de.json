@@ -36,14 +36,16 @@
   "notes": {
     "shell": {
       "welcome": "Wählen Sie eine Notiz in der Seitenleiste",
-      "emptyHint": "Oder drücken Sie ⌘K, um alle Notizen im Workspace zu durchsuchen."
+      "emptyHint": "Oder drücken Sie ⌘K, um alle Notizen im Workspace zu durchsuchen.",
+      "expandSidebar": "Seitenleiste ausklappen"
     },
     "sidebar": {
       "foldersHeading": "Ordner",
       "tagsHeading": "Tags",
       "notesHeading": "Notizen",
       "emptyState": "Hier gibt es noch keine Notizen.",
-      "loading": "Wird geladen…"
+      "loading": "Wird geladen…",
+      "collapseSidebar": "Seitenleiste einklappen"
     },
     "folderActions": {
       "newFolder": "Neuer Ordner",
