@@ -227,3 +227,155 @@ describe('CommandBar — clear button', () => {
     expect(within(container).queryByLabelText('Tag suggestions')).toBeNull();
   });
 });
+
+describe('CommandBar — keyboard navigation', () => {
+  it('Escape closes the tag-suggestion dropdown', () => {
+    const { container } = render(wrap(<Controlled />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#dis' } });
+    expect(within(container).queryByLabelText('Tag suggestions')).not.toBeNull();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(within(container).queryByLabelText('Tag suggestions')).toBeNull();
+  });
+
+  it('Escape closes the folder-suggestion dropdown', () => {
+    const { container } = render(wrap(<Controlled />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '/cli' } });
+    expect(within(container).queryByLabelText('Folder suggestions')).not.toBeNull();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(within(container).queryByLabelText('Folder suggestions')).toBeNull();
+  });
+
+  it('Enter on first tag suggestion applies it', async () => {
+    const { container } = render(wrap(<Controlled />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#pri' } });
+    await waitFor(() =>
+      expect(within(container).queryByLabelText('Tag suggestions')).not.toBeNull(),
+    );
+    fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() => expect(input.value).toBe('#pricing'));
+    expect(within(container).queryByLabelText('Tag suggestions')).toBeNull();
+  });
+});
+
+describe('CommandBar — debounce non-text mode clears hits', () => {
+  it('clears any stale text-search hits when switching to tag mode', async () => {
+    // First get some hits via text mode, then switch to tag mode.
+    // After the debounce fires in tag mode, hits should be empty.
+    const search = vi.fn(async () => ({
+      hits: [{ id: 'n1', title: 'Hit One', snippet: '', folderId: null, updatedAt: '' }],
+      total: 1,
+    }));
+    const { container } = render(wrap(<Controlled search={search} debounceMs={10} />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    // Enter text mode to populate hits
+    fireEvent.change(input, { target: { value: 'query' } });
+    await waitFor(() => expect(within(container).queryByText('Hit One')).not.toBeNull(), {
+      timeout: 200,
+    });
+    // Switch to tag mode — the debounce fires with a non-text command, clearing hits
+    fireEvent.change(input, { target: { value: '#tag' } });
+    await waitFor(() => expect(within(container).queryByLabelText('Search results')).toBeNull(), {
+      timeout: 200,
+    });
+  });
+});
+
+describe('CommandBar — search fn fallback', () => {
+  it('uses the default (no-op) search fn when no search prop is passed', async () => {
+    /** Rendered without a search prop to exercise the searchApi.query fallback path.
+     * The default fn returns an empty result so we just confirm the component does
+     * not throw and the input is still functional. */
+    function NoSearchProp() {
+      const [value, setValue] = useState('');
+      return (
+        <CommandBar
+          value={value}
+          onChange={setValue}
+          onSelect={() => undefined}
+          folders={folders}
+          tags={tags}
+          debounceMs={10}
+        />
+      );
+    }
+    const { container } = render(wrap(<NoSearchProp />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    // Type a plain text query — the fallback fn will be invoked (may reject because
+    // searchApi is not wired in jsdom, but the component should swallow the error).
+    fireEvent.change(input, { target: { value: 'test' } });
+    await waitFor(() => expect(input.value).toBe('test'));
+  });
+});
+
+describe('CommandBar — search error handling', () => {
+  it('swallows a rejected search and shows no results', async () => {
+    const search = vi.fn(async () => {
+      throw new Error('network error');
+    });
+    const { container } = render(wrap(<Controlled search={search} debounceMs={10} />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'query' } });
+    // wait for the debounce + rejection — no results list should appear
+    await waitFor(() => expect(search).toHaveBeenCalled(), { timeout: 200 });
+    expect(within(container).queryByRole('list')).toBeNull();
+  });
+});
+
+describe('CommandBar — mouse interactions', () => {
+  it('onMouseDown in tag button prevents default (keeps input focus)', () => {
+    const { container } = render(wrap(<Controlled />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '#dis' } });
+    const tagList = within(container).getByLabelText('Tag suggestions');
+    const btn = tagList.querySelector('button') as HTMLButtonElement;
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    btn.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('onMouseDown in folder button prevents default (keeps input focus)', () => {
+    const { container } = render(wrap(<Controlled />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '/cli' } });
+    const folderList = within(container).getByLabelText('Folder suggestions');
+    const btn = folderList.querySelector('button') as HTMLButtonElement;
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    btn.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('onMouseDown in search-result button prevents default (keeps input focus)', async () => {
+    const search = vi.fn(async () => ({
+      hits: [{ id: 'n1', title: 'Hit One', snippet: '', folderId: null, updatedAt: '' }],
+      total: 1,
+    }));
+    const { container } = render(wrap(<Controlled search={search} debounceMs={10} />));
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'h' } });
+    await waitFor(() => expect(within(container).queryByText('Hit One')).not.toBeNull());
+    const resultList = within(container).getByLabelText('Search results');
+    const btn = resultList.querySelector('button') as HTMLButtonElement;
+    const event = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    btn.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it('clicking a search-result hit calls onSelect', async () => {
+    const onSelect = vi.fn();
+    const search = vi.fn(async () => ({
+      hits: [{ id: 'n2', title: 'Result Note', snippet: '', folderId: null, updatedAt: '' }],
+      total: 1,
+    }));
+    const { container } = render(
+      wrap(<Controlled onSelect={onSelect} search={search} debounceMs={10} />),
+    );
+    const input = container.querySelector('input') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'result' } });
+    await waitFor(() => expect(within(container).queryByText('Result Note')).not.toBeNull());
+    fireEvent.click(within(container).getByText('Result Note'));
+    expect(onSelect).toHaveBeenCalledWith('n2');
+  });
+});
