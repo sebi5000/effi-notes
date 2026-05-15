@@ -34,6 +34,20 @@ const otelTransportTarget = (): pino.TransportTargetOptions => ({
   },
 });
 
+/**
+ * pino `transport` targets (pino-pretty, pino-opentelemetry-transport) run
+ * in a worker thread spawned by `thread-stream`. Next.js bundles the server
+ * code and that worker cannot resolve the transport module — it throws
+ * "unable to determine transport target for …" at logger construction,
+ * which 500s any route whose module-load creates a logger.
+ *
+ * So inside the Next.js runtime we never attach a transport: pino writes
+ * structured JSON straight to stdout (no worker), which the Compose log
+ * driver still picks up. The standalone worker process (plain Bun, no
+ * bundler) keeps the pretty/OTLP transports.
+ */
+const inNextRuntime = typeof process.env.NEXT_RUNTIME === 'string';
+
 const buildOptions = (): LoggerOptions => {
   const base: LoggerOptions = {
     level: env.LOG_LEVEL,
@@ -41,13 +55,16 @@ const buildOptions = (): LoggerOptions => {
     base: null,
   };
 
-  // Production: structured JSON to stdout, plus OTLP if enabled
+  // Next.js server runtime: plain JSON to stdout, no worker-thread transport.
+  if (inNextRuntime) return base;
+
+  // Production (worker): structured JSON to stdout, plus OTLP if enabled
   if (isProduction) {
     if (!otelEnabled) return base;
     return { ...base, transport: otelTransportTarget() };
   }
 
-  // Dev: pretty stdout, plus OTLP if enabled
+  // Dev (worker): pretty stdout, plus OTLP if enabled
   const targets: pino.TransportTargetOptions[] = [
     {
       target: 'pino-pretty',

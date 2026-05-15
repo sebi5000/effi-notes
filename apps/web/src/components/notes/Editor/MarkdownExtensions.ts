@@ -25,9 +25,13 @@ export const buildExtensions = (input: {
   awareness: AwarenessLike;
   user: { name: string; color: string };
 }) => [
-  // StarterKit in v3 manages history internally; CollaborationCaret + the
-  // Y.Doc handle multi-user undo. We rely on StarterKit defaults.
-  StarterKit,
+  // StarterKit v3 bundles its own Link and UndoRedo extensions. We disable
+  // both here:
+  //   - link: we add our own Link below with openOnClick/autolink config
+  //   - undoRedo: Collaboration brings CRDT-aware history; keeping
+  //     StarterKit's UndoRedo too causes a "not compatible" warning and
+  //     double undo stacks.
+  StarterKit.configure({ link: false, undoRedo: false }),
   Link.configure({ openOnClick: false, autolink: true }),
   Typography,
   TaskList,

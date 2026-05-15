@@ -53,11 +53,52 @@
  * have to wrap every block.
  */
 .prose-paper {
-  max-width: 68ch;
   color: var(--color-foreground);
   font-family: var(--font-body);
   font-size: 17px;
   line-height: 1.7;
+}
+
+/* A4 page surface. The editable area is sized to a real A4 sheet (210mm ×
+ * 297mm) with 20mm side / 22mm vertical margins, so what the consultant
+ * sees on screen maps 1:1 to a DIN-A4 PDF on export. The content width
+ * inside the padding is the printable column — line breaks on screen are
+ * the line breaks in the exported PDF.
+ */
+.a4-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  margin-inline: auto;
+  padding: 22mm 20mm;
+  background: #fffdf8;
+  border: 1px solid var(--color-paper-line);
+  border-radius: 2px;
+  box-shadow:
+    0 1px 3px rgb(30 34 48 / 8%),
+    0 8px 24px rgb(30 34 48 / 6%);
+  box-sizing: border-box;
+}
+.a4-sheet.prose-paper {
+  /* fill the printable column exactly — no extra max-width clamp */
+  max-width: none;
+}
+
+/* Print / PDF export: the sheet becomes the page. Drop the shadow + border,
+ * let the browser's @page own the physical margins so the 20/22mm padding
+ * isn't doubled. */
+@page {
+  size: A4;
+  margin: 0;
+}
+@media print {
+  .a4-sheet {
+    width: 210mm;
+    min-height: 297mm;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+  }
 }
 .prose-paper :where(h1, h2, h3, h4) {
   font-family: var(--font-display);
@@ -116,6 +157,47 @@
   color: var(--color-foreground);
   padding: 0 0.15em;
   border-radius: 2px;
+}
+
+/* Task lists (Tiptap TaskList / TaskItem).
+ *
+ * TaskItem renders each row as `<li><label><input/></label><div>…</div></li>`.
+ * Both children are block-level by default, so the checkbox and the text
+ * stack on two lines. Lay the row out as a flex line: checkbox fixed-width,
+ * content flexes and may wrap on its own.
+ */
+.prose-paper :where(ul[data-type="taskList"]) {
+  list-style: none;
+  padding-left: 0;
+}
+.prose-paper :where(li[data-type="taskItem"]) {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55em;
+  margin-bottom: 0.3em;
+}
+.prose-paper :where(li[data-type="taskItem"] > label) {
+  flex: 0 0 auto;
+  /* nudge the checkbox onto the first text line's baseline */
+  margin-top: 0.28em;
+  user-select: none;
+}
+.prose-paper :where(li[data-type="taskItem"] > div) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.prose-paper :where(li[data-type="taskItem"] > div > p) {
+  margin-bottom: 0;
+}
+.prose-paper :where(li[data-type="taskItem"] input[type="checkbox"]) {
+  width: 1em;
+  height: 1em;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+.prose-paper :where(li[data-type="taskItem"][data-checked="true"] > div) {
+  color: var(--color-muted-foreground);
+  text-decoration: line-through;
 }
 
 :focus-visible {

@@ -159,7 +159,9 @@ function CollaborativeEditor({
       content: initialBody,
       editorProps: {
         attributes: {
-          class: 'prose-paper focus:outline-none min-h-[60vh]',
+          // `a4-sheet` sizes the editable surface to a real DIN-A4 page so
+          // the on-screen layout maps 1:1 to a PDF export.
+          class: 'prose-paper a4-sheet focus:outline-none',
         },
       },
       onUpdate: () => dispatch({ kind: 'edit' }),
@@ -195,7 +197,9 @@ function CollaborativeEditor({
         <PresenceBar users={presence} />
         <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
       </div>
-      <EditorContent editor={editor} className="flex-1 pb-24" />
+      {/* The A4 sheet has a fixed 210mm width — center it and let the rail
+          scroll horizontally on narrow viewports rather than clipping. */}
+      <EditorContent editor={editor} className="flex-1 overflow-x-auto pb-24" />
       <EditorToolbar editor={editor} />
     </div>
   );
