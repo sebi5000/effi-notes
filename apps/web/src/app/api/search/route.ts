@@ -49,7 +49,7 @@ export const GET = async (req: Request): Promise<Response> => {
       // match on title if the tsquery comes back empty (very short / all
       // punctuation).
       const useTs = tsquery.length > 0;
-      const rows: Row[] = useTs
+      const noteRows: Row[] = useTs
         ? await prisma.$queryRawUnsafe<Row[]>(
             `SELECT n.id,
                   n.title,
@@ -67,6 +67,33 @@ export const GET = async (req: Request): Promise<Response> => {
             limit,
           )
         : [];
+
+      // A note also matches when one of its embedded assets matches by
+      // filename / caption / extracted text. Surfaced as the owning note.
+      const assetRows: Row[] = useTs
+        ? await prisma.$queryRawUnsafe<Row[]>(
+            `SELECT DISTINCT n.id,
+                  n.title,
+                  n."folderId" as "folderId",
+                  n."updatedAt",
+                  left(n.body, 200) AS snippet
+             FROM "Asset" a
+             JOIN "Note" n ON n.id = a."noteId"
+            WHERE n."archivedAt" IS NULL
+              AND a."searchVector" @@ to_tsquery('simple', $1)
+            ORDER BY n."updatedAt" DESC
+            LIMIT $2`,
+            tsquery,
+            limit,
+          )
+        : [];
+
+      // Merge: direct note hits first, then asset-only hits, de-duplicated.
+      const seen = new Set(noteRows.map((r) => r.id));
+      const rows: Row[] = [...noteRows, ...assetRows.filter((r) => !seen.has(r.id))].slice(
+        0,
+        limit,
+      );
 
       let final = rows;
       if (final.length === 0) {
