@@ -89,6 +89,7 @@ model Note {
   updatedAt    DateTime      @updatedAt
   tags         NoteTag[]
   history      NoteHistory[]
+  assets       Asset[]
   searchVector Unsupported("tsvector")?
 
   @@index([folderId, updatedAt])
@@ -131,4 +132,35 @@ model NoteHistory {
   createdAt DateTime @default(now())
 
   @@index([noteId, createdAt])
+}
+
+/// Asset kind. IMAGE is produced in sub-project A; PDF is declared now so
+/// sub-project B needs no enum migration.
+enum AssetKind {
+  IMAGE
+  PDF
+}
+
+/// A binary file embedded in a note. Bytes live in Postgres (`data`).
+/// `searchVector` is a generated tsvector over filename + caption +
+/// extractedText (added via raw SQL in the migration — Prisma sees it as
+/// Unsupported but it is queryable via $queryRaw), so a note is findable
+/// through its embedded assets. `authorId` is a plain column (audit actor);
+/// no FK relation to keep the template `User` model untouched.
+model Asset {
+  id            String    @id @default(cuid())
+  noteId        String
+  note          Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  authorId      String
+  kind          AssetKind
+  contentType   String
+  filename      String
+  caption       String    @default("")
+  extractedText String    @default("")
+  byteSize      Int
+  data          Bytes
+  createdAt     DateTime  @default(now())
+  searchVector  Unsupported("tsvector")?
+
+  @@index([noteId])
 }
