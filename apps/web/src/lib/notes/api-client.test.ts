@@ -155,15 +155,30 @@ describe('assetsApi', () => {
     expect(res).toEqual({ id: 'a1', url: '/api/assets/a1' });
     expect(calls[0]?.url).toBe('/api/notes/note1/assets?filename=pic.png');
     expect(calls[0]?.init?.method).toBe('POST');
+    expect(calls[0]?.init?.body).toBe(file);
   });
 
-  it('upload throws an ApiError on a non-ok response', async () => {
+  it('upload throws an ApiError carrying the server message on a non-ok response', async () => {
     const fetcher = (async () =>
       new Response(JSON.stringify({ error: 'too large' }), {
         status: 413,
       })) as unknown as typeof fetch;
     const file = new File([new Uint8Array([1])], 'big.png', { type: 'image/png' });
-    await expect(assetsApi.upload('note1', file, fetcher)).rejects.toBeInstanceOf(ApiError);
+    const err = await assetsApi.upload('note1', file, fetcher).catch((e) => e);
+    expect(err).toBeInstanceOf(ApiError);
+    expect((err as ApiError).status).toBe(413);
+    expect((err as ApiError).message).toBe('too large');
+  });
+
+  it('upload percent-encodes the filename in the query', async () => {
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetcher = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init });
+      return new Response(JSON.stringify({ id: 'a2', url: '/api/assets/a2' }), { status: 201 });
+    }) as unknown as typeof fetch;
+    const file = new File([new Uint8Array([1])], 'my photo.png', { type: 'image/png' });
+    await assetsApi.upload('n1', file, fetcher);
+    expect(calls[0]?.url).toBe('/api/notes/n1/assets?filename=my%20photo.png');
   });
 
   it('patchCaption sends a PATCH with the caption body', async () => {

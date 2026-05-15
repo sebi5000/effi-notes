@@ -176,7 +176,17 @@ export const assetsApi = {
       body: file,
     });
     if (!res.ok) {
-      throw new ApiError(res.status, `HTTP ${res.status}`, null);
+      let body: unknown = null;
+      try {
+        body = await res.json();
+      } catch {
+        // non-JSON error response
+      }
+      const message =
+        typeof body === 'object' && body !== null && 'error' in body
+          ? String((body as { error: unknown }).error)
+          : `HTTP ${res.status}`;
+      throw new ApiError(res.status, message, body);
     }
     return (await res.json()) as { id: string; url: string };
   },
