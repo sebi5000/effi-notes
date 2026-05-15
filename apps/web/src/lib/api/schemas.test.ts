@@ -25,4 +25,8 @@ describe('createTagSchema — tag name', () => {
   it('still rejects spaces', () => {
     expect(createTagSchema.safeParse({ name: 'has spaces' }).success).toBe(false);
   });
+
+  it('accepts a name with unicode letters', () => {
+    expect(createTagSchema.safeParse({ name: 'café#découverte' }).success).toBe(true);
+  });
 });
