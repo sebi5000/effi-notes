@@ -66,7 +66,6 @@ export function ResizableImage({ node, updateAttributes, selected }: NodeViewPro
       data-selected={selected ? 'true' : undefined}
     >
       <div ref={frameRef} className="note-image-frame">
-        {/* biome-ignore lint/performance/noImgElement: Tiptap NodeView owns the DOM; next/image wrappers break the NodeView mount contract */}
         {/* eslint-disable-next-line @next/next/no-img-element -- Tiptap NodeView owns the DOM; next/image wrappers break the NodeView mount contract */}
         <img
           src={src}
