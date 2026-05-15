@@ -47,6 +47,11 @@ describe('htmlToMarkdown', () => {
     expect(htmlToMarkdown('')).toBe('');
   });
 
+  it('converts an image to Markdown image syntax', () => {
+    const md = htmlToMarkdown('<img src="/api/assets/a1" alt="A photo">');
+    expect(md).toBe('![A photo](/api/assets/a1)');
+  });
+
   it('converts each callout type to a GitHub-style blockquote', () => {
     const cases: Array<[type: string, marker: string]> = [
       ['note', '[!NOTE]'],

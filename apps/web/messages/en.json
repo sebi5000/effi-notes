@@ -79,6 +79,10 @@
       "warning": "Warning",
       "caution": "Caution"
     },
+    "editorImage": {
+      "captionPlaceholder": "Add a caption…",
+      "uploadFailed": "Image upload failed"
+    },
     "editorActions": {
       "copyMarkdown": "Copy as Markdown",
       "copied": "Copied"

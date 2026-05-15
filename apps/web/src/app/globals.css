@@ -305,3 +305,45 @@ input[type="search"]::-webkit-search-decoration {
   -webkit-mask: var(--callout-icon) center / contain no-repeat;
   mask: var(--callout-icon) center / contain no-repeat;
 }
+
+/* Editor images. `max-width: 100%` is the hard bound — an image can never
+ * exceed the editor content column regardless of its stored width. */
+.prose-paper .note-image {
+  margin: 0.85em 0;
+}
+.prose-paper .note-image-frame {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+.prose-paper .note-image-frame img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  border-radius: 4px;
+}
+.prose-paper .note-image-handle {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-accent);
+  border-radius: 3px;
+  background: var(--color-background);
+  cursor: nwse-resize;
+}
+.prose-paper .note-image figcaption {
+  margin-top: 0.3em;
+}
+.prose-paper .note-image-caption {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 0.85em;
+  color: var(--color-muted-foreground);
+  text-align: center;
+}
+.prose-paper .note-image-caption:focus {
+  outline: none;
+}

@@ -79,6 +79,10 @@
       "warning": "Warnung",
       "caution": "Vorsicht"
     },
+    "editorImage": {
+      "captionPlaceholder": "Bildunterschrift hinzufügen…",
+      "uploadFailed": "Bild-Upload fehlgeschlagen"
+    },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",
       "copied": "Kopiert"

@@ -156,6 +156,7 @@ function CollaborativeEditor({
           getStates: () => Map<number, unknown>;
         },
         user: { name: currentUser.name, color: currentUser.color },
+        noteId,
       }),
       content: initialBody,
       editorProps: {
