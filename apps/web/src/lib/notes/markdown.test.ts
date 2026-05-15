@@ -46,4 +46,26 @@ describe('htmlToMarkdown', () => {
   it('returns an empty string for empty input', () => {
     expect(htmlToMarkdown('')).toBe('');
   });
+
+  it('converts each callout type to a GitHub-style blockquote', () => {
+    const cases: Array<[type: string, marker: string]> = [
+      ['note', '[!NOTE]'],
+      ['tip', '[!TIP]'],
+      ['important', '[!IMPORTANT]'],
+      ['warning', '[!WARNING]'],
+      ['caution', '[!CAUTION]'],
+    ];
+    for (const [type, marker] of cases) {
+      const md = htmlToMarkdown(`<div data-callout="${type}"><p>A Title</p></div>`);
+      expect(md).toContain(`> ${marker} A Title`);
+    }
+  });
+
+  it('prefixes a multi-paragraph callout body with blockquote markers', () => {
+    const md = htmlToMarkdown(
+      '<div data-callout="note"><p>A Note</p><p>With some content</p></div>',
+    );
+    expect(md).toContain('> [!NOTE] A Note');
+    expect(md).toContain('> With some content');
+  });
 });

@@ -32,5 +32,15 @@ export const htmlToMarkdown = (html: string): string => {
       return `- [${checked ? 'x' : ' '}] ${text}\n`;
     },
   });
+  service.addRule('calloutBlock', {
+    filter: (node) => node.nodeName === 'DIV' && node.getAttribute('data-callout') !== null,
+    replacement: (content, node) => {
+      const type = (node.getAttribute('data-callout') ?? 'note').toUpperCase();
+      const lines = content.trim().split('\n');
+      const title = (lines[0] ?? '').trim();
+      const rest = lines.slice(1).map((line) => (line.trim().length > 0 ? `> ${line}` : '>'));
+      return `\n\n${[`> [!${type}] ${title}`.trimEnd(), ...rest].join('\n')}\n\n`;
+    },
+  });
   return service.turndown(html);
 };
