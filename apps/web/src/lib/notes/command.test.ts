@@ -6,6 +6,7 @@ const tags: TagItem[] = [
   { id: 't1', name: 'discovery', color: '#C26A20' },
   { id: 't2', name: 'pricing', color: null },
   { id: 't3', name: 'discovery#new#01', color: null },
+  { id: 't4', name: 'paradise', color: null },
 ];
 
 describe('parseCommand', () => {
@@ -33,12 +34,17 @@ describe('parseCommand', () => {
   it('routes anything else to text mode', () => {
     expect(parseCommand('quarterly plan')).toEqual({ kind: 'text', q: 'quarterly plan' });
   });
+
+  it('treats a lone # / as that mode with an empty needle/path', () => {
+    expect(parseCommand('#')).toEqual({ kind: 'tag', needle: '' });
+    expect(parseCommand('/')).toEqual({ kind: 'folder', path: '' });
+  });
 });
 
 describe('filterTags', () => {
   it('ranks prefix matches above substring matches', () => {
     const out = filterTags(tags, 'dis');
-    expect(out.map((t) => t.id)).toEqual(['t1', 't3']);
+    expect(out.map((t) => t.id)).toEqual(['t1', 't3', 't4']);
   });
 
   it('surfaces nested tags under a parent-path needle', () => {
@@ -47,6 +53,10 @@ describe('filterTags', () => {
 
   it('returns the unfiltered list for an empty needle', () => {
     expect(filterTags(tags, '').length).toBe(tags.length);
+  });
+
+  it('returns all tags for a whitespace-only needle', () => {
+    expect(filterTags(tags, '   ').length).toBe(tags.length);
   });
 
   it('returns an empty array when nothing matches', () => {

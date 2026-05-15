@@ -41,8 +41,8 @@ export const filterTags = (
   tags: ReadonlyArray<TagItem>,
   needle: string,
 ): ReadonlyArray<TagItem> => {
-  if (needle.length === 0) return tags;
-  const n = needle.toLowerCase();
+  const n = needle.trim().toLowerCase();
+  if (n === '') return tags;
   const prefix: TagItem[] = [];
   const contains: TagItem[] = [];
   for (const t of tags) {
