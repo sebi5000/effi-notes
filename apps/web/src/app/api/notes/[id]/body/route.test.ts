@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { PUT } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -202,5 +208,21 @@ describe('PUT /api/notes/[id]/body', () => {
     });
     const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
     expect(reloaded.unreferencedSince).toBeNull();
+  });
+
+  it('403s PUT body for a non-editor', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    setAuthed(b);
+    const res = await PUT(
+      new Request(`http://localhost/api/notes/${note.id}/body`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ body: 'x', baseUpdatedAt: new Date().toISOString() }),
+      }),
+      { params: Promise.resolve({ id: note.id }) },
+    );
+    expect(res.status).toBe(403);
   });
 });

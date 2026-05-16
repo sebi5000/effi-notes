@@ -1,5 +1,6 @@
 import { prisma } from '@app/db';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
+import { resolveNoteAccess } from '@/lib/notes/access.ts';
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,6 +14,9 @@ export const GET = async (req: Request, ctx: RouteContext): Promise<Response> =>
 
   const note = await prisma.note.findUnique({ where: { id }, select: { id: true } });
   if (!note) return jsonError(404, 'not found');
+
+  const access = await resolveNoteAccess(user.id, id);
+  if (access === null) return jsonError(403, 'forbidden');
 
   const history = await prisma.noteHistory.findMany({
     where: { noteId: id },

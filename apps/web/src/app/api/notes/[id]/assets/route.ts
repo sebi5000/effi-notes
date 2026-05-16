@@ -5,6 +5,7 @@ import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, requireSession } from '@/lib/api/responses.ts';
 import { assetUploadQuerySchema } from '@/lib/api/schemas.ts';
+import { canEdit, resolveNoteAccess } from '@/lib/notes/access.ts';
 import { maxBytesForKind, sniffAssetType } from '@/lib/notes/asset-mime.ts';
 
 const log = createLogger({ component: 'api.assets.upload' });
@@ -32,6 +33,9 @@ export const POST = async (
 
   const note = await prisma.note.findUnique({ where: { id: noteId }, select: { id: true } });
   if (!note) return jsonError(404, 'note not found');
+
+  const access = await resolveNoteAccess(user.id, noteId);
+  if (!canEdit(access)) return jsonError(403, 'forbidden');
 
   const buffer = Buffer.from(await req.arrayBuffer());
   if (buffer.byteLength === 0) return jsonError(400, 'empty body');

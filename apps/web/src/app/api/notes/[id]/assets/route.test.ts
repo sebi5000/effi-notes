@@ -16,7 +16,13 @@ import { prisma } from '@app/db';
 import { enqueuePdfExtraction } from '@app/jobs';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { POST } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -133,5 +139,14 @@ describe('POST /api/notes/[id]/assets', () => {
       { params: Promise.resolve({ id: note.id }) },
     );
     expect(res.status).toBe(413);
+  });
+
+  it('403s POST asset for a non-editor', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    authedAs(mockedAuth, b);
+    const res = await post(note.id, PNG);
+    expect(res.status).toBe(403);
   });
 });

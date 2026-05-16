@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { GET } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -80,5 +86,16 @@ describe('GET /api/notes/[id]/history', () => {
     // Newest first → bodyLength should be 3 (v22) then 2 (v1)
     expect(body.history[0]?.bodyLength).toBe(3);
     expect(body.history[1]?.bodyLength).toBe(2);
+  });
+
+  it('403s GET history for an unrelated user', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    setAuthed(b);
+    const res = await GET(new Request(`http://localhost/api/notes/${note.id}/history`), {
+      params: Promise.resolve({ id: note.id }),
+    });
+    expect(res.status).toBe(403);
   });
 });

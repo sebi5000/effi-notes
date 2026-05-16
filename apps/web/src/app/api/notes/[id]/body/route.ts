@@ -3,6 +3,7 @@ import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { putNoteBodySchema } from '@/lib/api/schemas.ts';
+import { canEdit, resolveNoteAccess } from '@/lib/notes/access.ts';
 
 const log = createLogger({ component: 'api.notes.body' });
 
@@ -46,6 +47,9 @@ export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> =>
         select: { id: true, updatedAt: true },
       });
       if (!existing) return jsonError(404, 'not found');
+
+      const access = await resolveNoteAccess(user.id, id);
+      if (!canEdit(access)) return jsonError(403, 'forbidden');
 
       if (existing.updatedAt.getTime() !== baseDate.getTime()) {
         log.warn(
