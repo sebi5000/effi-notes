@@ -4,10 +4,13 @@ export {
   DemoJobSchema,
   enqueueDemoJob,
   enqueueNotesSnapshot,
+  enqueuePdfExtraction,
   getDemoQueueCounts,
   getQueueForBullBoard,
   NotesSnapshotJobSchema,
   type NotesSnapshotPayload,
+  PdfExtractJobSchema,
+  type PdfExtractPayload,
   QUEUES,
   type QueueName,
 } from './queues.ts';

@@ -13,6 +13,7 @@ import { getRedis } from './connection.ts';
 export const QUEUES = {
   demo: 'demo',
   notesSnapshot: 'notes.snapshot',
+  pdfExtract: 'pdf.extract',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -34,6 +35,14 @@ export const NotesSnapshotJobSchema = z.object({
   actorId: z.string().min(1).nullable(),
 });
 export type NotesSnapshotPayload = z.infer<typeof NotesSnapshotJobSchema>;
+
+// ── pdf.extract queue ───────────────────────────────────────────────────────
+// One job per uploaded PDF asset. The worker fetches the bytes from Postgres
+// (the job carries only the id — see CLAUDE.md jobs rule 6).
+export const PdfExtractJobSchema = z.object({
+  assetId: z.string().min(1),
+});
+export type PdfExtractPayload = z.infer<typeof PdfExtractJobSchema>;
 
 const defaultJobOpts: JobsOptions = {
   attempts: 3,
@@ -90,6 +99,7 @@ export const getDemoQueueCounts = async (): Promise<{
 export const getQueueForBullBoard = (name: QueueName): Queue => {
   if (name === QUEUES.demo) return getDemoQueue() as Queue;
   if (name === QUEUES.notesSnapshot) return getNotesSnapshotQueue() as Queue;
+  if (name === QUEUES.pdfExtract) return getPdfExtractQueue() as Queue;
   throw new Error(`Unknown queue: ${name as string}`);
 };
 
@@ -123,6 +133,27 @@ export const enqueueNotesSnapshot = async (
   const job = await getNotesSnapshotQueue().add('snapshot', validated, {
     ...opts,
     jobId: `snapshot:${validated.noteId}`,
+  });
+  return job.id ?? '';
+};
+
+// ── pdf.extract producer ────────────────────────────────────────────────────
+let pdfExtractQueue: Queue<PdfExtractPayload> | undefined;
+const getPdfExtractQueue = (): Queue<PdfExtractPayload> => {
+  if (pdfExtractQueue) return pdfExtractQueue;
+  pdfExtractQueue = new Queue<PdfExtractPayload>(QUEUES.pdfExtract, {
+    connection: getRedis(),
+    defaultJobOptions: defaultJobOpts,
+  });
+  return pdfExtractQueue;
+};
+
+/** Producer entry point used by the upload route. Validates payload via Zod. */
+export const enqueuePdfExtraction = async (payload: PdfExtractPayload): Promise<string> => {
+  const validated = PdfExtractJobSchema.parse(payload);
+  // jobId keyed on the asset so a re-trigger / retry collapses.
+  const job = await getPdfExtractQueue().add('extract', validated, {
+    jobId: `pdf-extract:${validated.assetId}`,
   });
   return job.id ?? '';
 };
