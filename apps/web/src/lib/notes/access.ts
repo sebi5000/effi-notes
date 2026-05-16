@@ -104,3 +104,55 @@ export const resolveFolderAccess = async (
   });
   return bestAccess(grants.map((g) => g.access));
 };
+
+export type AccessibleScope = {
+  /** Folder ids the user owns or has a share on, plus all descendants. */
+  accessibleFolderIds: string[];
+  /** Note ids shared directly with the user. */
+  sharedNoteIds: string[];
+};
+
+/**
+ * The set of folders/notes a user may see, for filtering list & search.
+ * Loads the (small) folder table once and expands the tree in memory.
+ */
+export const listAccessibleScope = async (userId: string): Promise<AccessibleScope> => {
+  const now = new Date();
+  const [folders, folderShares, noteShares] = await Promise.all([
+    prisma.folder.findMany({ select: { id: true, parentId: true, ownerId: true } }),
+    prisma.share.findMany({
+      where: { granteeId: userId, folderId: { not: null }, AND: [activeShareWhere(now)] },
+      select: { folderId: true },
+    }),
+    prisma.share.findMany({
+      where: { granteeId: userId, noteId: { not: null }, AND: [activeShareWhere(now)] },
+      select: { noteId: true },
+    }),
+  ]);
+
+  const childrenOf = new Map<string, string[]>();
+  for (const f of folders) {
+    if (f.parentId === null) continue;
+    const arr = childrenOf.get(f.parentId) ?? [];
+    arr.push(f.id);
+    childrenOf.set(f.parentId, arr);
+  }
+
+  const roots = new Set<string>();
+  for (const f of folders) if (f.ownerId === userId) roots.add(f.id);
+  for (const s of folderShares) if (s.folderId !== null) roots.add(s.folderId);
+
+  const accessible = new Set<string>();
+  const queue = [...roots];
+  while (queue.length > 0) {
+    const id = queue.shift() as string;
+    if (accessible.has(id)) continue;
+    accessible.add(id);
+    for (const child of childrenOf.get(id) ?? []) queue.push(child);
+  }
+
+  return {
+    accessibleFolderIds: [...accessible],
+    sharedNoteIds: noteShares.map((s) => s.noteId).filter((id): id is string => id !== null),
+  };
+};

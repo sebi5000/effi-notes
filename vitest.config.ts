@@ -60,6 +60,7 @@ export default defineConfig({
         'apps/web/src/lib/api/schemas.ts',
         'apps/web/src/lib/api/responses.ts',
         'apps/web/src/lib/notes/**/*.ts',
+        'apps/web/src/lib/notes/access.ts',
         'apps/web/src/components/notes/Sidebar/CommandBar.tsx',
         'apps/web/src/components/notes/Sidebar/FolderTree.tsx',
         'apps/web/src/components/notes/Editor/EditorToolbar.tsx',

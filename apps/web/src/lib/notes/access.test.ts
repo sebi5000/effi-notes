@@ -13,6 +13,7 @@ import {
   canHardDelete,
   canManageShares,
   folderChain,
+  listAccessibleScope,
   resolveFolderAccess,
   resolveNoteAccess,
 } from './access.ts';
@@ -158,5 +159,43 @@ describe('resolveFolderAccess', () => {
     const { user: b } = await makeTestUser();
     const folder = await makeTestFolder({ ownerId: a.id });
     expect(await resolveFolderAccess(b.id, folder.id)).toBeNull();
+  });
+});
+
+describe('listAccessibleScope', () => {
+  it('includes owned folders and their descendants', async () => {
+    const { user } = await makeTestUser();
+    const root = await makeTestFolder({ ownerId: user.id });
+    const sub = await makeTestFolder({ ownerId: user.id, parentId: root.id });
+    const scope = await listAccessibleScope(user.id);
+    expect(scope.accessibleFolderIds).toEqual(expect.arrayContaining([root.id, sub.id]));
+  });
+
+  it('includes shared folders, their descendants, and shared notes', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const root = await makeTestFolder({ ownerId: a.id });
+    const sub = await makeTestFolder({ ownerId: a.id, parentId: root.id });
+    const note = await makeTestNote({ authorId: a.id });
+    await makeTestShare({ folderId: root.id, granteeId: b.id, createdById: a.id, access: 'VIEW' });
+    await makeTestShare({ noteId: note.id, granteeId: b.id, createdById: a.id, access: 'VIEW' });
+    const scope = await listAccessibleScope(b.id);
+    expect(scope.accessibleFolderIds).toEqual(expect.arrayContaining([root.id, sub.id]));
+    expect(scope.sharedNoteIds).toContain(note.id);
+  });
+
+  it('excludes a folder shared only via an expired grant', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: a.id });
+    await makeTestShare({
+      folderId: folder.id,
+      granteeId: b.id,
+      createdById: a.id,
+      access: 'VIEW',
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    const scope = await listAccessibleScope(b.id);
+    expect(scope.accessibleFolderIds).not.toContain(folder.id);
   });
 });
