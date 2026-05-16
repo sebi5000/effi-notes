@@ -2,6 +2,7 @@ import { prisma } from '@app/db';
 import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { type SearchHit, searchQuerySchema } from '@/lib/api/schemas.ts';
+import { listAccessibleScope } from '@/lib/notes/access.ts';
 
 /**
  * GET /api/search?q=… — full-text search across notes.
@@ -45,6 +46,8 @@ export const GET = async (req: Request): Promise<Response> => {
     async () => {
       const tsquery = buildTsquery(q);
 
+      const scope = await listAccessibleScope(user.id);
+
       // Fast path: tsvector match with ts_headline snippet. Fallback to trigram
       // match on title if the tsquery comes back empty (very short / all
       // punctuation).
@@ -63,11 +66,15 @@ export const GET = async (req: Request): Promise<Response> => {
              FROM "Note" n
             WHERE n."archivedAt" IS NULL
               AND n."searchVector" @@ to_tsquery('simple', $1)
+              AND (n."authorId" = $3 OR n."folderId" = ANY($4::text[]) OR n.id = ANY($5::text[]))
             ORDER BY ts_rank(n."searchVector", to_tsquery('simple', $1)) DESC,
                      n."updatedAt" DESC
             LIMIT $2`,
               tsquery,
               limit,
+              user.id,
+              scope.accessibleFolderIds,
+              scope.sharedNoteIds,
             ),
             // A note also matches when one of its embedded assets matches by
             // filename / caption / extracted text. Surfaced as the owning note.
@@ -81,10 +88,14 @@ export const GET = async (req: Request): Promise<Response> => {
              JOIN "Note" n ON n.id = a."noteId"
             WHERE n."archivedAt" IS NULL
               AND a."searchVector" @@ to_tsquery('simple', $1)
+              AND (n."authorId" = $3 OR n."folderId" = ANY($4::text[]) OR n.id = ANY($5::text[]))
             ORDER BY n."updatedAt" DESC
             LIMIT $2`,
               tsquery,
               limit,
+              user.id,
+              scope.accessibleFolderIds,
+              scope.sharedNoteIds,
             ),
           ])
         : [[], []];
@@ -105,10 +116,14 @@ export const GET = async (req: Request): Promise<Response> => {
            FROM "Note" n
           WHERE n."archivedAt" IS NULL
             AND (n.title ILIKE '%' || $1 || '%' OR n.title % $1)
+            AND (n."authorId" = $3 OR n."folderId" = ANY($4::text[]) OR n.id = ANY($5::text[]))
           ORDER BY similarity(n.title, $1) DESC, n."updatedAt" DESC
           LIMIT $2`,
           q,
           limit,
+          user.id,
+          scope.accessibleFolderIds,
+          scope.sharedNoteIds,
         );
       }
 

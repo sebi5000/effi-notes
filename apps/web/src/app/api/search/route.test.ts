@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { GET } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -186,5 +192,15 @@ describe('GET /api/search', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { hits: Array<{ id: string }> };
     expect(body.hits.some((h) => h.id === note.id)).toBe(true);
+  });
+
+  it("does not return another user's private note", async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    await makeTestNote({ authorId: a.id, title: 'api-test-secret-pineapple' });
+    setAuthed(b);
+    const res = await GET(new Request('http://localhost/api/search?q=pineapple'));
+    const body = (await res.json()) as { hits: Array<{ title: string }> };
+    expect(body.hits.find((h) => h.title.includes('pineapple'))).toBeUndefined();
   });
 });
