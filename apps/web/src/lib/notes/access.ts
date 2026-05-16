@@ -81,3 +81,26 @@ export const resolveNoteAccess = async (userId: string, noteId: string): Promise
   });
   return bestAccess(grants.map((g) => g.access));
 };
+
+/**
+ * Effective access for `userId` on a folder: OWNER if the user owns the
+ * folder or any ancestor, else the best active Share on the folder or any
+ * ancestor, else null. Returns null for a missing folder.
+ */
+export const resolveFolderAccess = async (
+  userId: string,
+  folderId: string,
+): Promise<Access | null> => {
+  const chain = await folderChain(folderId);
+  if (chain.length === 0) return null;
+  if (chain.some((f) => f.ownerId === userId)) return 'OWNER';
+
+  const grants = await prisma.share.findMany({
+    where: {
+      granteeId: userId,
+      AND: [activeShareWhere(new Date()), { folderId: { in: chain.map((f) => f.id) } }],
+    },
+    select: { access: true },
+  });
+  return bestAccess(grants.map((g) => g.access));
+};

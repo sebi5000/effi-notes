@@ -13,6 +13,7 @@ import {
   canHardDelete,
   canManageShares,
   folderChain,
+  resolveFolderAccess,
   resolveNoteAccess,
 } from './access.ts';
 
@@ -120,5 +121,42 @@ describe('resolveNoteAccess', () => {
       expiresAt: new Date(Date.now() - 1000),
     });
     expect(await resolveNoteAccess(b.id, note.id)).toBeNull();
+  });
+});
+
+describe('resolveFolderAccess', () => {
+  it('returns null for a missing folder', async () => {
+    const { user } = await makeTestUser();
+    expect(await resolveFolderAccess(user.id, 'missing')).toBeNull();
+  });
+
+  it('OWNER for the folder owner', async () => {
+    const { user } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: user.id });
+    expect(await resolveFolderAccess(user.id, folder.id)).toBe('OWNER');
+  });
+
+  it('OWNER when the user owns an ancestor folder', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const root = await makeTestFolder({ ownerId: a.id });
+    const sub = await makeTestFolder({ ownerId: b.id, parentId: root.id });
+    expect(await resolveFolderAccess(a.id, sub.id)).toBe('OWNER');
+  });
+
+  it('reflects a direct or inherited folder share', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const root = await makeTestFolder({ ownerId: a.id });
+    const sub = await makeTestFolder({ ownerId: a.id, parentId: root.id });
+    await makeTestShare({ folderId: root.id, granteeId: b.id, createdById: a.id, access: 'VIEW' });
+    expect(await resolveFolderAccess(b.id, sub.id)).toBe('VIEW');
+  });
+
+  it('null for an unrelated user', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: a.id });
+    expect(await resolveFolderAccess(b.id, folder.id)).toBeNull();
   });
 });
