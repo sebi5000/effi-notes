@@ -128,11 +128,11 @@ export const enqueueNotesSnapshot = async (
   opts?: Pick<JobsOptions, 'delay'>,
 ): Promise<string> => {
   const validated = NotesSnapshotJobSchema.parse(payload);
-  // Use `jobId = noteId` so BullMQ collapses bursts within the debounce
-  // window into a single pending job.
+  // Key the job on the noteId so BullMQ collapses debounce-window bursts into
+  // a single pending job. BullMQ rejects ':' in custom job ids — use '-'.
   const job = await getNotesSnapshotQueue().add('snapshot', validated, {
     ...opts,
-    jobId: `snapshot:${validated.noteId}`,
+    jobId: `snapshot-${validated.noteId}`,
   });
   return job.id ?? '';
 };
@@ -151,9 +151,10 @@ const getPdfExtractQueue = (): Queue<PdfExtractPayload> => {
 /** Producer entry point used by the upload route. Validates payload via Zod. */
 export const enqueuePdfExtraction = async (payload: PdfExtractPayload): Promise<string> => {
   const validated = PdfExtractJobSchema.parse(payload);
-  // jobId keyed on the asset so a re-trigger / retry collapses.
+  // jobId keyed on the asset so a re-trigger / retry collapses. BullMQ
+  // rejects ':' in custom job ids — use '-'.
   const job = await getPdfExtractQueue().add('extract', validated, {
-    jobId: `pdf-extract:${validated.assetId}`,
+    jobId: `pdf-extract-${validated.assetId}`,
   });
   return job.id ?? '';
 };
