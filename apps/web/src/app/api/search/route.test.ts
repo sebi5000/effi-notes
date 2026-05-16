@@ -163,4 +163,28 @@ describe('GET /api/search', () => {
     const body = (await res.json()) as { hits: Array<{ id: string }> };
     expect(body.hits.some((h) => h.id === note.id)).toBe(true);
   });
+
+  it('finds a note via an embedded PDF asset extracted text', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({
+      data: { title: 'api-test-pdf-search-host', body: 'unrelated body', authorId: user.id },
+    });
+    await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'PDF',
+        contentType: 'application/pdf',
+        filename: 'manual.pdf',
+        byteSize: 8,
+        data: Buffer.from('%PDF-1.4'),
+        extractedText: 'quarterly logistics throughput analysis',
+      },
+    });
+    const res = await GET(new Request('http://localhost/api/search?q=logistics'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { hits: Array<{ id: string }> };
+    expect(body.hits.some((h) => h.id === note.id)).toBe(true);
+  });
 });

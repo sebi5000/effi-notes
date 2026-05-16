@@ -67,11 +67,15 @@ export default defineConfig({
         'apps/web/src/components/notes/Editor/CalloutMenu.tsx',
         'apps/web/src/components/notes/Editor/ImageExtension.ts',
         'apps/web/src/components/notes/Editor/ResizableImage.tsx',
+        'apps/web/src/components/notes/Editor/PdfChipExtension.ts',
+        'apps/web/src/components/notes/Editor/PdfChip.tsx',
         'apps/web/src/components/notes/Editor/CopyMarkdownButton.tsx',
         'apps/web/src/components/notes/Editor/PresenceBar.tsx',
         'apps/web/src/components/notes/Editor/SaveIndicator.tsx',
         'apps/worker/src/yjs/**/*.ts',
         'apps/worker/src/processors/notes-snapshot.ts',
+        'apps/worker/src/processors/pdf-extract.ts',
+        'apps/worker/src/processors/pdf-render.ts',
         'packages/auth/src/rbac.ts',
       ],
       exclude: [
@@ -81,6 +85,7 @@ export default defineConfig({
         '**/.next/**',
         '**/dist/**',
         'apps/web/src/lib/api/test-session.ts',
+        'apps/worker/src/processors/sample-pdf.fixture.ts',
       ],
       thresholds: {
         statements: 90,
