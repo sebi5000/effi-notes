@@ -151,6 +151,37 @@ export type SearchHit = {
 
 export type ApiError = { error: string; details?: unknown };
 
+export const SHARE_ACCESS = ['VIEW', 'EDIT'] as const;
+export const SHARE_TTL_UNITS = ['minutes', 'hours', 'days'] as const;
+
+export const shareTtlSchema = z.object({
+  value: z.number().int().min(1).max(1000),
+  unit: z.enum(SHARE_TTL_UNITS),
+});
+export type ShareTtl = z.infer<typeof shareTtlSchema>;
+
+export const shareCreateSchema = z.object({
+  granteeId: cuidSchema,
+  access: z.enum(SHARE_ACCESS),
+  ttl: shareTtlSchema.optional(),
+});
+export type ShareCreateInput = z.infer<typeof shareCreateSchema>;
+
+export const userSearchQuerySchema = z.object({
+  q: z.string().min(1).max(100),
+});
+
+export type ShareView = {
+  id: string;
+  grantee: { id: string; displayName: string | null; email: string };
+  access: 'VIEW' | 'EDIT';
+  expiresAt: string | null;
+  createdById: string;
+  createdAt: string;
+};
+
+export type UserSearchHit = { id: string; displayName: string | null; email: string };
+
 /** Query params for `POST /api/notes/[id]/assets` — the raw file is the body. */
 export const assetUploadQuerySchema = z.object({
   filename: z.string().min(1).max(FILENAME_MAX),
