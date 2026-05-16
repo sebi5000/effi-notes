@@ -115,7 +115,8 @@
       "copied": "Kopiert",
       "delete": "Notiz löschen",
       "confirmDelete": "Notiz \"{title}\" löschen?",
-      "deleteFailed": "Die Notiz konnte nicht gelöscht werden. Bitte erneut versuchen."
+      "deleteFailed": "Die Notiz konnte nicht gelöscht werden. Bitte erneut versuchen.",
+      "dismiss": "Schließen"
     },
     "editorToolbar": {
       "label": "Formatierung",

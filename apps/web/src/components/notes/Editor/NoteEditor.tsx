@@ -10,6 +10,7 @@ import { referencedAssetIds } from '@/lib/notes/doc-outline.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
+import { DeleteNoteButton } from './DeleteNoteButton.tsx';
 import { DocumentPanel } from './DocumentPanel.tsx';
 import { EditorToolbar } from './EditorToolbar.tsx';
 import { buildExtensions, type UploadErrorDetail } from './MarkdownExtensions.ts';
@@ -54,7 +55,7 @@ const uploadErrorKey = (detail: UploadErrorDetail): UploadErrorKey => {
  */
 export function NoteEditor({
   noteId,
-  initialTitle: _initialTitle,
+  initialTitle,
   initialBody,
   initialUpdatedAt,
   currentUser,
@@ -121,6 +122,7 @@ export function NoteEditor({
       ydoc={ydoc}
       provider={provider}
       presence={presence}
+      initialTitle={initialTitle}
       initialBody={initialBody}
       initialUpdatedAt={initialUpdatedAt}
       currentUser={currentUser}
@@ -150,6 +152,7 @@ function CollaborativeEditor({
   ydoc,
   provider,
   presence,
+  initialTitle,
   initialBody,
   initialUpdatedAt,
   currentUser,
@@ -158,15 +161,18 @@ function CollaborativeEditor({
   ydoc: Y.Doc;
   provider: WebsocketProvider;
   presence: ReadonlyArray<PresenceUser>;
+  initialTitle: string;
   initialBody: string;
   initialUpdatedAt: string;
   currentUser: { id: string; name: string; color: string };
 }) {
   const tUpload = useTranslations('notes.editorUpload');
   const tPanel = useTranslations('notes.docPanel');
+  const tActions = useTranslations('notes.editorActions');
   const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
   const [uploadError, setUploadError] = useState<UploadErrorDetail | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [panelOpen, togglePanel] = useDocPanel();
 
   const editor = useEditor(
@@ -225,6 +231,14 @@ function CollaborativeEditor({
     return () => window.clearTimeout(timer);
   }, [uploadError]);
 
+  // Auto-dismiss the delete-failure notice — same transient treatment as the
+  // upload-error notice above.
+  useEffect(() => {
+    if (!deleteError) return;
+    const timer = window.setTimeout(() => setDeleteError(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [deleteError]);
+
   return (
     <div className="flex h-full justify-center">
       <div className="relative flex h-full min-w-0 max-w-[212mm] flex-1 flex-col">
@@ -233,6 +247,7 @@ function CollaborativeEditor({
           <div className="flex items-center gap-3">
             <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
             <CopyMarkdownButton editor={editor} />
+            <DeleteNoteButton noteId={noteId} noteTitle={initialTitle} onError={setDeleteError} />
             <button
               type="button"
               className="text-muted-foreground/70 hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded text-sm"
@@ -253,6 +268,17 @@ function CollaborativeEditor({
             <span>{tUpload(uploadErrorKey(uploadError))}</span>
             <button type="button" onClick={() => setUploadError(null)} className="underline">
               {tUpload('dismiss')}
+            </button>
+          </div>
+        ) : null}
+        {deleteError ? (
+          <div
+            role="alert"
+            className="text-danger mb-2 flex items-center justify-between gap-2 rounded bg-red-50 px-2 py-1 text-xs"
+          >
+            <span>{deleteError}</span>
+            <button type="button" onClick={() => setDeleteError(null)} className="underline">
+              {tActions('dismiss')}
             </button>
           </div>
         ) : null}

@@ -115,7 +115,8 @@
       "copied": "Copied",
       "delete": "Delete note",
       "confirmDelete": "Delete note \"{title}\"?",
-      "deleteFailed": "Could not delete the note. Please try again."
+      "deleteFailed": "Could not delete the note. Please try again.",
+      "dismiss": "Dismiss"
     },
     "editorToolbar": {
       "label": "Formatting",
