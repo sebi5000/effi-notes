@@ -75,6 +75,7 @@ describe('processNotesSnapshot', () => {
     const close = await onSocketOpen({
       noteId: note.id,
       userId: author.id,
+      access: 'w',
       socket: new FakeSocket(),
     });
 
@@ -85,7 +86,7 @@ describe('processNotesSnapshot', () => {
     // Apply the update via the server's handleMessage path to populate the cache
     const { encodeUpdate, handleMessage } = await import('../yjs/server.ts');
     await handleMessage(
-      { noteId: note.id, userId: author.id, socket: new FakeSocket() },
+      { noteId: note.id, userId: author.id, access: 'w', socket: new FakeSocket() },
       encodeUpdate(update),
     );
 

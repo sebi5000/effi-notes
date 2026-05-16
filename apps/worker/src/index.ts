@@ -115,7 +115,7 @@ const server = Bun.serve({
 // Lives on its own port so the existing /admin/queues HTTP server stays
 // uncluttered. Caddy routes /yjs/* here in prod; the dev compose override
 // maps the port to the host so the browser can connect directly.
-type WsAttach = { close: () => void; conn: { noteId: string; userId: string } };
+type WsAttach = { close: () => void; conn: { noteId: string; userId: string; access: 'r' | 'w' } };
 const yServer = Bun.serve<WsAttach, never>({
   port: env.COLLAB_WS_PORT,
   fetch(req, server) {
@@ -133,7 +133,7 @@ const yServer = Bun.serve<WsAttach, never>({
       data: {
         // attached lazily on first message — see open() below
         close: () => undefined,
-        conn: { noteId: result.noteId, userId: result.userId },
+        conn: { noteId: result.noteId, userId: result.userId, access: result.access },
       } satisfies WsAttach,
     });
     if (upgraded) return undefined;
@@ -148,6 +148,7 @@ const yServer = Bun.serve<WsAttach, never>({
       const close = await onSocketOpen({
         noteId: ws.data.conn.noteId,
         userId: ws.data.conn.userId,
+        access: ws.data.conn.access,
         socket: wrapper,
       });
       ws.data.close = close;
@@ -163,6 +164,7 @@ const yServer = Bun.serve<WsAttach, never>({
         {
           noteId: ws.data.conn.noteId,
           userId: ws.data.conn.userId,
+          access: ws.data.conn.access,
           socket: {
             send: (d: Uint8Array) => ws.send(d),
             close: (code?: number, reason?: string) => ws.close(code, reason),

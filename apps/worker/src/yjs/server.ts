@@ -38,6 +38,7 @@ const SNAPSHOT_DEBOUNCE_MS = Number.parseInt(process.env.NOTES_SNAPSHOT_DEBOUNCE
 type PerSocket = {
   noteId: string;
   userId: string;
+  access: 'r' | 'w';
   socket: WsLike;
 };
 
@@ -184,6 +185,13 @@ export const handleMessage = async (conn: PerSocket, data: Uint8Array): Promise<
     return;
   }
   if (msg.kind === 'sync-step-2' || msg.kind === 'sync-update') {
+    if (conn.access === 'r') {
+      log.warn(
+        { noteId: conn.noteId, userId: conn.userId },
+        'dropping document update from read-only connection',
+      );
+      return;
+    }
     Y.applyUpdate(doc, msg.update, conn);
     broadcastToRoom(conn.noteId, conn, encodeUpdate(msg.update));
     await scheduleSnapshot(conn.noteId, conn.userId);
@@ -197,7 +205,7 @@ export const handleMessage = async (conn: PerSocket, data: Uint8Array): Promise<
 };
 
 export type AuthResult =
-  | { ok: true; noteId: string; userId: string }
+  | { ok: true; noteId: string; userId: string; access: 'r' | 'w' }
   | { ok: false; reason: string };
 
 /**
@@ -223,7 +231,7 @@ export const authenticateUpgrade = (input: {
   );
   if (!parsed) return { ok: false, reason: 'invalid-token' };
   if (parsed.noteId !== pathNoteId) return { ok: false, reason: 'note-id-mismatch' };
-  return { ok: true, noteId: parsed.noteId, userId: parsed.userId };
+  return { ok: true, noteId: parsed.noteId, userId: parsed.userId, access: parsed.access };
 };
 
 /**
