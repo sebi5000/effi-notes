@@ -6,6 +6,7 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
+import { referencedAssetIds } from '@/lib/notes/doc-outline.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
@@ -201,7 +202,8 @@ function CollaborativeEditor({
       try {
         dispatch({ kind: 'save-start' });
         const text = editor.getText();
-        const res = await notesApi.putBody(noteId, { body: text, baseUpdatedAt });
+        const assetIds = referencedAssetIds(editor.state.doc);
+        const res = await notesApi.putBody(noteId, { body: text, baseUpdatedAt, assetIds });
         setBaseUpdatedAt(res.updatedAt);
         dispatch({ kind: 'save-ok' });
       } catch (err) {

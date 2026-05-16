@@ -103,4 +103,104 @@ describe('PUT /api/notes/[id]/body', () => {
     const reloaded = await prisma.note.findUnique({ where: { id: note.id } });
     expect(reloaded?.body).toBe('middle');
   });
+
+  it('marks an asset the save no longer references', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({ data: { title: 'recon-1', authorId: user.id } });
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'a.png',
+        byteSize: 8,
+        data: Buffer.from('%PNG'),
+      },
+    });
+    const res = await callPut(note.id, {
+      body: 'text',
+      baseUpdatedAt: note.updatedAt.toISOString(),
+      assetIds: [],
+    });
+    expect(res.status).toBe(200);
+    const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(reloaded.unreferencedSince).not.toBeNull();
+  });
+
+  it('un-marks an asset the save references again', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({ data: { title: 'recon-2', authorId: user.id } });
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'b.png',
+        byteSize: 8,
+        data: Buffer.from('%PNG'),
+        unreferencedSince: new Date('2026-05-01T00:00:00.000Z'),
+      },
+    });
+    const res = await callPut(note.id, {
+      body: 't',
+      baseUpdatedAt: note.updatedAt.toISOString(),
+      assetIds: [asset.id],
+    });
+    expect(res.status).toBe(200);
+    const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(reloaded.unreferencedSince).toBeNull();
+  });
+
+  it('keeps the original timestamp of an already-marked asset', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({ data: { title: 'recon-3', authorId: user.id } });
+    const stamp = new Date('2026-05-02T00:00:00.000Z');
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'c.png',
+        byteSize: 8,
+        data: Buffer.from('%PNG'),
+        unreferencedSince: stamp,
+      },
+    });
+    await callPut(note.id, {
+      body: 't',
+      baseUpdatedAt: note.updatedAt.toISOString(),
+      assetIds: [],
+    });
+    const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(reloaded.unreferencedSince?.getTime()).toBe(stamp.getTime());
+  });
+
+  it('does not reconcile when assetIds is omitted', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({ data: { title: 'recon-4', authorId: user.id } });
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'd.png',
+        byteSize: 8,
+        data: Buffer.from('%PNG'),
+      },
+    });
+    await callPut(note.id, {
+      body: 't',
+      baseUpdatedAt: note.updatedAt.toISOString(),
+    });
+    const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(reloaded.unreferencedSince).toBeNull();
+  });
 });

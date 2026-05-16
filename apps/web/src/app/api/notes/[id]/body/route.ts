@@ -62,6 +62,24 @@ export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> =>
         data: { body, lastEditorId: user.id },
         select: { id: true, updatedAt: true },
       });
+
+      // Asset cleanup reconcile (sub-project D): stamp/un-stamp this note's
+      // assets against the ids the editor reports. Skipped when assetIds is
+      // omitted (non-editor callers) so they never mark a note asset-less.
+      if (parsed.data.assetIds !== undefined) {
+        const assetIds = parsed.data.assetIds;
+        await prisma.$transaction([
+          prisma.asset.updateMany({
+            where: { noteId: id, id: { in: assetIds }, unreferencedSince: { not: null } },
+            data: { unreferencedSince: null },
+          }),
+          prisma.asset.updateMany({
+            where: { noteId: id, id: { notIn: assetIds }, unreferencedSince: null },
+            data: { unreferencedSince: new Date() },
+          }),
+        ]);
+      }
+
       return jsonOk({ id: updated.id, updatedAt: updated.updatedAt.toISOString() });
     },
   );

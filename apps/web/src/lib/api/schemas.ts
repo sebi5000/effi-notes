@@ -43,6 +43,11 @@ export const putNoteBodySchema = z.object({
   // Optimistic-concurrency token from the last GET. Server rejects with 409
   // if the note has changed since.
   baseUpdatedAt: z.iso.datetime(),
+  // The asset ids the editor's current document references. Optional — when
+  // omitted (e.g. import/automation callers), the body route skips the
+  // asset-cleanup reconcile entirely rather than treating the note as
+  // asset-less.
+  assetIds: z.array(cuidSchema).max(500).optional(),
 });
 export type PutNoteBodyInput = z.infer<typeof putNoteBodySchema>;
 
