@@ -56,6 +56,7 @@ export default defineConfig({
         'apps/web/src/app/api/folders/**/route.ts',
         'apps/web/src/app/api/tags/**/route.ts',
         'apps/web/src/app/api/search/route.ts',
+        'apps/web/src/app/api/users/route.ts',
         'apps/web/src/app/api/collab/**/route.ts',
         'apps/web/src/lib/api/schemas.ts',
         'apps/web/src/lib/api/responses.ts',
