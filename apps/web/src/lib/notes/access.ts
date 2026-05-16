@@ -47,3 +47,37 @@ export const folderChain = async (folderId: string | null): Promise<FolderLink[]
   }
   return chain;
 };
+
+/** Prisma `where` fragment matching shares that have not expired. */
+const activeShareWhere = (now: Date) => ({
+  OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+});
+
+/**
+ * Effective access for `userId` on a note: OWNER if author or an ancestor
+ * folder owner, else the best active Share on the note or any ancestor
+ * folder, else null. Returns null for a missing note.
+ */
+export const resolveNoteAccess = async (userId: string, noteId: string): Promise<Access | null> => {
+  const note = await prisma.note.findUnique({
+    where: { id: noteId },
+    select: { authorId: true, folderId: true },
+  });
+  if (!note) return null;
+  if (note.authorId === userId) return 'OWNER';
+
+  const chain = await folderChain(note.folderId);
+  if (chain.some((f) => f.ownerId === userId)) return 'OWNER';
+
+  const grants = await prisma.share.findMany({
+    where: {
+      granteeId: userId,
+      AND: [
+        activeShareWhere(new Date()),
+        { OR: [{ noteId }, { folderId: { in: chain.map((f) => f.id) } }] },
+      ],
+    },
+    select: { access: true },
+  });
+  return bestAccess(grants.map((g) => g.access));
+};
