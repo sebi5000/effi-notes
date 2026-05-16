@@ -29,7 +29,7 @@ export function ExpiryPicker({ value, onChange }: Props) {
 
   const handleValueChange = (raw: string) => {
     const num = parseInt(raw, 10);
-    if (isNaN(num) || value === undefined) return;
+    if (Number.isNaN(num) || value === undefined) return;
     onChange({ value: num, unit: value.unit });
   };
 

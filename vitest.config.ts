@@ -71,6 +71,8 @@ export default defineConfig({
         'apps/web/src/components/notes/Editor/ResizableImage.tsx',
         'apps/web/src/components/notes/Editor/PdfChipExtension.ts',
         'apps/web/src/components/notes/Editor/PdfChip.tsx',
+        'apps/web/src/components/notes/Share/ExpiryPicker.tsx',
+        'apps/web/src/components/notes/Share/useShares.ts',
         'apps/web/src/components/notes/Editor/CopyMarkdownButton.tsx',
         'apps/web/src/components/notes/Editor/DeleteNoteButton.tsx',
         'apps/web/src/components/notes/Editor/PresenceBar.tsx',
