@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { GET } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -80,5 +86,27 @@ describe('GET /api/assets/[id]/preview', () => {
     expect(res.headers.get('content-type')).toBe('image/png');
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
     expect(Buffer.from(await res.arrayBuffer()).equals(PNG)).toBe(true);
+  });
+
+  it('403 when user B requests preview of asset belonging to user A', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: a.id,
+        kind: 'PDF',
+        contentType: 'application/pdf',
+        filename: 'x.pdf',
+        byteSize: 3,
+        data: Buffer.from([1, 2, 3]),
+      },
+    });
+    authedAs(mockedAuth, b);
+    const res = await GET(new Request(`http://localhost/api/assets/${asset.id}/preview`), {
+      params: Promise.resolve({ id: asset.id }),
+    });
+    expect(res.status).toBe(403);
   });
 });

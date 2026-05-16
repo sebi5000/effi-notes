@@ -3,6 +3,7 @@ import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { patchCaptionSchema } from '@/lib/api/schemas.ts';
+import { canEdit, resolveNoteAccess } from '@/lib/notes/access.ts';
 
 const log = createLogger({ component: 'api.assets.id' });
 
@@ -17,9 +18,12 @@ export const GET = async (
   const { id } = await ctx.params;
   const asset = await prisma.asset.findUnique({
     where: { id },
-    select: { data: true, contentType: true },
+    select: { data: true, contentType: true, noteId: true },
   });
   if (!asset) return jsonError(404, 'asset not found');
+
+  const access = await resolveNoteAccess(user.id, asset.noteId);
+  if (access === null) return jsonError(403, 'forbidden');
 
   return new Response(Buffer.from(asset.data), {
     status: 200,
@@ -51,8 +55,14 @@ export const PATCH = async (
   const parsed = patchCaptionSchema.safeParse(payload);
   if (!parsed.success) return jsonError(400, 'invalid body', parsed.error.issues);
 
-  const existing = await prisma.asset.findUnique({ where: { id }, select: { id: true } });
+  const existing = await prisma.asset.findUnique({
+    where: { id },
+    select: { id: true, noteId: true },
+  });
   if (!existing) return jsonError(404, 'asset not found');
+
+  const access = await resolveNoteAccess(user.id, existing.noteId);
+  if (!canEdit(access)) return jsonError(403, 'forbidden');
 
   return withSpan('assets.caption.patch', { 'asset.id': id }, async () => {
     await prisma.asset.update({ where: { id }, data: { caption: parsed.data.caption } });

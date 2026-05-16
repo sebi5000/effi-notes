@@ -1,5 +1,6 @@
 import { prisma } from '@app/db';
 import { jsonError, requireSession } from '@/lib/api/responses.ts';
+import { resolveNoteAccess } from '@/lib/notes/access.ts';
 
 /**
  * GET /api/assets/[id]/preview — serve a PDF asset's rendered first-page
@@ -16,9 +17,14 @@ export const GET = async (
   const { id } = await ctx.params;
   const asset = await prisma.asset.findUnique({
     where: { id },
-    select: { previewImage: true, previewContentType: true },
+    select: { previewImage: true, previewContentType: true, noteId: true },
   });
-  if (!asset || asset.previewImage === null || asset.previewContentType === null) {
+  if (!asset) return jsonError(404, 'preview not found');
+
+  const access = await resolveNoteAccess(user.id, asset.noteId);
+  if (access === null) return jsonError(403, 'forbidden');
+
+  if (asset.previewImage === null || asset.previewContentType === null) {
     return jsonError(404, 'preview not found');
   }
 

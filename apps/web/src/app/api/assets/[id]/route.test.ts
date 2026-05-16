@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { GET, PATCH } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -131,5 +137,56 @@ describe('PATCH /api/assets/[id]', () => {
       { params: Promise.resolve({ id: 'missing' }) },
     );
     expect(res.status).toBe(404);
+  });
+});
+
+describe('cross-user access on /api/assets/[id]', () => {
+  it('403 when user B GETs an asset belonging to user A', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: a.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'x.png',
+        byteSize: 3,
+        data: Buffer.from([1, 2, 3]),
+      },
+    });
+    authedAs(mockedAuth, b);
+    const res = await GET(new Request(`http://localhost/api/assets/${asset.id}`), {
+      params: Promise.resolve({ id: asset.id }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('403 when user B PATCHes caption of an asset belonging to user A', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: a.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'x.png',
+        byteSize: 3,
+        data: Buffer.from([1, 2, 3]),
+      },
+    });
+    authedAs(mockedAuth, b);
+    const res = await PATCH(
+      new Request(`http://localhost/api/assets/${asset.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ caption: 'sneaky caption' }),
+      }),
+      { params: Promise.resolve({ id: asset.id }) },
+    );
+    expect(res.status).toBe(403);
   });
 });
