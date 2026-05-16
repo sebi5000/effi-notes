@@ -2,10 +2,11 @@
 import './instrumentation.ts';
 
 import { env } from '@app/config/env';
-import { closeRedis, getRedis, QUEUES } from '@app/jobs';
+import { closeRedis, getRedis, QUEUES, scheduleAssetsSweep } from '@app/jobs';
 import { createLogger } from '@app/observability/logger';
 import { Worker } from 'bullmq';
 import { buildBullBoardRoutes } from './bull-board.ts';
+import { processAssetsSweep } from './processors/assets-sweep.ts';
 import { processDemoJob } from './processors/demo.ts';
 import { processNotesSnapshot } from './processors/notes-snapshot.ts';
 import { processPdfExtract } from './processors/pdf-extract.ts';
@@ -64,6 +65,24 @@ pdfExtractWorker.on('failed', (job, err) => {
 
 pdfExtractWorker.on('error', (err) => {
   log.error({ err: err.message, queue: QUEUES.pdfExtract }, 'pdf extraction worker error');
+});
+
+const assetsSweepWorker = new Worker(QUEUES.assetsSweep, processAssetsSweep, {
+  connection: getRedis(),
+  // Sweep is a global deleteMany — one run at a time; a second concurrent run
+  // would double-count the audit entry.
+  concurrency: 1,
+});
+
+assetsSweepWorker.on('failed', (job, err) => {
+  log.error(
+    { jobId: job?.id, err: err.message, queue: QUEUES.assetsSweep },
+    'assets sweep job failed',
+  );
+});
+
+assetsSweepWorker.on('error', (err) => {
+  log.error({ err: err.message, queue: QUEUES.assetsSweep }, 'assets sweep worker error');
 });
 
 // ── Internal HTTP server ──────────────────────────────────────────────────
@@ -158,6 +177,10 @@ const yServer = Bun.serve<WsAttach, never>({
   },
 });
 
+void scheduleAssetsSweep().catch((err) => {
+  log.error({ err: err instanceof Error ? err.message : err }, 'failed to schedule assets sweep');
+});
+
 log.info(
   { startedAt, concurrency: env.WORKER_CONCURRENCY, http: server.port, yjs: yServer.port },
   'worker started',
@@ -170,6 +193,7 @@ const shutdown = async (signal: string): Promise<void> => {
     await demoWorker.close();
     await snapshotWorker.close();
     await pdfExtractWorker.close();
+    await assetsSweepWorker.close();
     server.stop();
     yServer.stop();
     await closeRedis();

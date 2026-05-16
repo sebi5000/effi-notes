@@ -77,6 +77,7 @@ export default defineConfig({
         'apps/web/src/components/notes/Editor/AssetSection.tsx',
         'apps/web/src/components/notes/Editor/LinksSection.tsx',
         'apps/worker/src/yjs/**/*.ts',
+        'apps/worker/src/processors/assets-sweep.ts',
         'apps/worker/src/processors/notes-snapshot.ts',
         'apps/worker/src/processors/pdf-extract.ts',
         'apps/worker/src/processors/pdf-render.ts',
