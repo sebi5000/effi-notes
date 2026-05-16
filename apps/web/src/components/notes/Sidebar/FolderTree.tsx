@@ -15,6 +15,8 @@ import {
   moveSelection,
 } from '@/lib/notes/folder-tree.ts';
 
+type ShareScope = { kind: 'note' | 'folder'; id: string };
+
 export type FolderMutationHandlers = {
   /** Rename `id` to `name`. Should reject with throw on failure. */
   onRename: (id: string, name: string) => Promise<void>;
@@ -34,6 +36,8 @@ type Props = {
   onSelect: (id: string | null) => void;
   /** Optional mutation surface — when provided, hover-reveals rename/delete + DnD if `onReorder` is set. */
   mutations?: FolderMutationHandlers;
+  /** When provided, an eye icon button is shown on rows with shareCount > 0. */
+  onOpenShare?: (scope: ShareScope) => void;
 };
 
 const DND_MIME = 'application/x-effi-folder';
@@ -63,7 +67,7 @@ type DropTarget = { id: string; mode: DropMode } | { id: '__root__'; mode: 'insi
  * A folder dropped *inside* a target auto-expands that target so it doesn't
  * appear to vanish. Cycle drops (into your own subtree) are rejected.
  */
-export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) {
+export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenShare }: Props) {
   const t = useTranslations('notes.folderActions');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     const roots = new Set<string>();
@@ -310,6 +314,11 @@ export function FolderTree({ folders, selectedId, onSelect, mutations }: Props) 
             onZoneDrop={onZoneDrop}
             onSelect={onSelect}
             onToggle={toggle}
+            onOpenShare={
+              onOpenShare && row.shareCount > 0
+                ? () => onOpenShare({ kind: 'folder', id: row.id })
+                : undefined
+            }
             {...(mutations
               ? {
                   onRequestRename: () => setRenamingId(row.id),
@@ -350,6 +359,8 @@ type RowProps = {
   onCommitRename?: ((name: string) => void) | undefined;
   onCancelRename?: (() => void) | undefined;
   onRequestDelete?: (() => void) | undefined;
+  /** When provided, an eye icon button is shown; folder has shareCount > 0. */
+  onOpenShare?: (() => void) | undefined;
 };
 
 /** before/after → an inset accent line at the top/bottom edge (no layout shift). */
@@ -378,8 +389,10 @@ function FolderRow({
   onCommitRename,
   onCancelRename,
   onRequestDelete,
+  onOpenShare,
 }: RowProps) {
   const t = useTranslations('notes.folderActions');
+  const tShare = useTranslations('notes.share');
   return (
     <div
       role="treeitem"
@@ -434,8 +447,22 @@ function FolderRow({
         <span className="font-display flex-1 truncate">{row.name}</span>
       )}
 
-      {!isRenaming && (onRequestRename || onRequestDelete) ? (
+      {!isRenaming && (onRequestRename || onRequestDelete || onOpenShare) ? (
         <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          {onOpenShare ? (
+            <button
+              type="button"
+              aria-label={tShare('sharedIndicatorLabel')}
+              title={tShare('sharedIndicatorLabel')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenShare();
+              }}
+              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] transition-colors"
+            >
+              <span aria-hidden="true">👁</span>
+            </button>
+          ) : null}
           {onRequestRename ? (
             <button
               type="button"

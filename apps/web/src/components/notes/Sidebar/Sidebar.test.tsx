@@ -31,6 +31,27 @@ const messages = {
       noFolderMatch: 'No folders match.',
       clearSearch: 'Clear search',
     },
+    share: {
+      sharedIndicatorLabel: 'Shared — click to manage',
+      title: 'Share',
+      currentAccess: 'Current access',
+      addPeople: 'Add people',
+      noShares: 'Not shared with anyone yet.',
+      revoke: 'Revoke',
+      add: 'Add',
+      close: 'Close',
+      forever: 'No expiry',
+      expiresAt: 'Expires',
+      error: 'Error',
+      loading: 'Loading…',
+      userSearch: 'Search people…',
+      access: 'Access level',
+      view: 'View',
+      edit: 'Edit',
+      expiryForever: 'No expiry',
+      expiryValue: 'Expiry duration',
+      expiryUnit: 'Expiry unit',
+    },
   },
 } as const;
 
@@ -284,5 +305,92 @@ describe('Sidebar — notes list', () => {
       ),
     );
     expect(within(container).getByText('First note')).toBeTruthy();
+  });
+});
+
+describe('Sidebar — share indicator on note rows', () => {
+  const sharedNote: NoteListItem = {
+    id: 'shared-note',
+    title: 'Shared note',
+    folderId: null,
+    authorId: 'u1',
+    archivedAt: null,
+    updatedAt: '2026-05-14T00:00:00.000Z',
+    tags: [],
+    shareCount: 2,
+  };
+
+  const unsharedNote: NoteListItem = {
+    id: 'plain-note',
+    title: 'Plain note',
+    folderId: null,
+    authorId: 'u1',
+    archivedAt: null,
+    updatedAt: '2026-05-14T00:00:00.000Z',
+    tags: [],
+    shareCount: 0,
+  };
+
+  it('renders an eye button for a note with shareCount > 0', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[sharedNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    expect(
+      within(container).getByRole('button', { name: 'Shared — click to manage' }),
+    ).toBeTruthy();
+  });
+
+  it('does not render an eye button for a note with shareCount === 0', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[unsharedNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    expect(
+      within(container).queryByRole('button', { name: 'Shared — click to manage' }),
+    ).toBeNull();
+  });
+
+  it('clicking the eye button on a note row opens the share dialog for that note', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[sharedNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    fireEvent.click(within(container).getByRole('button', { name: 'Shared — click to manage' }));
+    // ShareDialog should be open — it has role="dialog"
+    expect(within(container).getByRole('dialog')).toBeTruthy();
   });
 });

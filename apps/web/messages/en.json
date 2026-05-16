@@ -133,6 +133,35 @@
       "blockquote": "Quote",
       "link": "Link",
       "linkPrompt": "Link URL (leave empty to remove)"
+    },
+    "share": {
+      "title": "Share",
+      "currentAccess": "Current access",
+      "addPeople": "Add people",
+      "accessView": "View",
+      "accessEdit": "Edit",
+      "shareForever": "No expiry",
+      "expiresIn": "Expires in",
+      "unitMinutes": "minutes",
+      "unitHours": "hours",
+      "unitDays": "days",
+      "add": "Add",
+      "revoke": "Revoke",
+      "searchPeoplePlaceholder": "Search people…",
+      "noShares": "Not shared with anyone yet.",
+      "sharedIndicatorLabel": "Shared — click to manage",
+      "close": "Close",
+      "forever": "No expiry",
+      "expiresAt": "Expires",
+      "error": "Error",
+      "loading": "Loading…",
+      "userSearch": "Search people…",
+      "access": "Access level",
+      "view": "View",
+      "edit": "Edit",
+      "expiryForever": "No expiry",
+      "expiryValue": "Expiry duration",
+      "expiryUnit": "Expiry unit"
     }
   }
 }

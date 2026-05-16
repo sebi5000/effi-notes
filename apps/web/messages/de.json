@@ -133,6 +133,35 @@
       "blockquote": "Zitat",
       "link": "Link",
       "linkPrompt": "Link-URL (zum Entfernen leer lassen)"
+    },
+    "share": {
+      "title": "Freigabe",
+      "currentAccess": "Aktueller Zugriff",
+      "addPeople": "Personen hinzufügen",
+      "accessView": "Lesen",
+      "accessEdit": "Bearbeiten",
+      "shareForever": "Kein Ablaufdatum",
+      "expiresIn": "Läuft ab in",
+      "unitMinutes": "Minuten",
+      "unitHours": "Stunden",
+      "unitDays": "Tage",
+      "add": "Hinzufügen",
+      "revoke": "Entziehen",
+      "searchPeoplePlaceholder": "Personen suchen…",
+      "noShares": "Noch nicht geteilt.",
+      "sharedIndicatorLabel": "Geteilt – klicken zum Verwalten",
+      "close": "Schließen",
+      "forever": "Kein Ablaufdatum",
+      "expiresAt": "Läuft ab",
+      "error": "Fehler",
+      "loading": "Wird geladen…",
+      "userSearch": "Personen suchen…",
+      "access": "Zugriffsebene",
+      "view": "Lesen",
+      "edit": "Bearbeiten",
+      "expiryForever": "Kein Ablaufdatum",
+      "expiryValue": "Ablaufdauer",
+      "expiryUnit": "Ablaufeinheit"
     }
   }
 }

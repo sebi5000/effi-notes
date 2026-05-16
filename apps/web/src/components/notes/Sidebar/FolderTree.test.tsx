@@ -32,6 +32,9 @@ const messages = {
       delete: 'Delete folder',
       cycle: "A folder can't be moved into one of its own descendants.",
     },
+    share: {
+      sharedIndicatorLabel: 'Shared — click to manage',
+    },
   },
 } as const;
 
@@ -560,5 +563,76 @@ describe('FolderTree (drag-and-drop)', () => {
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('move rejected by server'),
     );
+  });
+});
+
+describe('FolderTree (share indicator)', () => {
+  const fShared = (
+    id: string,
+    name: string,
+    parentId: string | null = null,
+    shareCount = 0,
+    position = 0,
+  ): FolderNode => ({
+    id,
+    name,
+    parentId,
+    position,
+    createdAt: '2026-05-14T00:00:00.000Z',
+    updatedAt: '2026-05-14T00:00:00.000Z',
+    shareCount,
+  });
+
+  it('renders an eye button when shareCount > 0', () => {
+    const onOpenShare = vi.fn();
+    const sharedFolder = fShared('f1', 'Shared folder', null, 2);
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={[sharedFolder]}
+          selectedId={null}
+          onSelect={() => undefined}
+          onOpenShare={onOpenShare}
+        />,
+      ),
+    );
+    expect(
+      within(container).getByRole('button', { name: 'Shared — click to manage' }),
+    ).toBeTruthy();
+  });
+
+  it('does not render an eye button when shareCount === 0', () => {
+    const onOpenShare = vi.fn();
+    const unsharedFolder = fShared('f1', 'Not shared', null, 0);
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={[unsharedFolder]}
+          selectedId={null}
+          onSelect={() => undefined}
+          onOpenShare={onOpenShare}
+        />,
+      ),
+    );
+    expect(
+      within(container).queryByRole('button', { name: 'Shared — click to manage' }),
+    ).toBeNull();
+  });
+
+  it('clicking the eye button calls onOpenShare with the folder scope', () => {
+    const onOpenShare = vi.fn();
+    const sharedFolder = fShared('f1', 'Shared folder', null, 1);
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={[sharedFolder]}
+          selectedId={null}
+          onSelect={() => undefined}
+          onOpenShare={onOpenShare}
+        />,
+      ),
+    );
+    fireEvent.click(within(container).getByRole('button', { name: 'Shared — click to manage' }));
+    expect(onOpenShare).toHaveBeenCalledWith({ kind: 'folder', id: 'f1' });
   });
 });
