@@ -224,8 +224,8 @@ function CollaborativeEditor({
   }, [uploadError]);
 
   return (
-    <div className="flex h-full">
-      <div className="relative flex h-full flex-1 flex-col">
+    <div className="flex h-full justify-center">
+      <div className="relative flex h-full min-w-0 max-w-[212mm] flex-1 flex-col">
         <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
           <PresenceBar users={presence} />
           <div className="flex items-center gap-3">

@@ -381,13 +381,14 @@ input[type="search"]::-webkit-search-decoration {
   text-decoration: underline;
 }
 
-/* Document panel — a fixed-width navigation column right of the editor. */
+/* Document panel — a fixed-width navigation column right of the editor.
+ * No divider: the editor column is capped to the sheet width so the panel
+ * sits flush against the editor content. */
 .doc-panel {
   width: 280px;
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
-  border-left: 1px solid var(--color-paper-line, #d8d2c4);
   padding: 1rem 0.85rem;
   font-size: 0.85rem;
 }
