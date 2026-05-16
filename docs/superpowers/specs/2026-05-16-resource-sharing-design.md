@@ -247,7 +247,7 @@ pattern).
 | `/api/folders/[id]` | `GET` | `VIEW` |
 | `/api/folders/[id]` | `PATCH` | `EDIT`; reparenting → also `EDIT` on the target parent |
 | `/api/folders/[id]` | `DELETE` | `OWNER` (still requires the folder be empty) |
-| `/api/folders/reorder` | `POST` | `EDIT` on every affected folder |
+| `/api/folders/reorder` | `PATCH` | `EDIT` on every affected folder |
 | `/api/tags`, `/api/tags/[id]` | * | unchanged — out of scope |
 
 The notes-list and folders-list responses gain a `shareCount` field (count of

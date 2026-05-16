@@ -11,7 +11,9 @@ type RouteContext = { params: Promise<{ noteId: string }> };
  * uses to open the y-websocket session.
  *
  * The auth.js session is verified here; the worker then re-verifies the
- * signed token (HMAC of `noteId:userId:exp` using AUTH_SECRET). The token
+ * signed token (HMAC of `noteId:userId:access:exp` using AUTH_SECRET, where
+ * `access` is `r` for view-only or `w` for edit access). The full token is
+ * a 5-segment colon-separated string `noteId:userId:access:exp:sig`. It
  * lives 60 seconds — long enough to complete the WS upgrade, short enough
  * that a leaked URL is replay-resistant.
  *

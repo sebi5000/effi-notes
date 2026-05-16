@@ -45,11 +45,12 @@ function reducer(state: State, action: Action): State {
  */
 export function useShares(scope: ShareScope, fetcher?: typeof fetch): UseSharesResult {
   const [state, dispatch] = useReducer(reducer, initialState);
+  const { kind, id } = scope;
 
   const fetchShares = useCallback(async () => {
     dispatch({ type: 'FETCH_START' });
     try {
-      const res = await sharesApi.list(scope, fetcher);
+      const res = await sharesApi.list({ kind, id }, fetcher);
       dispatch({ type: 'FETCH_SUCCESS', shares: res.shares });
     } catch (err) {
       dispatch({
@@ -57,7 +58,7 @@ export function useShares(scope: ShareScope, fetcher?: typeof fetch): UseSharesR
         error: err instanceof ApiError ? err.message : 'Unknown error',
       });
     }
-  }, [scope, fetcher]);
+  }, [kind, id, fetcher]);
 
   useEffect(() => {
     void fetchShares();
@@ -69,18 +70,18 @@ export function useShares(scope: ShareScope, fetcher?: typeof fetch): UseSharesR
 
   const create = useCallback(
     async (input: ShareCreateInput) => {
-      await sharesApi.create(scope, input, fetcher);
+      await sharesApi.create({ kind, id }, input, fetcher);
       await fetchShares();
     },
-    [scope, fetcher, fetchShares],
+    [kind, id, fetcher, fetchShares],
   );
 
   const revoke = useCallback(
     async (shareId: string) => {
-      await sharesApi.revoke(scope, shareId, fetcher);
+      await sharesApi.revoke({ kind, id }, shareId, fetcher);
       await fetchShares();
     },
-    [scope, fetcher, fetchShares],
+    [kind, id, fetcher, fetchShares],
   );
 
   return {
