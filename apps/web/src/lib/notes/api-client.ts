@@ -9,7 +9,10 @@ import type {
   PatchNoteInput,
   PutNoteBodyInput,
   SearchHit,
+  ShareCreateInput,
+  ShareView,
   TagItem,
+  UserSearchHit,
 } from '@/lib/api/schemas.ts';
 
 /**
@@ -161,6 +164,40 @@ export const collabApi = {
     fetcher?: typeof fetch,
   ): Promise<{ url: string; token: string; expiresAt: string }> =>
     request(`/api/collab/${noteId}`, fetcher ? { fetcher } : {}),
+};
+
+type ShareScope = { kind: 'note' | 'folder'; id: string };
+
+const sharesBase = (s: ShareScope): string =>
+  s.kind === 'note' ? `/api/notes/${s.id}/shares` : `/api/folders/${s.id}/shares`;
+
+export const sharesApi = {
+  list: (scope: ShareScope, fetcher?: typeof fetch): Promise<{ shares: ShareView[] }> =>
+    request(sharesBase(scope), fetcher ? { fetcher } : {}),
+  create: (
+    scope: ShareScope,
+    input: ShareCreateInput,
+    fetcher?: typeof fetch,
+  ): Promise<ShareView> =>
+    request(sharesBase(scope), {
+      method: 'POST',
+      body: JSON.stringify(input),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  revoke: (
+    scope: ShareScope,
+    shareId: string,
+    fetcher?: typeof fetch,
+  ): Promise<{ revoked: true }> =>
+    request(`${sharesBase(scope)}/${shareId}`, {
+      method: 'DELETE',
+      ...(fetcher ? { fetcher } : {}),
+    }),
+};
+
+export const usersApi = {
+  search: (q: string, fetcher?: typeof fetch): Promise<{ users: UserSearchHit[] }> =>
+    request(`/api/users?q=${encodeURIComponent(q)}`, fetcher ? { fetcher } : {}),
 };
 
 export const assetsApi = {
