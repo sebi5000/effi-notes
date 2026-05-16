@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { DELETE, GET, PATCH } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -214,5 +220,59 @@ describe('DELETE /api/notes/[id]', () => {
       params: Promise.resolve({ id: 'x' }),
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('GET/PATCH/DELETE /api/notes/[id] — cross-user authorization', () => {
+  it("403s GET of another user's private note", async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    setAuthed(b);
+    const res = await GET(new Request(`http://localhost/api/notes/${note.id}`), {
+      params: Promise.resolve({ id: note.id }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('allows GET with a VIEW share but 403s PATCH', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    await prisma.share.create({
+      data: { noteId: note.id, granteeId: b.id, createdById: a.id, access: 'VIEW' },
+    });
+    setAuthed(b);
+    const get = await GET(new Request(`http://localhost/api/notes/${note.id}`), {
+      params: Promise.resolve({ id: note.id }),
+    });
+    expect(get.status).toBe(200);
+    const patch = await PATCH(
+      new Request(`http://localhost/api/notes/${note.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'nope' }),
+      }),
+      { params: Promise.resolve({ id: note.id }) },
+    );
+    expect(patch.status).toBe(403);
+  });
+
+  it('403s a hard delete by an EDIT-grantee, allows archive', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    await prisma.share.create({
+      data: { noteId: note.id, granteeId: b.id, createdById: a.id, access: 'EDIT' },
+    });
+    setAuthed(b);
+    const hard = await DELETE(new Request(`http://localhost/api/notes/${note.id}?hard=1`), {
+      params: Promise.resolve({ id: note.id }),
+    });
+    expect(hard.status).toBe(403);
+    const archive = await DELETE(new Request(`http://localhost/api/notes/${note.id}`), {
+      params: Promise.resolve({ id: note.id }),
+    });
+    expect(archive.status).toBe(200);
   });
 });

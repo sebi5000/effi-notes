@@ -4,6 +4,12 @@ import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { type NoteDetail, patchNoteSchema } from '@/lib/api/schemas.ts';
+import {
+  canEdit,
+  canHardDelete,
+  resolveFolderAccess,
+  resolveNoteAccess,
+} from '@/lib/notes/access.ts';
 
 const log = createLogger({ component: 'api.notes.id' });
 
@@ -53,6 +59,8 @@ export const GET = async (_req: Request, ctx: RouteContext): Promise<Response> =
 
   const note = await prisma.note.findUnique({ where: { id }, select: noteSelect });
   if (!note) return jsonError(404, 'not found');
+  const access = await resolveNoteAccess(user.id, id);
+  if (access === null) return jsonError(403, 'forbidden');
   return jsonOk(toDetail(note));
 };
 
@@ -72,6 +80,12 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
 
   const existing = await prisma.note.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return jsonError(404, 'not found');
+  const access = await resolveNoteAccess(user.id, id);
+  if (!canEdit(access)) return jsonError(403, 'forbidden');
+  if (parsed.data.folderId !== undefined && parsed.data.folderId !== null) {
+    const folderAccess = await resolveFolderAccess(user.id, parsed.data.folderId);
+    if (!canEdit(folderAccess)) return jsonError(403, 'forbidden: target folder');
+  }
 
   return withSpan('notes.patch', { 'notes.id': id }, async () => {
     const { title, folderId, tagIds, archivedAt } = parsed.data;
@@ -108,6 +122,8 @@ export const DELETE = async (req: Request, ctx: RouteContext): Promise<Response>
   const hard = new URL(req.url).searchParams.get('hard') === '1';
   const existing = await prisma.note.findUnique({ where: { id }, select: { id: true } });
   if (!existing) return jsonError(404, 'not found');
+  const access = await resolveNoteAccess(user.id, id);
+  if (hard ? !canHardDelete(access) : !canEdit(access)) return jsonError(403, 'forbidden');
 
   return withSpan('notes.delete', { 'notes.id': id, 'notes.hard': hard }, async () => {
     if (hard) {
