@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it } from 'vitest';
 import { closeRedis } from './connection.ts';
 import {
+  AssetsSweepJobSchema,
   enqueuePdfExtraction,
   getQueueForBullBoard,
   PdfExtractJobSchema,
@@ -40,5 +41,11 @@ describe('enqueuePdfExtraction (integration — real Redis)', () => {
     jobId = await enqueuePdfExtraction({ assetId: testAssetId });
     expect(jobId).toBe(`pdf-extract-${testAssetId}`);
     expect(jobId).not.toContain(':');
+  });
+});
+
+describe('AssetsSweepJobSchema', () => {
+  it('accepts an empty payload', () => {
+    expect(AssetsSweepJobSchema.parse({})).toEqual({});
   });
 });

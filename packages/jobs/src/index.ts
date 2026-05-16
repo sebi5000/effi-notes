@@ -1,5 +1,7 @@
 export { closeRedis, createRedis, getRedis } from './connection.ts';
 export {
+  AssetsSweepJobSchema,
+  type AssetsSweepPayload,
   type DemoJobPayload,
   DemoJobSchema,
   enqueueDemoJob,
@@ -13,4 +15,5 @@ export {
   type PdfExtractPayload,
   QUEUES,
   type QueueName,
+  scheduleAssetsSweep,
 } from './queues.ts';

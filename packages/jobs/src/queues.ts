@@ -14,6 +14,7 @@ export const QUEUES = {
   demo: 'demo',
   notesSnapshot: 'notes.snapshot',
   pdfExtract: 'pdf.extract',
+  assetsSweep: 'assets.sweep',
 } as const;
 
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -43,6 +44,13 @@ export const PdfExtractJobSchema = z.object({
   assetId: z.string().min(1),
 });
 export type PdfExtractPayload = z.infer<typeof PdfExtractJobSchema>;
+
+// ── assets.sweep queue ──────────────────────────────────────────────────────
+// A periodic sweep that hard-deletes assets unreferenced past the grace
+// period. Scheduled as a repeatable job (see scheduleAssetsSweep); the job
+// itself carries no payload.
+export const AssetsSweepJobSchema = z.object({});
+export type AssetsSweepPayload = z.infer<typeof AssetsSweepJobSchema>;
 
 const defaultJobOpts: JobsOptions = {
   attempts: 3,
@@ -95,11 +103,39 @@ export const getDemoQueueCounts = async (): Promise<{
   };
 };
 
+// ── assets.sweep queue + scheduler ──────────────────────────────────────────
+let assetsSweepQueue: Queue<AssetsSweepPayload> | undefined;
+const getAssetsSweepQueue = (): Queue<AssetsSweepPayload> => {
+  if (assetsSweepQueue) return assetsSweepQueue;
+  assetsSweepQueue = new Queue<AssetsSweepPayload>(QUEUES.assetsSweep, {
+    connection: getRedis(),
+    defaultJobOptions: defaultJobOpts,
+  });
+  return assetsSweepQueue;
+};
+
+/** One hour, in milliseconds — the sweep cadence. */
+const SWEEP_INTERVAL_MS = 60 * 60 * 1000;
+
+/**
+ * Register the hourly `assets.sweep` repeatable job. Idempotent — call once
+ * from the worker entry on startup. The grace period itself lives in the
+ * processor, not here.
+ */
+export const scheduleAssetsSweep = async (): Promise<void> => {
+  await getAssetsSweepQueue().upsertJobScheduler(
+    'assets-sweep-hourly',
+    { every: SWEEP_INTERVAL_MS },
+    { name: 'sweep' },
+  );
+};
+
 /** Worker-side accessor — used by Bull Board mounting and the processor. */
 export const getQueueForBullBoard = (name: QueueName): Queue => {
   if (name === QUEUES.demo) return getDemoQueue() as Queue;
   if (name === QUEUES.notesSnapshot) return getNotesSnapshotQueue() as Queue;
   if (name === QUEUES.pdfExtract) return getPdfExtractQueue() as Queue;
+  if (name === QUEUES.assetsSweep) return getAssetsSweepQueue() as Queue;
   throw new Error(`Unknown queue: ${name as string}`);
 };
 
