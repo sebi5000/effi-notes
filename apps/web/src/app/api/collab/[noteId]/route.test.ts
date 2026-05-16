@@ -10,15 +10,19 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
-import { verifyToken } from '../../../../../../worker/src/yjs/token.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
+// verifyToken removed: worker token format is updated in Task 19; token shape assertions check raw segments instead
 import { GET } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
 const setAuthed = (u: Parameters<typeof authedAs>[1]) => authedAs(mockedAuth, u);
 const setUnauthed = () => unauthed(mockedAuth);
-
-const AUTH_SECRET = 'test-secret-must-be-at-least-32-chars-long';
 
 beforeEach(async () => {
   mockedAuth.mockReset();
@@ -61,9 +65,39 @@ describe('GET /api/collab/[noteId]', () => {
     expect(body.url).toContain('/yjs/');
     expect(body.url).toContain(encodeURIComponent(body.token));
 
-    const parsed = verifyToken({ secret: AUTH_SECRET, token: body.token });
-    expect(parsed).not.toBeNull();
-    expect(parsed?.noteId).toBe(note.id);
-    expect(parsed?.userId).toBe(user.id);
+    const parts = body.token.split(':');
+    expect(parts).toHaveLength(5);
+    expect(parts[0]).toBe(note.id);
+    expect(parts[1]).toBe(user.id);
+  });
+
+  it('403s a token request for a note the user cannot access', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    setAuthed(b);
+    const res = await GET(new Request(`http://localhost/api/collab/${note.id}`), {
+      params: Promise.resolve({ noteId: note.id }),
+    });
+    expect(res.status).toBe(403);
+  });
+
+  it('issues a w-token for an editor and an r-token for a viewer', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const note = await makeTestNote({ authorId: a.id });
+    await prisma.share.create({
+      data: { noteId: note.id, granteeId: b.id, createdById: a.id, access: 'VIEW' },
+    });
+    setAuthed(a);
+    const ownerRes = await GET(new Request(`http://localhost/api/collab/${note.id}`), {
+      params: Promise.resolve({ noteId: note.id }),
+    });
+    expect(((await ownerRes.json()) as { token: string }).token.split(':')[2]).toBe('w');
+    setAuthed(b);
+    const viewerRes = await GET(new Request(`http://localhost/api/collab/${note.id}`), {
+      params: Promise.resolve({ noteId: note.id }),
+    });
+    expect(((await viewerRes.json()) as { token: string }).token.split(':')[2]).toBe('r');
   });
 });

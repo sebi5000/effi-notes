@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import { env } from '@app/config/env';
 import { prisma } from '@app/db';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
+import { atLeast, resolveNoteAccess } from '@/lib/notes/access.ts';
 
 type RouteContext = { params: Promise<{ noteId: string }> };
 
@@ -32,12 +33,16 @@ export const GET = async (_req: Request, ctx: RouteContext): Promise<Response> =
   const note = await prisma.note.findUnique({ where: { id: noteId }, select: { id: true } });
   if (!note) return jsonError(404, 'note not found');
 
+  const access = await resolveNoteAccess(user.id, noteId);
+  if (access === null) return jsonError(403, 'forbidden');
+  const tokenAccess = atLeast(access, 'EDIT') ? 'w' : 'r';
+
   if (noteId.includes(':') || user.id.includes(':')) {
     return jsonError(500, 'invalid identifier');
   }
 
   const exp = Math.floor(Date.now() / 1000) + TTL_SECONDS;
-  const payload = `${noteId}:${user.id}:${exp}`;
+  const payload = `${noteId}:${user.id}:${tokenAccess}:${exp}`;
   const sig = b64u(createHmac('sha256', env.AUTH_SECRET).update(payload).digest());
   const token = `${payload}:${sig}`;
 
