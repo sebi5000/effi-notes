@@ -36,3 +36,4 @@ Each non-trivial decision with tradeoffs is captured here. Format follows [MADR]
 | 0021 | Rate limiting lives in the app, backed by Redis | Accepted |
 | 0022 | Real-time collaboration via Yjs in the worker, gated by HMAC tokens | Accepted |
 | 0023 | Asset storage in PostgreSQL | Accepted |
+| 0024 | PDF processing library: pdfjs-dist + @napi-rs/canvas | Accepted |

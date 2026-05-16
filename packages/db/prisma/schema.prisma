@@ -17,19 +17,19 @@ datasource db {
 /// Source of truth for identity stays in Keycloak; this row is upserted on
 /// first login and refreshed on subsequent logins (Phase 3 wires this).
 model User {
-  id              String        @id @default(cuid())
-  keycloakSub     String        @unique
-  email           String        @unique
-  displayName     String?
-  locale          String        @default("de")
-  roles           String[]      @default([])
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  lastSeenAt      DateTime?
-  auditLogs       AuditLog[]
-  authoredNotes   Note[]        @relation("note_author")
-  editedNotes     Note[]        @relation("note_last_editor")
-  noteHistory     NoteHistory[]
+  id            String        @id @default(cuid())
+  keycloakSub   String        @unique
+  email         String        @unique
+  displayName   String?
+  locale        String        @default("de")
+  roles         String[]      @default([])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  lastSeenAt    DateTime?
+  auditLogs     AuditLog[]
+  authoredNotes Note[]        @relation("note_author")
+  editedNotes   Note[]        @relation("note_last_editor")
+  noteHistory   NoteHistory[]
 
   @@index([email])
 }
@@ -74,19 +74,19 @@ model Folder {
 /// added in the migration's raw SQL block — Prisma sees it as Unsupported but
 /// it is queryable via $queryRaw.
 model Note {
-  id           String        @id @default(cuid())
+  id           String                   @id @default(cuid())
   title        String
-  body         String        @default("")
+  body         String                   @default("")
   yjsState     Bytes?
   folderId     String?
-  folder       Folder?       @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folder       Folder?                  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   authorId     String
-  author       User          @relation("note_author", fields: [authorId], references: [id])
+  author       User                     @relation("note_author", fields: [authorId], references: [id])
   lastEditorId String?
-  lastEditor   User?         @relation("note_last_editor", fields: [lastEditorId], references: [id], onDelete: SetNull)
+  lastEditor   User?                    @relation("note_last_editor", fields: [lastEditorId], references: [id], onDelete: SetNull)
   archivedAt   DateTime?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
   tags         NoteTag[]
   history      NoteHistory[]
   assets       Asset[]
@@ -148,19 +148,22 @@ enum AssetKind {
 /// through its embedded assets. `authorId` is a plain column (audit actor);
 /// no FK relation to keep the template `User` model untouched.
 model Asset {
-  id            String    @id @default(cuid())
-  noteId        String
-  note          Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
-  authorId      String
-  kind          AssetKind
-  contentType   String
-  filename      String
-  caption       String    @default("")
-  extractedText String    @default("")
-  byteSize      Int
-  data          Bytes
-  createdAt     DateTime  @default(now())
-  searchVector  Unsupported("tsvector")?
+  id                 String                   @id @default(cuid())
+  noteId             String
+  note               Note                     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  authorId           String
+  kind               AssetKind
+  contentType        String
+  filename           String
+  caption            String                   @default("")
+  extractedText      String                   @default("")
+  byteSize           Int
+  data               Bytes
+  previewImage       Bytes?
+  previewContentType String?
+  pageCount          Int?
+  createdAt          DateTime                 @default(now())
+  searchVector       Unsupported("tsvector")?
 
   @@index([noteId])
 }

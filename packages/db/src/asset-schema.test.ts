@@ -45,4 +45,35 @@ describe('Asset model', () => {
     await prisma.note.delete({ where: { id: note.id } });
     expect(await prisma.asset.findUnique({ where: { id: asset.id } })).toBeNull();
   });
+
+  it('round-trips the PDF preview columns', async () => {
+    const user = await prisma.user.create({
+      data: {
+        keycloakSub: `schematest-${Date.now()}-pdf`,
+        email: `schematest-${Date.now()}-pdf@x.invalid`,
+      },
+    });
+    const note = await prisma.note.create({
+      data: { title: 'schematest-pdf-note', authorId: user.id },
+    });
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'PDF',
+        contentType: 'application/pdf',
+        filename: 'schematest-doc.pdf',
+        byteSize: 1024,
+        data: Buffer.from('%PDF-1.4'),
+        previewImage: png,
+        previewContentType: 'image/png',
+        pageCount: 3,
+      },
+    });
+    const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(reloaded.pageCount).toBe(3);
+    expect(reloaded.previewContentType).toBe('image/png');
+    expect(Buffer.from(reloaded.previewImage ?? []).equals(png)).toBe(true);
+  });
 });
