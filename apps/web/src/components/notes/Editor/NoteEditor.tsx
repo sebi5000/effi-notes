@@ -7,7 +7,9 @@ import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
+import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
+import { DocumentPanel } from './DocumentPanel.tsx';
 import { EditorToolbar } from './EditorToolbar.tsx';
 import { buildExtensions, type UploadErrorDetail } from './MarkdownExtensions.ts';
 import { initialsFromName, PresenceBar, type PresenceUser } from './PresenceBar.tsx';
@@ -160,9 +162,11 @@ function CollaborativeEditor({
   currentUser: { id: string; name: string; color: string };
 }) {
   const tUpload = useTranslations('notes.editorUpload');
+  const tPanel = useTranslations('notes.docPanel');
   const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
   const [uploadError, setUploadError] = useState<UploadErrorDetail | null>(null);
+  const [panelOpen, togglePanel] = useDocPanel();
 
   const editor = useEditor(
     {
@@ -220,29 +224,42 @@ function CollaborativeEditor({
   }, [uploadError]);
 
   return (
-    <div className="relative flex h-full flex-col">
-      <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
-        <PresenceBar users={presence} />
-        <div className="flex items-center gap-3">
-          <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
-          <CopyMarkdownButton editor={editor} />
+    <div className="flex h-full">
+      <div className="relative flex h-full flex-1 flex-col">
+        <div className="border-paper-line/60 mb-4 flex items-center justify-between border-b pb-2">
+          <PresenceBar users={presence} />
+          <div className="flex items-center gap-3">
+            <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
+            <CopyMarkdownButton editor={editor} />
+            <button
+              type="button"
+              className="text-muted-foreground/70 hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded text-sm"
+              aria-label={panelOpen ? tPanel('hide') : tPanel('show')}
+              aria-pressed={panelOpen}
+              title={panelOpen ? tPanel('hide') : tPanel('show')}
+              onClick={togglePanel}
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+          </div>
         </div>
+        {uploadError ? (
+          <div
+            role="alert"
+            className="text-danger mb-2 flex items-center justify-between gap-2 rounded bg-red-50 px-2 py-1 text-xs"
+          >
+            <span>{tUpload(uploadErrorKey(uploadError))}</span>
+            <button type="button" onClick={() => setUploadError(null)} className="underline">
+              {tUpload('dismiss')}
+            </button>
+          </div>
+        ) : null}
+        {/* The A4 sheet has a fixed 210mm width — center it and let the rail
+            scroll horizontally on narrow viewports rather than clipping. */}
+        <EditorContent editor={editor} className="flex-1 overflow-x-auto pb-24" />
+        <EditorToolbar editor={editor} />
       </div>
-      {uploadError ? (
-        <div
-          role="alert"
-          className="text-danger mb-2 flex items-center justify-between gap-2 rounded bg-red-50 px-2 py-1 text-xs"
-        >
-          <span>{tUpload(uploadErrorKey(uploadError))}</span>
-          <button type="button" onClick={() => setUploadError(null)} className="underline">
-            {tUpload('dismiss')}
-          </button>
-        </div>
-      ) : null}
-      {/* The A4 sheet has a fixed 210mm width — center it and let the rail
-          scroll horizontally on narrow viewports rather than clipping. */}
-      <EditorContent editor={editor} className="flex-1 overflow-x-auto pb-24" />
-      <EditorToolbar editor={editor} />
+      {panelOpen ? <DocumentPanel editor={editor} /> : null}
     </div>
   );
 }

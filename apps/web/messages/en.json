@@ -93,6 +93,23 @@
       "unsupported": "Unsupported or invalid file.",
       "dismiss": "Dismiss"
     },
+    "docPanel": {
+      "title": "Document",
+      "show": "Show document panel",
+      "hide": "Hide document panel",
+      "outline": "Outline",
+      "images": "Images",
+      "pdfs": "PDFs",
+      "links": "Links",
+      "internal": "Internal",
+      "external": "External",
+      "empty": {
+        "outline": "No headings yet",
+        "images": "No images",
+        "pdfs": "No PDFs",
+        "links": "No links"
+      }
+    },
     "editorActions": {
       "copyMarkdown": "Copy as Markdown",
       "copied": "Copied"

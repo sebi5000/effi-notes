@@ -93,6 +93,23 @@
       "unsupported": "Nicht unterstützter oder ungültiger Dateityp.",
       "dismiss": "Schließen"
     },
+    "docPanel": {
+      "title": "Dokument",
+      "show": "Dokumentbereich einblenden",
+      "hide": "Dokumentbereich ausblenden",
+      "outline": "Gliederung",
+      "images": "Bilder",
+      "pdfs": "PDFs",
+      "links": "Links",
+      "internal": "Intern",
+      "external": "Extern",
+      "empty": {
+        "outline": "Noch keine Überschriften",
+        "images": "Keine Bilder",
+        "pdfs": "Keine PDFs",
+        "links": "Keine Links"
+      }
+    },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",
       "copied": "Kopiert"
