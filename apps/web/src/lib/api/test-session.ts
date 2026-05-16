@@ -63,6 +63,16 @@ export const makeTestUser = async (
  * NoteTag/NoteHistory rows once their parents are gone.
  */
 export const cleanupNotesDomain = async (): Promise<void> => {
+  await prisma.share.deleteMany({
+    where: {
+      OR: [
+        { grantee: { email: { startsWith: TEST_PREFIX } } },
+        { createdBy: { email: { startsWith: TEST_PREFIX } } },
+        { note: { author: { email: { startsWith: TEST_PREFIX } } } },
+        { folder: { name: { startsWith: TEST_PREFIX } } },
+      ],
+    },
+  });
   await prisma.noteHistory.deleteMany({
     where: { author: { email: { startsWith: TEST_PREFIX } } },
   });
@@ -76,3 +86,53 @@ export const cleanupNotesDomain = async (): Promise<void> => {
   await prisma.tag.deleteMany({ where: { name: { startsWith: TEST_PREFIX } } });
   await prisma.user.deleteMany({ where: { email: { startsWith: TEST_PREFIX } } });
 };
+
+export const makeTestFolder = async (opts: {
+  ownerId: string;
+  parentId?: string;
+  name?: string;
+}): Promise<{ id: string }> =>
+  prisma.folder.create({
+    data: {
+      name: opts.name ?? `${TEST_PREFIX}folder-${randSuffix()}`,
+      ownerId: opts.ownerId,
+      ...(opts.parentId ? { parentId: opts.parentId } : {}),
+    },
+    select: { id: true },
+  });
+
+export const makeTestNote = async (opts: {
+  authorId: string;
+  folderId?: string;
+  title?: string;
+  body?: string;
+}): Promise<{ id: string }> =>
+  prisma.note.create({
+    data: {
+      title: opts.title ?? `${TEST_PREFIX}note-${randSuffix()}`,
+      body: opts.body ?? '',
+      authorId: opts.authorId,
+      ...(opts.folderId ? { folderId: opts.folderId } : {}),
+    },
+    select: { id: true },
+  });
+
+export const makeTestShare = async (opts: {
+  noteId?: string;
+  folderId?: string;
+  granteeId: string;
+  createdById: string;
+  access: 'VIEW' | 'EDIT';
+  expiresAt?: Date | null;
+}): Promise<{ id: string }> =>
+  prisma.share.create({
+    data: {
+      ...(opts.noteId ? { noteId: opts.noteId } : {}),
+      ...(opts.folderId ? { folderId: opts.folderId } : {}),
+      granteeId: opts.granteeId,
+      createdById: opts.createdById,
+      access: opts.access,
+      expiresAt: opts.expiresAt ?? null,
+    },
+    select: { id: true },
+  });
