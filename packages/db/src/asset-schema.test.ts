@@ -75,5 +75,34 @@ describe('Asset model', () => {
     expect(reloaded.pageCount).toBe(3);
     expect(reloaded.previewContentType).toBe('image/png');
     expect(Buffer.from(reloaded.previewImage ?? []).equals(png)).toBe(true);
+    // unreferencedSince defaults to null when not provided
+    expect(reloaded.unreferencedSince).toBeNull();
+  });
+
+  it('round-trips the unreferencedSince column', async () => {
+    const user = await prisma.user.create({
+      data: {
+        keycloakSub: `schematest-${Date.now()}-unref`,
+        email: `schematest-${Date.now()}-unref@x.invalid`,
+      },
+    });
+    const note = await prisma.note.create({
+      data: { title: 'schematest-unref-note', authorId: user.id },
+    });
+    const when = new Date('2026-05-16T10:00:00.000Z');
+    const asset = await prisma.asset.create({
+      data: {
+        noteId: note.id,
+        authorId: user.id,
+        kind: 'IMAGE',
+        contentType: 'image/png',
+        filename: 'schematest-x.png',
+        byteSize: 8,
+        data: Buffer.from('%PNG'),
+        unreferencedSince: when,
+      },
+    });
+    const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
+    expect(reloaded.unreferencedSince?.getTime()).toBe(when.getTime());
   });
 });

@@ -162,8 +162,10 @@ model Asset {
   previewImage       Bytes?
   previewContentType String?
   pageCount          Int?
+  unreferencedSince  DateTime?
   createdAt          DateTime                 @default(now())
   searchVector       Unsupported("tsvector")?
 
   @@index([noteId])
+  @@index([unreferencedSince])
 }
