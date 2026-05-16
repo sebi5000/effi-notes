@@ -7,7 +7,13 @@ vi.mock('@/auth', () => ({
   handlers: { GET: vi.fn(), POST: vi.fn() },
 }));
 
+vi.mock('@app/jobs', async (orig) => {
+  const real = (await orig()) as Record<string, unknown>;
+  return { ...real, enqueuePdfExtraction: vi.fn(async () => 'fake-job') };
+});
+
 import { prisma } from '@app/db';
+import { enqueuePdfExtraction } from '@app/jobs';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
 import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
@@ -27,6 +33,7 @@ const post = (noteId: string, body: BodyInit, filename = 'pic.png') =>
 
 beforeEach(async () => {
   mockedAuth.mockReset();
+  vi.mocked(enqueuePdfExtraction).mockClear();
   await cleanupNotesDomain();
 });
 afterAll(async () => {
@@ -65,11 +72,12 @@ describe('POST /api/notes/[noteId]/assets', () => {
     expect(audits[0]?.actorId).toBe(user.id);
   });
 
-  it('415 for a non-image body (magic bytes mismatch)', async () => {
+  it('415 for an unsupported body (magic bytes mismatch)', async () => {
     const { user } = await makeTestUser();
     authedAs(mockedAuth, user);
     const note = await prisma.note.create({ data: { title: 'api-test-n2', authorId: user.id } });
-    const res = await post(note.id, Buffer.from('%PDF-1.7'));
+    // Use a body with unknown magic bytes (not an image, not a PDF)
+    const res = await post(note.id, Buffer.from([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]));
     expect(res.status).toBe(415);
   });
 
@@ -90,5 +98,40 @@ describe('POST /api/notes/[noteId]/assets', () => {
       { params: Promise.resolve({ noteId: note.id }) },
     );
     expect(res.status).toBe(400);
+  });
+
+  it('uploads a PDF, stores kind PDF, and enqueues extraction', async () => {
+    const { user } = await makeTestUser();
+    authedAs(mockedAuth, user);
+    const note = await prisma.note.create({ data: { title: 'pdf-up', authorId: user.id } });
+    const pdf = Buffer.from('%PDF-1.4\n%%EOF');
+    const res = await POST(
+      new Request(`http://localhost/api/notes/${note.id}/assets?filename=report.pdf`, {
+        method: 'POST',
+        body: pdf,
+      }),
+      { params: Promise.resolve({ noteId: note.id }) },
+    );
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+    const asset = await prisma.asset.findUniqueOrThrow({ where: { id } });
+    expect(asset.kind).toBe('PDF');
+    expect(asset.contentType).toBe('application/pdf');
+    expect(vi.mocked(enqueuePdfExtraction)).toHaveBeenCalledWith({ assetId: id });
+  });
+
+  it('rejects a PDF larger than 25 MB', async () => {
+    const { user } = await makeTestUser();
+    authedAs(mockedAuth, user);
+    const note = await prisma.note.create({ data: { title: 'pdf-big', authorId: user.id } });
+    const big = Buffer.concat([Buffer.from('%PDF-1.4'), Buffer.alloc(25 * 1024 * 1024 + 1)]);
+    const res = await POST(
+      new Request(`http://localhost/api/notes/${note.id}/assets?filename=big.pdf`, {
+        method: 'POST',
+        body: big,
+      }),
+      { params: Promise.resolve({ noteId: note.id }) },
+    );
+    expect(res.status).toBe(413);
   });
 });

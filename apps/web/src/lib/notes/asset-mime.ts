@@ -2,9 +2,6 @@
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_PDF_BYTES = 25 * 1024 * 1024;
 
-// reason: temporary alias — removed when Task 4 rewrites the upload route
-export const MAX_ASSET_BYTES = MAX_IMAGE_BYTES;
-
 /** The canonical MIME types this app accepts for image assets. */
 export type SupportedImageType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
 

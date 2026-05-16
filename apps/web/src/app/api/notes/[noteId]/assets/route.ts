@@ -1,15 +1,16 @@
 import { prisma } from '@app/db';
 import { recordAudit } from '@app/db/audit';
+import { enqueuePdfExtraction } from '@app/jobs';
 import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, requireSession } from '@/lib/api/responses.ts';
 import { assetUploadQuerySchema } from '@/lib/api/schemas.ts';
-import { MAX_ASSET_BYTES, sniffImageType } from '@/lib/notes/asset-mime.ts';
+import { maxBytesForKind, sniffAssetType } from '@/lib/notes/asset-mime.ts';
 
 const log = createLogger({ component: 'api.assets.upload' });
 
 /**
- * POST /api/notes/[noteId]/assets — upload an image into a note.
+ * POST /api/notes/[noteId]/assets — upload an image or PDF into a note.
  * The raw file bytes are the request body; the filename is `?filename=`.
  * The stored MIME type comes from the file's magic bytes, never the
  * client-supplied Content-Type.
@@ -32,31 +33,40 @@ export const POST = async (
 
   const buffer = Buffer.from(await req.arrayBuffer());
   if (buffer.byteLength === 0) return jsonError(400, 'empty body');
-  if (buffer.byteLength > MAX_ASSET_BYTES) return jsonError(413, 'file too large');
 
-  const contentType = sniffImageType(buffer);
-  if (contentType === null) return jsonError(415, 'unsupported file type');
+  const sniffed = sniffAssetType(buffer);
+  if (sniffed === null) return jsonError(415, 'unsupported file type');
+  if (buffer.byteLength > maxBytesForKind(sniffed.kind)) {
+    return jsonError(413, 'file too large');
+  }
 
-  return withSpan('assets.upload', { 'asset.bytes': buffer.byteLength }, async () => {
-    const asset = await prisma.asset.create({
-      data: {
-        noteId,
-        authorId: user.id,
-        kind: 'IMAGE',
-        contentType,
-        filename: parsed.data.filename,
-        byteSize: buffer.byteLength,
-        data: buffer,
-      },
-      select: { id: true },
-    });
-    await recordAudit({
-      action: 'assets.uploaded',
-      actorId: user.id,
-      subject: asset.id,
-      metadata: { noteId, contentType },
-    });
-    log.info({ assetId: asset.id, noteId, contentType }, 'asset uploaded');
-    return jsonCreated({ id: asset.id, url: `/api/assets/${asset.id}` });
-  });
+  return withSpan(
+    'assets.upload',
+    { 'asset.bytes': buffer.byteLength, 'asset.kind': sniffed.kind },
+    async () => {
+      const asset = await prisma.asset.create({
+        data: {
+          noteId,
+          authorId: user.id,
+          kind: sniffed.kind,
+          contentType: sniffed.contentType,
+          filename: parsed.data.filename,
+          byteSize: buffer.byteLength,
+          data: buffer,
+        },
+        select: { id: true },
+      });
+      if (sniffed.kind === 'PDF') {
+        await enqueuePdfExtraction({ assetId: asset.id });
+      }
+      await recordAudit({
+        action: 'assets.uploaded',
+        actorId: user.id,
+        subject: asset.id,
+        metadata: { noteId, contentType: sniffed.contentType },
+      });
+      log.info({ assetId: asset.id, noteId, contentType: sniffed.contentType }, 'asset uploaded');
+      return jsonCreated({ id: asset.id, url: `/api/assets/${asset.id}` });
+    },
+  );
 };

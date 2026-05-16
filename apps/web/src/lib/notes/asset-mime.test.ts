@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_ASSET_BYTES, maxBytesForKind, sniffAssetType, sniffImageType } from './asset-mime.ts';
+import { MAX_IMAGE_BYTES, maxBytesForKind, sniffAssetType, sniffImageType } from './asset-mime.ts';
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 
@@ -25,7 +25,7 @@ describe('sniffImageType', () => {
     expect(sniffImageType(bytes(0x89, 0x50))).toBeNull();
   });
   it('exposes a 10 MB cap', () => {
-    expect(MAX_ASSET_BYTES).toBe(10 * 1024 * 1024);
+    expect(MAX_IMAGE_BYTES).toBe(10 * 1024 * 1024);
   });
 });
 
