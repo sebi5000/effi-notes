@@ -112,7 +112,10 @@
     },
     "editorActions": {
       "copyMarkdown": "Copy as Markdown",
-      "copied": "Copied"
+      "copied": "Copied",
+      "delete": "Delete note",
+      "confirmDelete": "Delete note \"{title}\"?",
+      "deleteFailed": "Could not delete the note. Please try again."
     },
     "editorToolbar": {
       "label": "Formatting",

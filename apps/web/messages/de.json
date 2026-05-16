@@ -112,7 +112,10 @@
     },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",
-      "copied": "Kopiert"
+      "copied": "Kopiert",
+      "delete": "Notiz löschen",
+      "confirmDelete": "Notiz \"{title}\" löschen?",
+      "deleteFailed": "Die Notiz konnte nicht gelöscht werden. Bitte erneut versuchen."
     },
     "editorToolbar": {
       "label": "Formatierung",
