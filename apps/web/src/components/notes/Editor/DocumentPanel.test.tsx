@@ -47,6 +47,7 @@ const messages = {
       images: 'Images',
       pdfs: 'PDFs',
       links: 'Links',
+      hide: 'Hide document panel',
       internal: 'Internal',
       external: 'External',
       empty: {
@@ -107,9 +108,12 @@ const wrap = (ui: React.ReactNode) => (
   </NextIntlClientProvider>
 );
 
+const renderPanel = (editor: Editor | null, onCollapse: () => void = () => {}) =>
+  render(wrap(<DocumentPanel editor={editor} onCollapse={onCollapse} />));
+
 describe('DocumentPanel', () => {
   it('renders all four section titles', () => {
-    render(wrap(<DocumentPanel editor={makeEditor()} />));
+    renderPanel(makeEditor());
     expect(screen.getByText('Outline')).toBeTruthy();
     expect(screen.getByText('Images')).toBeTruthy();
     expect(screen.getByText('PDFs')).toBeTruthy();
@@ -117,24 +121,24 @@ describe('DocumentPanel', () => {
   });
 
   it('derives the outline from the editor document', () => {
-    render(wrap(<DocumentPanel editor={makeEditor()} />));
+    renderPanel(makeEditor());
     expect(screen.getByText('Section A')).toBeTruthy();
   });
 
   it('shows empty states for sections with no items', () => {
-    render(wrap(<DocumentPanel editor={makeEditor()} />));
+    renderPanel(makeEditor());
     expect(screen.getByText('No images')).toBeTruthy();
     expect(screen.getByText('No PDFs')).toBeTruthy();
     expect(screen.getByText('No links')).toBeTruthy();
   });
 
   it('renders the panel shell even when editor is null', () => {
-    const { container } = render(wrap(<DocumentPanel editor={null} />));
+    const { container } = renderPanel(null);
     expect(container.querySelector('.doc-panel')).not.toBeNull();
   });
 
   it('highlights the heading the scroll-spy reports as in view', () => {
-    render(wrap(<DocumentPanel editor={makeEditor()} />));
+    renderPanel(makeEditor());
     expect(ioObserved.length).toBeGreaterThan(0);
     act(() => {
       ioCallback?.([{ target: ioObserved[0] as Element, isIntersecting: true }]);
@@ -143,7 +147,7 @@ describe('DocumentPanel', () => {
   });
 
   it('picks the topmost visible heading and clears it when it leaves view', () => {
-    render(wrap(<DocumentPanel editor={makeTwoHeadingEditor()} />));
+    renderPanel(makeTwoHeadingEditor());
     expect(ioObserved.length).toBe(2);
     // Both headings intersecting → Math.min picks index 0 (Section A).
     act(() => {
@@ -166,7 +170,7 @@ describe('DocumentPanel', () => {
     vi.useFakeTimers();
     try {
       const editor = makeEditor();
-      render(wrap(<DocumentPanel editor={editor} />));
+      renderPanel(editor);
       expect(screen.queryByText('Added Later')).toBeNull();
       act(() => {
         editor.commands.insertContentAt(editor.state.doc.content.size, {
@@ -187,7 +191,7 @@ describe('DocumentPanel', () => {
     vi.useFakeTimers();
     try {
       const editor = makeEditor();
-      render(wrap(<DocumentPanel editor={editor} />));
+      renderPanel(editor);
       act(() => {
         editor.commands.insertContentAt(editor.state.doc.content.size, {
           type: 'heading',
@@ -204,15 +208,22 @@ describe('DocumentPanel', () => {
 
   it('jumps the editor selection when an outline row is clicked', () => {
     const editor = makeEditor();
-    render(wrap(<DocumentPanel editor={editor} />));
+    renderPanel(editor);
     fireEvent.click(screen.getByText('Section A'));
     expect(editor.state.selection.$from.parent.type.name).toBe('heading');
   });
 
   it('makes a node selection when an image asset row is clicked', () => {
     const editor = makeImageEditor();
-    render(wrap(<DocumentPanel editor={editor} />));
+    renderPanel(editor);
     fireEvent.click(screen.getByText('A diagram'));
     expect(isNodeSelection(editor.state.selection)).toBe(true);
+  });
+
+  it('invokes onCollapse when the collapse button is clicked', () => {
+    const onCollapse = vi.fn();
+    renderPanel(makeEditor(), onCollapse);
+    fireEvent.click(screen.getByLabelText('Hide document panel'));
+    expect(onCollapse).toHaveBeenCalledTimes(1);
   });
 });

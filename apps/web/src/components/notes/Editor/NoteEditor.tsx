@@ -248,16 +248,6 @@ function CollaborativeEditor({
             <SaveIndicator state={saveState} viewerCount={presence.length + 1} />
             <CopyMarkdownButton editor={editor} />
             <DeleteNoteButton noteId={noteId} noteTitle={initialTitle} onError={setDeleteError} />
-            <button
-              type="button"
-              className="text-muted-foreground/70 hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded text-sm"
-              aria-label={panelOpen ? tPanel('hide') : tPanel('show')}
-              aria-pressed={panelOpen}
-              title={panelOpen ? tPanel('hide') : tPanel('show')}
-              onClick={togglePanel}
-            >
-              <span aria-hidden="true">☰</span>
-            </button>
           </div>
         </div>
         {uploadError ? (
@@ -287,7 +277,19 @@ function CollaborativeEditor({
         <EditorContent editor={editor} className="flex-1 overflow-x-auto pb-24" />
         <EditorToolbar editor={editor} />
       </div>
-      {panelOpen ? <DocumentPanel editor={editor} /> : null}
+      {panelOpen ? (
+        <DocumentPanel editor={editor} onCollapse={togglePanel} />
+      ) : (
+        <button
+          type="button"
+          aria-label={tPanel('show')}
+          title={tPanel('show')}
+          onClick={togglePanel}
+          className="text-muted-foreground/60 hover:text-foreground mr-1 mt-3 inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded text-sm leading-none"
+        >
+          <span aria-hidden="true">«</span>
+        </button>
+      )}
     </div>
   );
 }

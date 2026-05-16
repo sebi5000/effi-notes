@@ -10,7 +10,7 @@ import { OutlineSection } from './OutlineSection.tsx';
 
 const EMPTY: DocItems = { headings: [], images: [], pdfs: [], links: [] };
 
-type Props = { editor: Editor | null };
+type Props = { editor: Editor | null; onCollapse: () => void };
 
 /**
  * The document panel container. Derives the heading/image/PDF/link lists from
@@ -18,7 +18,7 @@ type Props = { editor: Editor | null };
  * runs the outline scroll-spy, and handles click-to-jump. The section
  * components below it are purely presentational.
  */
-export function DocumentPanel({ editor }: Props) {
+export function DocumentPanel({ editor, onCollapse }: Props) {
   const t = useTranslations('notes.docPanel');
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   // A monotonically increasing counter bumped on each (debounced) editor
@@ -100,7 +100,16 @@ export function DocumentPanel({ editor }: Props) {
   );
 
   return (
-    <aside className="doc-panel" aria-label={t('title')}>
+    <aside className="doc-panel relative" aria-label={t('title')}>
+      <button
+        type="button"
+        aria-label={t('hide')}
+        title={t('hide')}
+        onClick={onCollapse}
+        className="text-muted-foreground/60 hover:text-foreground absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded text-sm leading-none"
+      >
+        <span aria-hidden="true">»</span>
+      </button>
       <OutlineSection headings={items.headings} activeIndex={activeIndex} onSelect={handleSelect} />
       <AssetSection
         title={t('images')}
