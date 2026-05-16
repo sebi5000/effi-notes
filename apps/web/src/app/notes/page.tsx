@@ -65,6 +65,7 @@ export default async function NotesIndexPage() {
           archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
           updatedAt: n.updatedAt.toISOString(),
           tags: n.tags.map((t) => t.tag),
+          shareCount: 0,
         }))}
         currentUser={{
           id: session.user.id,

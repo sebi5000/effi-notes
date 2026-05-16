@@ -39,6 +39,7 @@ const toDetail = (n: {
   createdAt: Date;
   updatedAt: Date;
   tags: Array<{ tag: { id: string; name: string; color: string | null } }>;
+  _count?: { shares: number };
 }): NoteDetail => ({
   id: n.id,
   title: n.title,
@@ -50,6 +51,7 @@ const toDetail = (n: {
   createdAt: n.createdAt.toISOString(),
   updatedAt: n.updatedAt.toISOString(),
   tags: n.tags.map((t) => t.tag),
+  shareCount: n._count?.shares ?? 0,
 });
 
 export const GET = async (_req: Request, ctx: RouteContext): Promise<Response> => {

@@ -116,6 +116,7 @@ export type NoteListItem = {
   archivedAt: string | null;
   updatedAt: string;
   tags: Array<{ id: string; name: string; color: string | null }>;
+  shareCount: number;
 };
 
 export type NoteDetail = NoteListItem & {

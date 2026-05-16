@@ -83,6 +83,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
           archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
           updatedAt: n.updatedAt.toISOString(),
           tags: n.tags.map((t) => t.tag),
+          shareCount: 0,
         }))}
         currentUser={{
           id: session.user.id,
@@ -100,6 +101,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
           createdAt: note.createdAt.toISOString(),
           updatedAt: note.updatedAt.toISOString(),
           tags: note.tags.map((t) => t.tag),
+          shareCount: 0,
         }}
       />
     </Suspense>

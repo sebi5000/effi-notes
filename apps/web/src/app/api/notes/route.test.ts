@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestNote,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { GET, POST } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -179,5 +185,38 @@ describe('POST /api/notes', () => {
       }),
     );
     expect(res.status).toBe(400);
+  });
+});
+
+describe('GET/POST /api/notes — authorization', () => {
+  it("list excludes another user's private notes", async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    await makeTestNote({ authorId: a.id, title: 'api-test-private-a' });
+    const mine = await makeTestNote({ authorId: b.id, title: 'api-test-mine-b' });
+    setAuthed(b);
+    const res = await GET(new Request('http://localhost/api/notes'));
+    const body = (await res.json()) as { notes: Array<{ id: string }> };
+    const ids = body.notes.map((n) => n.id);
+    expect(ids).toContain(mine.id);
+    const privateA = await prisma.note.findFirst({ where: { title: 'api-test-private-a' } });
+    expect(ids).not.toContain(privateA?.id);
+  });
+
+  it('403s POST into a folder the user cannot edit', async () => {
+    const { user: a } = await makeTestUser();
+    const { user: b } = await makeTestUser();
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-foreign-folder', ownerId: a.id },
+    });
+    setAuthed(b);
+    const res = await POST(
+      new Request('http://localhost/api/notes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'x', folderId: folder.id }),
+      }),
+    );
+    expect(res.status).toBe(403);
   });
 });

@@ -4,6 +4,7 @@ import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { createNoteSchema, listNotesQuerySchema, type NoteListItem } from '@/lib/api/schemas.ts';
+import { canEdit, listAccessibleScope, resolveFolderAccess } from '@/lib/notes/access.ts';
 
 const log = createLogger({ component: 'api.notes' });
 
@@ -15,6 +16,7 @@ const toListItem = (n: {
   archivedAt: Date | null;
   updatedAt: Date;
   tags: Array<{ tag: { id: string; name: string; color: string | null } }>;
+  _count: { shares: number };
 }): NoteListItem => ({
   id: n.id,
   title: n.title,
@@ -23,6 +25,7 @@ const toListItem = (n: {
   archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
   updatedAt: n.updatedAt.toISOString(),
   tags: n.tags.map((t) => t.tag),
+  shareCount: n._count.shares,
 });
 
 export const GET = async (req: Request): Promise<Response> => {
@@ -35,6 +38,8 @@ export const GET = async (req: Request): Promise<Response> => {
 
   const { folderId, tagId, q, includeArchived, limit, offset } = parsed.data;
 
+  const scope = await listAccessibleScope(user.id);
+
   return withSpan(
     'notes.list',
     {
@@ -45,12 +50,23 @@ export const GET = async (req: Request): Promise<Response> => {
     async () => {
       const notes = await prisma.note.findMany({
         where: {
-          ...(folderId === undefined ? {} : { folderId }),
-          ...(tagId === undefined ? {} : { tags: { some: { tagId } } }),
-          ...(includeArchived === true ? {} : { archivedAt: null }),
-          ...(q && q.trim().length > 0
-            ? { OR: [{ title: { contains: q, mode: 'insensitive' } }] }
-            : {}),
+          AND: [
+            {
+              OR: [
+                { authorId: user.id },
+                { folderId: { in: scope.accessibleFolderIds } },
+                { id: { in: scope.sharedNoteIds } },
+              ],
+            },
+            {
+              ...(folderId === undefined ? {} : { folderId }),
+              ...(tagId === undefined ? {} : { tags: { some: { tagId } } }),
+              ...(includeArchived === true ? {} : { archivedAt: null }),
+              ...(q && q.trim().length > 0
+                ? { OR: [{ title: { contains: q, mode: 'insensitive' } }] }
+                : {}),
+            },
+          ],
         },
         select: {
           id: true,
@@ -60,6 +76,11 @@ export const GET = async (req: Request): Promise<Response> => {
           archivedAt: true,
           updatedAt: true,
           tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+          _count: {
+            select: {
+              shares: { where: { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } },
+            },
+          },
         },
         orderBy: { updatedAt: 'desc' },
         take: limit,
@@ -85,6 +106,11 @@ export const POST = async (req: Request): Promise<Response> => {
 
   const { title, folderId, tagIds, body } = parsed.data;
 
+  if (parsed.data.folderId !== undefined && parsed.data.folderId !== null) {
+    const folderAccess = await resolveFolderAccess(user.id, parsed.data.folderId);
+    if (!canEdit(folderAccess)) return jsonError(403, 'forbidden: target folder');
+  }
+
   return withSpan('notes.create', { 'notes.title_len': title.length }, async () => {
     const created = await prisma.note.create({
       data: {
@@ -104,6 +130,11 @@ export const POST = async (req: Request): Promise<Response> => {
         archivedAt: true,
         updatedAt: true,
         tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+        _count: {
+          select: {
+            shares: { where: { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] } },
+          },
+        },
       },
     });
 
