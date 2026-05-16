@@ -66,6 +66,7 @@ export const POST = async (req: Request): Promise<Response> => {
   const created = await prisma.folder.create({
     data: {
       name,
+      ownerId: user.id,
       ...(parentId === undefined || parentId === null ? {} : { parentId }),
       ...(position === undefined ? {} : { position }),
     },

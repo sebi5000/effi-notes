@@ -240,7 +240,11 @@ const upsertAuthor = async (
   });
 };
 
-const upsertFolderPath = async (path: string[], position: number): Promise<string> => {
+const upsertFolderPath = async (
+  path: string[],
+  position: number,
+  ownerId: string,
+): Promise<string> => {
   let parentId: string | null = null;
   for (let i = 0; i < path.length; i++) {
     const name = path[i];
@@ -256,7 +260,7 @@ const upsertFolderPath = async (path: string[], position: number): Promise<strin
       continue;
     }
     const created: { id: string } = await prisma.folder.create({
-      data: { name, parentId: currentParentId, position: isLeaf ? position : 0 },
+      data: { name, ownerId, parentId: currentParentId, position: isLeaf ? position : 0 },
       select: { id: true },
     });
     parentId = created.id;
@@ -276,9 +280,12 @@ const main = async (): Promise<void> => {
     authors.set(u.email, u.id);
   }
 
+  const seedOwnerId = authors.get('seed@example.invalid');
+  if (seedOwnerId === undefined) throw new Error('Seed owner user not found');
+
   const folderIdByPath = new Map<string, string>();
   for (const f of SEED_FOLDERS) {
-    const id = await upsertFolderPath(f.path, f.position);
+    const id = await upsertFolderPath(f.path, f.position, seedOwnerId);
     folderIdByPath.set(f.path.join('/'), id);
   }
 

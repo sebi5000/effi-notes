@@ -68,7 +68,9 @@ describe('PATCH /api/notes/[id]', () => {
     const note = await prisma.note.create({
       data: { title: 'api-test-patch-old', authorId: user.id },
     });
-    const folder = await prisma.folder.create({ data: { name: 'api-test-patch-folder' } });
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-patch-folder', ownerId: user.id },
+    });
 
     const res = await PATCH(
       new Request(`http://localhost/api/notes/${note.id}`, {

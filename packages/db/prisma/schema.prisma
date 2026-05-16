@@ -17,19 +17,22 @@ datasource db {
 /// Source of truth for identity stays in Keycloak; this row is upserted on
 /// first login and refreshed on subsequent logins (Phase 3 wires this).
 model User {
-  id            String        @id @default(cuid())
-  keycloakSub   String        @unique
-  email         String        @unique
-  displayName   String?
-  locale        String        @default("de")
-  roles         String[]      @default([])
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  lastSeenAt    DateTime?
-  auditLogs     AuditLog[]
-  authoredNotes Note[]        @relation("note_author")
-  editedNotes   Note[]        @relation("note_last_editor")
-  noteHistory   NoteHistory[]
+  id             String        @id @default(cuid())
+  keycloakSub    String        @unique
+  email          String        @unique
+  displayName    String?
+  locale         String        @default("de")
+  roles          String[]      @default([])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  lastSeenAt     DateTime?
+  auditLogs      AuditLog[]
+  authoredNotes  Note[]        @relation("note_author")
+  editedNotes    Note[]        @relation("note_last_editor")
+  noteHistory    NoteHistory[]
+  ownedFolders   Folder[]      @relation("folder_owner")
+  sharesReceived Share[]       @relation("share_grantee")
+  sharesCreated  Share[]       @relation("share_creator")
 
   @@index([email])
 }
@@ -61,11 +64,15 @@ model Folder {
   parent    Folder?  @relation("folder_tree", fields: [parentId], references: [id], onDelete: SetNull)
   children  Folder[] @relation("folder_tree")
   notes     Note[]
+  ownerId   String
+  owner     User     @relation("folder_owner", fields: [ownerId], references: [id], onDelete: Restrict)
+  shares    Share[]
   position  Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([parentId, position])
+  @@index([ownerId])
 }
 
 /// A markdown-first note. `body` is the canonical markdown source. `yjsState`
@@ -90,6 +97,7 @@ model Note {
   tags         NoteTag[]
   history      NoteHistory[]
   assets       Asset[]
+  shares       Share[]
   searchVector Unsupported("tsvector")?
 
   @@index([folderId, updatedAt])
@@ -97,8 +105,8 @@ model Note {
   @@index([authorId, updatedAt])
 }
 
-/// Free-form tag dictionary. Tags are global (not per-user) because the
-/// sharing model in v1 is "all users see all notes".
+/// Free-form tag dictionary. Tags are global because tags are a shared vocabulary; note/folder access is
+/// governed per-resource by the Share model (see ADR 0026).
 model Tag {
   id        String    @id @default(cuid())
   name      String    @unique
@@ -168,4 +176,35 @@ model Asset {
 
   @@index([noteId])
   @@index([unreferencedSince])
+}
+
+/// View or edit access level for a Share.
+enum ShareAccess {
+  VIEW
+  EDIT
+}
+
+/// An explicit grant of access to a single Note OR a single Folder.
+/// Exactly one of noteId / folderId is set — enforced by a DB CHECK
+/// constraint added in the migration's raw-SQL block.
+model Share {
+  id          String      @id @default(cuid())
+  noteId      String?
+  note        Note?       @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  folderId    String?
+  folder      Folder?     @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  granteeId   String
+  grantee     User        @relation("share_grantee", fields: [granteeId], references: [id], onDelete: Cascade)
+  access      ShareAccess
+  expiresAt   DateTime?
+  createdById String
+  createdBy   User        @relation("share_creator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime    @default(now())
+
+  @@unique([noteId, granteeId])
+  @@unique([folderId, granteeId])
+  @@index([granteeId])
+  @@index([noteId])
+  @@index([folderId])
+  @@index([expiresAt])
 }

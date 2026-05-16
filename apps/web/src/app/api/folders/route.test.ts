@@ -36,8 +36,8 @@ describe('GET /api/folders', () => {
   it('returns the full folder list', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    await prisma.folder.create({ data: { name: 'api-test-A' } });
-    await prisma.folder.create({ data: { name: 'api-test-B' } });
+    await prisma.folder.create({ data: { name: 'api-test-A', ownerId: user.id } });
+    await prisma.folder.create({ data: { name: 'api-test-B', ownerId: user.id } });
     const res = await GET();
     expect(res.status).toBe(200);
     const body = (await res.json()) as { folders: Array<{ name: string }> };
@@ -109,7 +109,9 @@ describe('POST /api/folders', () => {
   it('creates a child folder when parentId exists', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const parent = await prisma.folder.create({ data: { name: 'api-test-parent' } });
+    const parent = await prisma.folder.create({
+      data: { name: 'api-test-parent', ownerId: user.id },
+    });
     const res = await POST(
       new Request('http://localhost/api/folders', {
         method: 'POST',

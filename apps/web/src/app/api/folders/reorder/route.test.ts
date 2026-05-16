@@ -27,9 +27,9 @@ const call = (body: unknown) =>
   );
 
 /** Create a folder owned by the api-test domain so cleanup catches it. */
-const mkFolder = (name: string, parentId: string | null, position: number) =>
+const mkFolder = (name: string, parentId: string | null, position: number, ownerId: string) =>
   prisma.folder.create({
-    data: { name: `api-test-${name}`, parentId, position },
+    data: { name: `api-test-${name}`, parentId, position, ownerId },
     select: { id: true },
   });
 
@@ -64,7 +64,7 @@ describe('PATCH /api/folders/reorder', () => {
   it('400 on duplicate ids', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const a = await mkFolder('a', null, 0);
+    const a = await mkFolder('a', null, 0, user.id);
     const res = await call({ parentId: null, orderedIds: [a.id, a.id] });
     expect(res.status).toBe(400);
   });
@@ -79,9 +79,9 @@ describe('PATCH /api/folders/reorder', () => {
   it('reorders siblings, writing contiguous positions in array order', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const a = await mkFolder('a', null, 0);
-    const b = await mkFolder('b', null, 1);
-    const c = await mkFolder('c', null, 2);
+    const a = await mkFolder('a', null, 0, user.id);
+    const b = await mkFolder('b', null, 1, user.id);
+    const c = await mkFolder('c', null, 2, user.id);
 
     const res = await call({ parentId: null, orderedIds: [c.id, a.id, b.id] });
     expect(res.status).toBe(200);
@@ -99,9 +99,9 @@ describe('PATCH /api/folders/reorder', () => {
   it('cross-hierarchy move: re-parents the dragged folder under a new parent', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const target = await mkFolder('target', null, 0);
-    const child = await mkFolder('child', target.id, 0);
-    const loose = await mkFolder('loose', null, 1);
+    const target = await mkFolder('target', null, 0, user.id);
+    const child = await mkFolder('child', target.id, 0, user.id);
+    const loose = await mkFolder('loose', null, 1, user.id);
 
     // Move `loose` into `target`, after the existing child.
     const res = await call({ parentId: target.id, orderedIds: [child.id, loose.id] });
@@ -115,8 +115,8 @@ describe('PATCH /api/folders/reorder', () => {
   it('409 when a folder would be moved into its own descendant', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const root = await mkFolder('root', null, 0);
-    const mid = await mkFolder('mid', root.id, 0);
+    const root = await mkFolder('root', null, 0, user.id);
+    const mid = await mkFolder('mid', root.id, 0, user.id);
 
     // Try to make `root` a child of its own descendant `mid`.
     const res = await call({ parentId: mid.id, orderedIds: [root.id] });
@@ -126,7 +126,7 @@ describe('PATCH /api/folders/reorder', () => {
   it('409 when a folder is moved into itself', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const a = await mkFolder('selfparent', null, 0);
+    const a = await mkFolder('selfparent', null, 0, user.id);
     const res = await call({ parentId: a.id, orderedIds: [a.id] });
     expect(res.status).toBe(409);
   });

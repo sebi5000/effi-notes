@@ -33,7 +33,7 @@ describe('notes schema', () => {
   it('round-trips Folder → Note → Tag association', async () => {
     const author = await seedAuthor();
     const folder = await prisma.folder.create({
-      data: { name: `${TEST_PREFIX}Clients`, position: 0 },
+      data: { name: `${TEST_PREFIX}Clients`, position: 0, ownerId: author.id },
     });
     const tag = await prisma.tag.create({
       data: { name: `${TEST_PREFIX}strategy`, color: '#C26A20' },
@@ -60,9 +60,12 @@ describe('notes schema', () => {
   });
 
   it('supports nested folders via self-relation', async () => {
-    const root = await prisma.folder.create({ data: { name: `${TEST_PREFIX}Clients` } });
+    const owner = await seedAuthor();
+    const root = await prisma.folder.create({
+      data: { name: `${TEST_PREFIX}Clients`, ownerId: owner.id },
+    });
     const child = await prisma.folder.create({
-      data: { name: `${TEST_PREFIX}Acme`, parentId: root.id },
+      data: { name: `${TEST_PREFIX}Acme`, parentId: root.id, ownerId: owner.id },
     });
 
     const reloaded = await prisma.folder.findUnique({

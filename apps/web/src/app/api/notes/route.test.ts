@@ -51,7 +51,9 @@ describe('GET /api/notes', () => {
   it('filters by folderId', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const folder = await prisma.folder.create({ data: { name: 'api-test-folder' } });
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-folder', ownerId: user.id },
+    });
     await prisma.note.create({
       data: { title: 'api-test-in-folder', authorId: user.id, folderId: folder.id },
     });
@@ -123,7 +125,9 @@ describe('POST /api/notes', () => {
   it('creates a note and returns 201 with the created body', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const folder = await prisma.folder.create({ data: { name: 'api-test-target-folder' } });
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-target-folder', ownerId: user.id },
+    });
     const tag = await prisma.tag.create({ data: { name: 'api-test-tag-on-create' } });
     const res = await POST(
       new Request('http://localhost/api/notes', {

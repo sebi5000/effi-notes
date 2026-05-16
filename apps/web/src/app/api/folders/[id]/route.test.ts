@@ -38,7 +38,9 @@ describe('GET /api/folders/[id]', () => {
   it('returns the folder by id', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-detail-folder' } });
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-detail-folder', ownerId: user.id },
+    });
     const res = await GET(new Request(`http://localhost/api/folders/${f.id}`), {
       params: Promise.resolve({ id: f.id }),
     });
@@ -62,7 +64,9 @@ describe('PATCH /api/folders/[id]', () => {
   it('renames a folder', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-rename-old' } });
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-rename-old', ownerId: user.id },
+    });
     const res = await PATCH(
       new Request(`http://localhost/api/folders/${f.id}`, {
         method: 'PATCH',
@@ -79,7 +83,9 @@ describe('PATCH /api/folders/[id]', () => {
   it('rejects self-parent', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-selfparent' } });
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-selfparent', ownerId: user.id },
+    });
     const res = await PATCH(
       new Request(`http://localhost/api/folders/${f.id}`, {
         method: 'PATCH',
@@ -94,7 +100,7 @@ describe('PATCH /api/folders/[id]', () => {
   it('returns 400 on invalid json', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-jsonerr' } });
+    const f = await prisma.folder.create({ data: { name: 'api-test-jsonerr', ownerId: user.id } });
     const res = await PATCH(
       new Request(`http://localhost/api/folders/${f.id}`, {
         method: 'PATCH',
@@ -109,7 +115,7 @@ describe('PATCH /api/folders/[id]', () => {
   it('returns 400 on empty patch', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-empty' } });
+    const f = await prisma.folder.create({ data: { name: 'api-test-empty', ownerId: user.id } });
     const res = await PATCH(
       new Request(`http://localhost/api/folders/${f.id}`, {
         method: 'PATCH',
@@ -161,7 +167,9 @@ describe('DELETE /api/folders/[id]', () => {
   it('deletes an empty folder and writes an audit row', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-delete-empty' } });
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-delete-empty', ownerId: user.id },
+    });
     const res = await DELETE(new Request(`http://localhost/api/folders/${f.id}`), {
       params: Promise.resolve({ id: f.id }),
     });
@@ -176,7 +184,7 @@ describe('DELETE /api/folders/[id]', () => {
   it('returns 409 when folder still contains notes', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const f = await prisma.folder.create({ data: { name: 'api-test-nonempty' } });
+    const f = await prisma.folder.create({ data: { name: 'api-test-nonempty', ownerId: user.id } });
     await prisma.note.create({
       data: { title: 'api-test-blocker', authorId: user.id, folderId: f.id },
     });
@@ -189,8 +197,12 @@ describe('DELETE /api/folders/[id]', () => {
   it('returns 409 when folder has children', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const parent = await prisma.folder.create({ data: { name: 'api-test-haschild' } });
-    await prisma.folder.create({ data: { name: 'api-test-thechild', parentId: parent.id } });
+    const parent = await prisma.folder.create({
+      data: { name: 'api-test-haschild', ownerId: user.id },
+    });
+    await prisma.folder.create({
+      data: { name: 'api-test-thechild', parentId: parent.id, ownerId: user.id },
+    });
     const res = await DELETE(new Request(`http://localhost/api/folders/${parent.id}`), {
       params: Promise.resolve({ id: parent.id }),
     });
