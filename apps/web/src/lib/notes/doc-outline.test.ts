@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import { describe, expect, it } from 'vitest';
 import { NoteImage } from '../../components/notes/Editor/ImageExtension.ts';
 import { PdfChipNode } from '../../components/notes/Editor/PdfChipExtension.ts';
-import { deriveDocItems, isInternalNoteLink } from './doc-outline.ts';
+import { deriveDocItems, isInternalNoteLink, referencedAssetIds } from './doc-outline.ts';
 
 const ORIGIN = 'http://localhost:3000';
 
@@ -146,5 +146,44 @@ describe('deriveDocItems', () => {
     const { pdfs } = deriveDocItems(editor.state.doc, ORIGIN);
     expect(pdfs).toHaveLength(1);
     expect(pdfs[0]).toMatchObject({ kind: 'pdf', label: 'x.pdf', previewSrc: '' });
+  });
+});
+
+describe('referencedAssetIds', () => {
+  it('returns the asset ids of image and pdfChip nodes', () => {
+    const editor = new Editor({
+      extensions: [StarterKit.configure({ link: false }), Link, NoteImage, PdfChipNode],
+      content: {
+        type: 'doc',
+        content: [
+          { type: 'image', attrs: { src: '/api/assets/img-1', caption: '' } },
+          {
+            type: 'pdfChip',
+            attrs: { assetId: 'pdf-1', src: '/api/assets/pdf-1', filename: 'r.pdf', byteSize: 1 },
+          },
+          { type: 'paragraph', content: [{ type: 'text', text: 'plain' }] },
+        ],
+      },
+    });
+    expect(referencedAssetIds(editor.state.doc).sort()).toEqual(['img-1', 'pdf-1']);
+  });
+
+  it('returns an empty array for a document with no assets', () => {
+    const editor = new Editor({
+      extensions: [StarterKit.configure({ link: false }), Link, NoteImage, PdfChipNode],
+      content: { type: 'doc', content: [{ type: 'paragraph' }] },
+    });
+    expect(referencedAssetIds(editor.state.doc)).toEqual([]);
+  });
+
+  it('ignores an image whose src is not an /api/assets/<id> URL', () => {
+    const editor = new Editor({
+      extensions: [StarterKit.configure({ link: false }), Link, NoteImage, PdfChipNode],
+      content: {
+        type: 'doc',
+        content: [{ type: 'image', attrs: { src: 'https://example.com/x.png', caption: '' } }],
+      },
+    });
+    expect(referencedAssetIds(editor.state.doc)).toEqual([]);
   });
 });

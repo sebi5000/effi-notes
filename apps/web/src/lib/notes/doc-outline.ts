@@ -120,3 +120,29 @@ export const deriveDocItems = (doc: PMNode, origin: string): DocItems => {
 
   return { headings, images, pdfs, links };
 };
+
+/** The asset id embedded in an `/api/assets/<id>` URL, or `''` if absent. */
+const assetIdFromSrc = (src: string): string => {
+  const match = src.match(/\/api\/assets\/([^/?#]+)/);
+  return match ? (match[1] ?? '') : '';
+};
+
+/**
+ * The distinct asset IDs the document references — from `image` node `src`
+ * URLs and `pdfChip` node `assetId` attributes. Used by the editor to report
+ * referenced assets on save (sub-project D's cleanup reconcile).
+ */
+export const referencedAssetIds = (doc: PMNode): string[] => {
+  const ids = new Set<string>();
+  doc.descendants((node) => {
+    if (node.type.name === 'image') {
+      const id = assetIdFromSrc(String(node.attrs['src'] ?? ''));
+      if (id !== '') ids.add(id);
+    } else if (node.type.name === 'pdfChip') {
+      const id = String(node.attrs['assetId'] ?? '');
+      if (id !== '') ids.add(id);
+    }
+    return true;
+  });
+  return [...ids];
+};
