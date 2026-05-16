@@ -73,4 +73,9 @@ describe('htmlToMarkdown', () => {
     expect(md).toContain('> [!NOTE] A Note');
     expect(md).toContain('> With some content');
   });
+
+  it('converts a PDF chip anchor to a Markdown link', () => {
+    const md = htmlToMarkdown('<a data-pdf-chip href="/api/assets/a1">report.pdf</a>');
+    expect(md).toBe('[report.pdf](/api/assets/a1)');
+  });
 });

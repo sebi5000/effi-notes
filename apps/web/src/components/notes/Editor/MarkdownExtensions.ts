@@ -11,6 +11,7 @@ import type * as Y from 'yjs';
 import { assetsApi } from '@/lib/notes/api-client.ts';
 import { Callout } from './CalloutExtension.ts';
 import { NoteImage } from './ImageExtension.ts';
+import { PdfChipNode } from './PdfChipExtension.ts';
 
 type AwarenessLike = {
   setLocalStateField: (field: string, value: unknown) => void;
@@ -23,8 +24,8 @@ type AwarenessLike = {
  * StarterKit covers headings, lists, code, blockquote, etc. Collaboration
  * wires the Y.Doc; CollaborationCaret renders remote cursors via the
  * y-protocols awareness instance. FileHandler intercepts drag-drop and paste
- * events for image files and uploads them via assetsApi before inserting an
- * image node.
+ * events for image and PDF files and uploads them via assetsApi before
+ * inserting an image or pdfChip node.
  */
 export const buildExtensions = (input: {
   doc: Y.Doc;
@@ -36,15 +37,19 @@ export const buildExtensions = (input: {
   // Each dropped/pasted file uploads independently and inserts at its
   // originally-captured position once it resolves. When several files are
   // dropped or pasted at once, slower uploads land after faster ones, so the
-  // inserted images may not preserve drop order — an accepted v1 limitation.
+  // inserted nodes may not preserve drop order — an accepted v1 limitation.
   const uploadAndInsert = (editor: Editor, file: File, pos: number): void => {
     void assetsApi
       .upload(input.noteId, file)
-      .then(({ url }) => {
-        editor
-          .chain()
-          .insertContentAt(pos, { type: 'image', attrs: { src: url } })
-          .run();
+      .then(({ id, url }) => {
+        const content =
+          file.type === 'application/pdf'
+            ? {
+                type: 'pdfChip',
+                attrs: { assetId: id, src: url, filename: file.name, byteSize: file.size },
+              }
+            : { type: 'image', attrs: { src: url } };
+        editor.chain().insertContentAt(pos, content).run();
       })
       .catch(() => {
         // upload failed — surface a non-blocking notice; the editor stays usable
@@ -66,8 +71,9 @@ export const buildExtensions = (input: {
     TaskItem.configure({ nested: true }),
     Callout,
     NoteImage,
+    PdfChipNode,
     FileHandler.configure({
-      allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp'],
+      allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'],
       onDrop: (currentEditor, files, pos) => {
         for (const file of files) {
           uploadAndInsert(currentEditor, file, pos);
