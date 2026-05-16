@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_ASSET_BYTES, sniffImageType } from './asset-mime.ts';
+import { MAX_ASSET_BYTES, maxBytesForKind, sniffAssetType, sniffImageType } from './asset-mime.ts';
 
 const bytes = (...b: number[]) => new Uint8Array(b);
 
@@ -26,5 +26,36 @@ describe('sniffImageType', () => {
   });
   it('exposes a 10 MB cap', () => {
     expect(MAX_ASSET_BYTES).toBe(10 * 1024 * 1024);
+  });
+});
+
+describe('sniffAssetType', () => {
+  it('detects a PDF from the %PDF- magic bytes', () => {
+    expect(sniffAssetType(bytes(0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34))).toEqual({
+      contentType: 'application/pdf',
+      kind: 'PDF',
+    });
+  });
+
+  it('detects a PNG image and reports the IMAGE kind', () => {
+    expect(sniffAssetType(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a))).toEqual({
+      contentType: 'image/png',
+      kind: 'IMAGE',
+    });
+  });
+
+  it('returns null for an unrecognised body', () => {
+    expect(sniffAssetType(bytes(0x00, 0x01, 0x02, 0x03))).toBeNull();
+  });
+
+  it('returns null for a long-enough body that is neither image nor PDF', () => {
+    expect(sniffAssetType(bytes(0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06))).toBeNull();
+  });
+});
+
+describe('maxBytesForKind', () => {
+  it('caps images at 10 MB and PDFs at 25 MB', () => {
+    expect(maxBytesForKind('IMAGE')).toBe(10 * 1024 * 1024);
+    expect(maxBytesForKind('PDF')).toBe(25 * 1024 * 1024);
   });
 });
