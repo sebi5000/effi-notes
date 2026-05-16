@@ -109,9 +109,14 @@ The `☰` button is replaced by a guillemet pair driven by the existing
   in-sidebar collapse button (`h-6 w-6`, `text-muted-foreground/60`,
   `hover:text-foreground`, `rounded text-sm leading-none`). It calls
   `togglePanel`.
-- **Panel closed:** an expand button **`«`** is rendered in the editor area,
-  `absolute right-3 top-3 z-10`, styled like the left sidebar's expand button
-  (`h-7 w-7`, same colour classes). It calls `togglePanel`.
+- **Panel closed:** an expand button **`«`** is rendered as a flex sibling in
+  the slot the `DocumentPanel` occupies when open (top-right of the editor
+  area), styled like the left sidebar's expand button (`h-7 w-7`, same colour
+  classes). It calls `togglePanel`. (A flex sibling rather than an absolutely
+  positioned button — unlike the left sidebar's `absolute` expand button —
+  because the editor column is width-capped and centered, so a flex sibling
+  lays out cleanly and cannot overlap the toolbar cluster at any viewport
+  width.)
 - The guillemet directions mirror the left sidebar: the left sidebar uses `«`
   to collapse (toward the left edge) and `»` to expand; the right panel uses
   `»` to collapse (toward the right edge) and `«` to expand.
