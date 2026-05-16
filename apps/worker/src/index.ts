@@ -8,6 +8,7 @@ import { Worker } from 'bullmq';
 import { buildBullBoardRoutes } from './bull-board.ts';
 import { processDemoJob } from './processors/demo.ts';
 import { processNotesSnapshot } from './processors/notes-snapshot.ts';
+import { processPdfExtract } from './processors/pdf-extract.ts';
 import { authenticateUpgrade, handleMessage, onSocketOpen } from './yjs/server.ts';
 
 const log = createLogger({ component: 'worker' });
@@ -46,6 +47,23 @@ snapshotWorker.on('failed', (job, err) => {
 
 snapshotWorker.on('error', (err) => {
   log.error({ err: err.message, queue: QUEUES.notesSnapshot }, 'snapshot worker error');
+});
+
+const pdfExtractWorker = new Worker(QUEUES.pdfExtract, processPdfExtract, {
+  connection: getRedis(),
+  // PDF parsing + rasterising is CPU-heavy; keep concurrency modest.
+  concurrency: 2,
+});
+
+pdfExtractWorker.on('failed', (job, err) => {
+  log.error(
+    { jobId: job?.id, err: err.message, queue: QUEUES.pdfExtract },
+    'pdf extraction job failed',
+  );
+});
+
+pdfExtractWorker.on('error', (err) => {
+  log.error({ err: err.message, queue: QUEUES.pdfExtract }, 'pdf extraction worker error');
 });
 
 // ── Internal HTTP server ──────────────────────────────────────────────────
@@ -151,6 +169,7 @@ const shutdown = async (signal: string): Promise<void> => {
   try {
     await demoWorker.close();
     await snapshotWorker.close();
+    await pdfExtractWorker.close();
     server.stop();
     yServer.stop();
     await closeRedis();
