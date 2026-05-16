@@ -80,13 +80,18 @@
       "caution": "Caution"
     },
     "editorImage": {
-      "captionPlaceholder": "Add a caption…",
-      "uploadFailed": "Image upload failed",
-      "dismiss": "Dismiss"
+      "captionPlaceholder": "Add a caption…"
     },
     "editorPdf": {
       "open": "Open",
       "iconLabel": "PDF document"
+    },
+    "editorUpload": {
+      "imageFailed": "Image upload failed",
+      "pdfFailed": "PDF upload failed",
+      "tooLarge": "The file is too large.",
+      "unsupported": "Unsupported or invalid file.",
+      "dismiss": "Dismiss"
     },
     "editorActions": {
       "copyMarkdown": "Copy as Markdown",

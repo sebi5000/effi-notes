@@ -8,7 +8,7 @@ import TaskList from '@tiptap/extension-task-list';
 import Typography from '@tiptap/extension-typography';
 import StarterKit from '@tiptap/starter-kit';
 import type * as Y from 'yjs';
-import { assetsApi } from '@/lib/notes/api-client.ts';
+import { ApiError, assetsApi } from '@/lib/notes/api-client.ts';
 import { Callout } from './CalloutExtension.ts';
 import { NoteImage } from './ImageExtension.ts';
 import { PdfChipNode } from './PdfChipExtension.ts';
@@ -16,6 +16,17 @@ import { PdfChipNode } from './PdfChipExtension.ts';
 type AwarenessLike = {
   setLocalStateField: (field: string, value: unknown) => void;
   getStates: () => Map<number, unknown>;
+};
+
+/**
+ * Describes a failed asset upload so the editor can surface a precise,
+ * file-type-aware message instead of a generic one.
+ */
+export type UploadErrorDetail = {
+  /** Which kind of asset the user tried to upload. */
+  kind: 'image' | 'pdf';
+  /** HTTP status from the upload API, or `null` if the request never completed. */
+  status: number | null;
 };
 
 /**
@@ -32,7 +43,7 @@ export const buildExtensions = (input: {
   awareness: AwarenessLike;
   user: { name: string; color: string };
   noteId: string;
-  onUploadError: () => void;
+  onUploadError: (detail: UploadErrorDetail) => void;
 }) => {
   // Each dropped/pasted file uploads independently and inserts at its
   // originally-captured position once it resolves. When several files are
@@ -51,9 +62,13 @@ export const buildExtensions = (input: {
             : { type: 'image', attrs: { src: url } };
         editor.chain().insertContentAt(pos, content).run();
       })
-      .catch(() => {
-        // upload failed — surface a non-blocking notice; the editor stays usable
-        input.onUploadError();
+      .catch((err: unknown) => {
+        // upload failed — surface a non-blocking, file-type-aware notice;
+        // the editor stays usable.
+        input.onUploadError({
+          kind: file.type === 'application/pdf' ? 'pdf' : 'image',
+          status: err instanceof ApiError ? err.status : null,
+        });
       });
   };
 

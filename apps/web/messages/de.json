@@ -80,13 +80,18 @@
       "caution": "Vorsicht"
     },
     "editorImage": {
-      "captionPlaceholder": "Bildunterschrift hinzufügen…",
-      "uploadFailed": "Bild-Upload fehlgeschlagen",
-      "dismiss": "Schließen"
+      "captionPlaceholder": "Bildunterschrift hinzufügen…"
     },
     "editorPdf": {
       "open": "Öffnen",
       "iconLabel": "PDF-Dokument"
+    },
+    "editorUpload": {
+      "imageFailed": "Bild-Upload fehlgeschlagen",
+      "pdfFailed": "PDF-Upload fehlgeschlagen",
+      "tooLarge": "Die Datei ist zu groß.",
+      "unsupported": "Nicht unterstützter oder ungültiger Dateityp.",
+      "dismiss": "Schließen"
     },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",

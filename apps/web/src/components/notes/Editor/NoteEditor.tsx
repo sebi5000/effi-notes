@@ -9,7 +9,7 @@ import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
 import { EditorToolbar } from './EditorToolbar.tsx';
-import { buildExtensions } from './MarkdownExtensions.ts';
+import { buildExtensions, type UploadErrorDetail } from './MarkdownExtensions.ts';
 import { initialsFromName, PresenceBar, type PresenceUser } from './PresenceBar.tsx';
 import { SaveIndicator } from './SaveIndicator.tsx';
 
@@ -25,6 +25,21 @@ const PRESENCE_COLORS = ['#C26A20', '#7C3F00', '#4B5066', '#1E2230', '#A03A2B', 
 
 const pickColor = (n: number): string =>
   PRESENCE_COLORS[Math.abs(n) % PRESENCE_COLORS.length] ?? '#C26A20';
+
+/** i18n keys under `notes.editorUpload` for a failed asset upload. */
+type UploadErrorKey = 'imageFailed' | 'pdfFailed' | 'tooLarge' | 'unsupported';
+
+/**
+ * Picks the message key for a failed upload — a reason-specific message when
+ * the server gave an actionable status (413 too large, 415 unsupported),
+ * otherwise a file-type-aware fallback so an image and a PDF never show the
+ * wrong message.
+ */
+const uploadErrorKey = (detail: UploadErrorDetail): UploadErrorKey => {
+  if (detail.status === 413) return 'tooLarge';
+  if (detail.status === 415) return 'unsupported';
+  return detail.kind === 'pdf' ? 'pdfFailed' : 'imageFailed';
+};
 
 /**
  * Outer component: owns the Y.Doc and the WebSocket lifecycle. Renders a
@@ -144,10 +159,10 @@ function CollaborativeEditor({
   initialUpdatedAt: string;
   currentUser: { id: string; name: string; color: string };
 }) {
-  const tImage = useTranslations('notes.editorImage');
+  const tUpload = useTranslations('notes.editorUpload');
   const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
-  const [uploadError, setUploadError] = useState(false);
+  const [uploadError, setUploadError] = useState<UploadErrorDetail | null>(null);
 
   const editor = useEditor(
     {
@@ -159,7 +174,7 @@ function CollaborativeEditor({
         },
         user: { name: currentUser.name, color: currentUser.color },
         noteId,
-        onUploadError: () => setUploadError(true),
+        onUploadError: (detail) => setUploadError(detail),
       }),
       content: initialBody,
       editorProps: {
@@ -200,7 +215,7 @@ function CollaborativeEditor({
   // non-blocking — the user can also close it early via the dismiss button.
   useEffect(() => {
     if (!uploadError) return;
-    const timer = window.setTimeout(() => setUploadError(false), 5000);
+    const timer = window.setTimeout(() => setUploadError(null), 5000);
     return () => window.clearTimeout(timer);
   }, [uploadError]);
 
@@ -218,9 +233,9 @@ function CollaborativeEditor({
           role="alert"
           className="text-danger mb-2 flex items-center justify-between gap-2 rounded bg-red-50 px-2 py-1 text-xs"
         >
-          <span>{tImage('uploadFailed')}</span>
-          <button type="button" onClick={() => setUploadError(false)} className="underline">
-            {tImage('dismiss')}
+          <span>{tUpload(uploadErrorKey(uploadError))}</span>
+          <button type="button" onClick={() => setUploadError(null)} className="underline">
+            {tUpload('dismiss')}
           </button>
         </div>
       ) : null}
