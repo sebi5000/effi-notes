@@ -100,7 +100,7 @@ describe('authenticateUpgrade', () => {
   });
 
   it('rejects a token where noteId mismatches the path', () => {
-    const token = issueToken({ secret: SECRET, noteId: 'other-note', userId: 'u' });
+    const token = issueToken({ secret: SECRET, noteId: 'other-note', userId: 'u', access: 'w' });
     const result = authenticateUpgrade({
       pathname: '/yjs/note-1',
       searchParams: new URLSearchParams({ token }),
@@ -110,7 +110,7 @@ describe('authenticateUpgrade', () => {
   });
 
   it('accepts a valid token', () => {
-    const token = issueToken({ secret: SECRET, noteId: 'note-1', userId: 'user-9' });
+    const token = issueToken({ secret: SECRET, noteId: 'note-1', userId: 'user-9', access: 'w' });
     const result = authenticateUpgrade({
       pathname: '/yjs/note-1',
       searchParams: new URLSearchParams({ token }),

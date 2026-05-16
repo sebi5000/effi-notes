@@ -7,10 +7,11 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
  * web app's /api/collab/[id] route after the auth.js session is verified.
  * The worker re-verifies the token before accepting the WebSocket upgrade.
  *
- * Token format (base64url): `${noteId}:${userId}:${exp}:${sig}`
+ * Token format (base64url): `${noteId}:${userId}:${access}:${exp}:${sig}`
  *   - `noteId` and `userId` are cuids (≤40 chars, no colons)
+ *   - `access` is `r` (view-only) or `w` (editor)
  *   - `exp` is an integer epoch-second
- *   - `sig` is `HMAC-SHA256(secret, "${noteId}:${userId}:${exp}")` as base64url
+ *   - `sig` is `HMAC-SHA256(secret, "${noteId}:${userId}:${access}:${exp}")` as base64url
  *
  * Lifetime defaults to 60 seconds — long enough to complete the WS upgrade,
  * short enough that a leaked URL can't be replayed.
@@ -19,6 +20,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 export type ParsedToken = {
   noteId: string;
   userId: string;
+  access: 'r' | 'w';
   exp: number;
 };
 
@@ -37,6 +39,7 @@ export const issueToken = (input: {
   secret: string;
   noteId: string;
   userId: string;
+  access: 'r' | 'w';
   ttlSeconds?: number;
   now?: () => number;
 }): string => {
@@ -46,7 +49,7 @@ export const issueToken = (input: {
   if (input.noteId.includes(':') || input.userId.includes(':')) {
     throw new Error('noteId and userId must not contain colons');
   }
-  const payload = `${input.noteId}:${input.userId}:${exp}`;
+  const payload = `${input.noteId}:${input.userId}:${input.access}:${exp}`;
   const sig = sign(input.secret, payload);
   return `${payload}:${sig}`;
 };
@@ -58,18 +61,19 @@ export const verifyToken = (input: {
 }): ParsedToken | null => {
   const now = input.now ?? Date.now;
   const parts = input.token.split(':');
-  if (parts.length !== 4) return null;
-  const [noteId, userId, expStr, sig] = parts as [string, string, string, string];
+  if (parts.length !== 5) return null;
+  const [noteId, userId, access, expStr, sig] = parts as [string, string, string, string, string];
+  if (access !== 'r' && access !== 'w') return null;
   const exp = Number.parseInt(expStr, 10);
   if (!Number.isFinite(exp)) return null;
   if (exp * 1000 < now()) return null;
 
-  const payload = `${noteId}:${userId}:${exp}`;
+  const payload = `${noteId}:${userId}:${access}:${exp}`;
   const expectedSig = sign(input.secret, payload);
   const a = fromB64u(sig);
   const b = fromB64u(expectedSig);
   if (a.length !== b.length) return null;
   if (!timingSafeEqual(a, b)) return null;
 
-  return { noteId, userId, exp };
+  return { noteId, userId, access, exp };
 };
