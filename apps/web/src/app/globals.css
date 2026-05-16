@@ -389,7 +389,11 @@ input[type="search"]::-webkit-search-decoration {
   flex-shrink: 0;
   height: 100%;
   overflow-y: auto;
-  padding: 1rem 0.85rem;
+  /* The panel is a flex sibling of the editor column, so it starts level with
+   * that column's header bar. Offset its content down by the header's height
+   * — the h-7 control row (1.75rem) + pb-2 (0.5rem) + mb-4 (1rem) — so the
+   * outline begins flush with the editor's writing surface below the header. */
+  padding: calc(1.75rem + 0.5rem + 1rem) 0.85rem 1rem;
   font-size: 0.85rem;
 }
 .doc-panel-section {
