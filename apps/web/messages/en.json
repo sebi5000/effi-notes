@@ -84,6 +84,10 @@
       "uploadFailed": "Image upload failed",
       "dismiss": "Dismiss"
     },
+    "editorPdf": {
+      "open": "Open",
+      "iconLabel": "PDF document"
+    },
     "editorActions": {
       "copyMarkdown": "Copy as Markdown",
       "copied": "Copied"

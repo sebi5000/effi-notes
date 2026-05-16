@@ -347,3 +347,36 @@ input[type="search"]::-webkit-search-decoration {
 .prose-paper .note-image-caption:focus {
   outline: none;
 }
+
+/* Editor PDF chip — a compact, non-editable file card. */
+.prose-paper .note-pdf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0.6em 0;
+  padding: 0.45em 0.7em;
+  border: 1px solid var(--color-paper-line);
+  border-radius: 6px;
+  background: var(--color-background);
+  font-size: 0.9em;
+}
+.prose-paper .note-pdf-chip-icon {
+  font-size: 0.7em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  color: #fff;
+  background: #b3261e;
+}
+.prose-paper .note-pdf-chip-name {
+  font-weight: 500;
+}
+.prose-paper .note-pdf-chip-size {
+  color: var(--color-muted-foreground);
+}
+.prose-paper .note-pdf-chip-open {
+  margin-left: 0.3em;
+  color: var(--color-accent);
+  text-decoration: underline;
+}

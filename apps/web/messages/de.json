@@ -84,6 +84,10 @@
       "uploadFailed": "Bild-Upload fehlgeschlagen",
       "dismiss": "Schließen"
     },
+    "editorPdf": {
+      "open": "Öffnen",
+      "iconLabel": "PDF-Dokument"
+    },
     "editorActions": {
       "copyMarkdown": "Als Markdown kopieren",
       "copied": "Kopiert"
