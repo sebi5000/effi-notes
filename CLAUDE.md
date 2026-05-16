@@ -68,6 +68,8 @@ Feature flags are env-based via `@app/config` (`flags.<name>`). If a customer pr
 
 > **For Claude in a customer project that forked this template:** the auth plumbing below is intentional and stable. Customer projects add features **on top** of it (new protected routes, new roles, new claim mappings) but should not rewrite the wiring without an ADR. If you find yourself wanting to change the JWT callback, the refresh logic, or the user-upsert semantics — stop and write an ADR first.
 
+Notes and folders are **private by default**. Access is governed by explicit `Share` grants — see ADR 0026 and `apps/web/src/lib/notes/access.ts`. That module is the single authorisation source for the notes domain; every guarded route handler calls into it and no handler duplicates access logic inline.
+
 ### Architecture (where things live)
 
 ```

@@ -38,3 +38,4 @@ Each non-trivial decision with tradeoffs is captured here. Format follows [MADR]
 | 0023 | Asset storage in PostgreSQL | Accepted |
 | 0024 | PDF processing library: pdfjs-dist + @napi-rs/canvas | Accepted |
 | 0025 | Asset cleanup via client-reported references + grace-period sweep | Accepted |
+| 0026 | Explicit per-resource sharing model (notes & folders) | Accepted |
