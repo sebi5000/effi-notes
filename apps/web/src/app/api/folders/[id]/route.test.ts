@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestFolder,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { DELETE, GET, PATCH } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -216,5 +222,49 @@ describe('DELETE /api/folders/[id]', () => {
       params: Promise.resolve({ id: 'missing' }),
     });
     expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /api/folders/[id] — access control', () => {
+  it("returns 403 when user B tries to GET user A's folder", async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: userA.id });
+    setAuthed(userB);
+    const res = await GET(new Request(`http://localhost/api/folders/${folder.id}`), {
+      params: Promise.resolve({ id: folder.id }),
+    });
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('PATCH /api/folders/[id] — access control', () => {
+  it("returns 403 when user B tries to rename user A's folder", async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: userA.id });
+    setAuthed(userB);
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${folder.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'api-test-hijacked-name' }),
+      }),
+      { params: Promise.resolve({ id: folder.id }) },
+    );
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('DELETE /api/folders/[id] — access control', () => {
+  it("returns 403 when user B tries to delete user A's folder", async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: userA.id });
+    setAuthed(userB);
+    const res = await DELETE(new Request(`http://localhost/api/folders/${folder.id}`), {
+      params: Promise.resolve({ id: folder.id }),
+    });
+    expect(res.status).toBe(403);
   });
 });

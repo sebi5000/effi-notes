@@ -55,6 +55,7 @@ export default async function NotesIndexPage() {
           ...f,
           createdAt: f.createdAt.toISOString(),
           updatedAt: f.updatedAt.toISOString(),
+          shareCount: 0,
         }))}
         tags={tags}
         initialNotes={notes.map((n) => ({

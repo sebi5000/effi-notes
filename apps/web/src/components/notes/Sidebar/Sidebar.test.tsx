@@ -48,6 +48,7 @@ const folders: FolderNode[] = [
     position: 0,
     createdAt: '2026-05-14T00:00:00.000Z',
     updatedAt: '2026-05-14T00:00:00.000Z',
+    shareCount: 0,
   },
 ];
 const tags: TagItem[] = [];

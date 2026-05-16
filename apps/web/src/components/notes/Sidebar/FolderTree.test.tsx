@@ -59,6 +59,7 @@ const f = (id: string, name: string, parentId: string | null = null, position = 
   position,
   createdAt: '2026-05-14T00:00:00.000Z',
   updatedAt: '2026-05-14T00:00:00.000Z',
+  shareCount: 0,
 });
 
 const fixture: FolderNode[] = [

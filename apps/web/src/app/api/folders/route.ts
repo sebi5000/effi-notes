@@ -3,8 +3,13 @@ import { recordAudit } from '@app/db/audit';
 import { createLogger } from '@app/observability/logger';
 import { jsonCreated, jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { createFolderSchema, type FolderNode } from '@/lib/api/schemas.ts';
+import { canEdit, listAccessibleScope, resolveFolderAccess } from '@/lib/notes/access.ts';
 
 const log = createLogger({ component: 'api.folders' });
+
+const activeShareWhere = {
+  OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+};
 
 const toNode = (f: {
   id: string;
@@ -13,6 +18,7 @@ const toNode = (f: {
   position: number;
   createdAt: Date;
   updatedAt: Date;
+  _count: { shares: number };
 }): FolderNode => ({
   id: f.id,
   name: f.name,
@@ -20,13 +26,17 @@ const toNode = (f: {
   position: f.position,
   createdAt: f.createdAt.toISOString(),
   updatedAt: f.updatedAt.toISOString(),
+  shareCount: f._count.shares,
 });
 
 export const GET = async (): Promise<Response> => {
   const user = await requireSession();
   if (!user) return jsonError(401, 'unauthorised');
 
+  const scope = await listAccessibleScope(user.id);
+
   const folders = await prisma.folder.findMany({
+    where: { id: { in: scope.accessibleFolderIds } },
     select: {
       id: true,
       name: true,
@@ -34,6 +44,7 @@ export const GET = async (): Promise<Response> => {
       position: true,
       createdAt: true,
       updatedAt: true,
+      _count: { select: { shares: { where: activeShareWhere } } },
     },
     orderBy: [{ parentId: 'asc' }, { position: 'asc' }, { name: 'asc' }],
   });
@@ -56,11 +67,8 @@ export const POST = async (req: Request): Promise<Response> => {
   const { name, parentId, position } = parsed.data;
 
   if (parentId) {
-    const parentExists = await prisma.folder.findUnique({
-      where: { id: parentId },
-      select: { id: true },
-    });
-    if (!parentExists) return jsonError(400, 'parent folder not found');
+    const parentAccess = await resolveFolderAccess(user.id, parentId);
+    if (!canEdit(parentAccess)) return jsonError(403, 'forbidden: parent folder');
   }
 
   const created = await prisma.folder.create({
@@ -77,6 +85,7 @@ export const POST = async (req: Request): Promise<Response> => {
       position: true,
       createdAt: true,
       updatedAt: true,
+      _count: { select: { shares: { where: activeShareWhere } } },
     },
   });
   await recordAudit({

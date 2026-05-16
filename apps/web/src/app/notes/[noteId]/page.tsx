@@ -73,6 +73,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
           ...f,
           createdAt: f.createdAt.toISOString(),
           updatedAt: f.updatedAt.toISOString(),
+          shareCount: 0,
         }))}
         tags={tags}
         initialNotes={notes.map((n) => ({

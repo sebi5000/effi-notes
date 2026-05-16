@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestFolder,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { PATCH } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -129,5 +135,18 @@ describe('PATCH /api/folders/reorder', () => {
     const a = await mkFolder('selfparent', null, 0, user.id);
     const res = await call({ parentId: a.id, orderedIds: [a.id] });
     expect(res.status).toBe(409);
+  });
+});
+
+describe('PATCH /api/folders/reorder — access control', () => {
+  it('returns 403 when the reorder list includes a folder owned by another user', async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    const folderA = await makeTestFolder({ ownerId: userA.id });
+    const folderB = await makeTestFolder({ ownerId: userB.id });
+    setAuthed(userB);
+    // userB is trying to reorder folderA (owned by userA) along with their own folder
+    const res = await call({ parentId: null, orderedIds: [folderA.id, folderB.id] });
+    expect(res.status).toBe(403);
   });
 });

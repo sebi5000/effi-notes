@@ -55,6 +55,7 @@ export const flatten = (
       position: node.position,
       createdAt: node.createdAt,
       updatedAt: node.updatedAt,
+      shareCount: node.shareCount,
       depth,
       hasChildren: node.children.length > 0,
     });

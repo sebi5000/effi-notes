@@ -132,6 +132,7 @@ export type FolderNode = {
   position: number;
   createdAt: string;
   updatedAt: string;
+  shareCount: number;
 };
 
 export type TagItem = {

@@ -3,6 +3,7 @@ import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { reorderFoldersSchema } from '@/lib/api/schemas.ts';
+import { canEdit, resolveFolderAccess } from '@/lib/notes/access.ts';
 import { isDescendant } from '@/lib/notes/folder-tree.ts';
 
 const log = createLogger({ component: 'api.folders.reorder' });
@@ -56,6 +57,16 @@ export const PATCH = async (req: Request): Promise<Response> => {
         return jsonError(400, 'unknown parent folder', { parentId });
       }
 
+      // Access guard: every id in orderedIds must be editable by the caller.
+      for (const id of orderedIds) {
+        const access = await resolveFolderAccess(user.id, id);
+        if (!canEdit(access)) return jsonError(403, 'forbidden', { id });
+      }
+      if (parentId !== null) {
+        const parentAccess = await resolveFolderAccess(user.id, parentId);
+        if (!canEdit(parentAccess)) return jsonError(403, 'forbidden: parent', { parentId });
+      }
+
       // Cycle guard: the new parent must not be the moved folder itself nor
       // any of its descendants. `folder-tree` rows expose `parentId` only —
       // pad them to FolderNode-ish for isDescendant (it reads `parentId`).
@@ -67,6 +78,7 @@ export const PATCH = async (req: Request): Promise<Response> => {
           position: 0,
           createdAt: '',
           updatedAt: '',
+          shareCount: 0,
         }));
         for (const id of orderedIds) {
           if (id === parentId || isDescendant(treeish, id, parentId)) {

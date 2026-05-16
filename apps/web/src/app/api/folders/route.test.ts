@@ -10,7 +10,13 @@ vi.mock('@/auth', () => ({
 import { prisma } from '@app/db';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { auth } from '@/auth';
-import { authedAs, cleanupNotesDomain, makeTestUser, unauthed } from '@/lib/api/test-session.ts';
+import {
+  authedAs,
+  cleanupNotesDomain,
+  makeTestFolder,
+  makeTestUser,
+  unauthed,
+} from '@/lib/api/test-session.ts';
 import { GET, POST } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
@@ -124,7 +130,7 @@ describe('POST /api/folders', () => {
     expect(body.parentId).toBe(parent.id);
   });
 
-  it('returns 400 when parentId does not exist', async () => {
+  it('returns 403 when parentId does not exist (missing parent = no access)', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
     const res = await POST(
@@ -134,6 +140,41 @@ describe('POST /api/folders', () => {
         body: JSON.stringify({ name: 'api-test-orphan', parentId: 'does-not-exist' }),
       }),
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe('GET /api/folders — access control', () => {
+  it('excludes folders owned by another user from the list', async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    await makeTestFolder({ ownerId: userA.id });
+    setAuthed(userB);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { folders: Array<{ name: string }> };
+    // userB has no folders — the list should be empty (or at least not contain A's folder)
+    const names = body.folders.map((f) => f.name);
+    const aFolders = await prisma.folder.findMany({ where: { ownerId: userA.id } });
+    for (const af of aFolders) {
+      expect(names).not.toContain(af.name);
+    }
+  });
+});
+
+describe('POST /api/folders — access control', () => {
+  it("returns 403 when creating a subfolder under another user's folder", async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    const parentFolder = await makeTestFolder({ ownerId: userA.id });
+    setAuthed(userB);
+    const res = await POST(
+      new Request('http://localhost/api/folders', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'api-test-denied-child', parentId: parentFolder.id }),
+      }),
+    );
+    expect(res.status).toBe(403);
   });
 });
