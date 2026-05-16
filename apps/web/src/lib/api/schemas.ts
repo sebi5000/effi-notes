@@ -144,7 +144,7 @@ export type SearchHit = {
 
 export type ApiError = { error: string; details?: unknown };
 
-/** Query params for `POST /api/notes/[noteId]/assets` — the raw file is the body. */
+/** Query params for `POST /api/notes/[id]/assets` — the raw file is the body. */
 export const assetUploadQuerySchema = z.object({
   filename: z.string().min(1).max(FILENAME_MAX),
 });

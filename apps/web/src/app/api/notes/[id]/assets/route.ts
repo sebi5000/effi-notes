@@ -10,19 +10,21 @@ import { maxBytesForKind, sniffAssetType } from '@/lib/notes/asset-mime.ts';
 const log = createLogger({ component: 'api.assets.upload' });
 
 /**
- * POST /api/notes/[noteId]/assets — upload an image or PDF into a note.
+ * POST /api/notes/[id]/assets — upload an image or PDF into a note.
  * The raw file bytes are the request body; the filename is `?filename=`.
  * The stored MIME type comes from the file's magic bytes, never the
  * client-supplied Content-Type.
  */
 export const POST = async (
   req: Request,
-  ctx: { params: Promise<{ noteId: string }> },
+  ctx: { params: Promise<{ id: string }> },
 ): Promise<Response> => {
   const user = await requireSession();
   if (!user) return jsonError(401, 'unauthorised');
 
-  const { noteId } = await ctx.params;
+  // The route segment is `[id]` (consistent with the sibling /api/notes
+  // routes); it is the note's id.
+  const { id: noteId } = await ctx.params;
   const parsed = assetUploadQuerySchema.safeParse(
     Object.fromEntries(new URL(req.url).searchParams),
   );

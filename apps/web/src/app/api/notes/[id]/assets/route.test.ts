@@ -28,7 +28,7 @@ const post = (noteId: string, body: BodyInit, filename = 'pic.png') =>
       method: 'POST',
       body,
     }),
-    { params: Promise.resolve({ noteId }) },
+    { params: Promise.resolve({ id: noteId }) },
   );
 
 beforeEach(async () => {
@@ -41,7 +41,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-describe('POST /api/notes/[noteId]/assets', () => {
+describe('POST /api/notes/[id]/assets', () => {
   it('401 when unauthenticated', async () => {
     unauthed(mockedAuth);
     expect((await post('whatever', PNG)).status).toBe(401);
@@ -95,7 +95,7 @@ describe('POST /api/notes/[noteId]/assets', () => {
     const note = await prisma.note.create({ data: { title: 'api-test-n4', authorId: user.id } });
     const res = await POST(
       new Request(`http://localhost/api/notes/${note.id}/assets`, { method: 'POST', body: PNG }),
-      { params: Promise.resolve({ noteId: note.id }) },
+      { params: Promise.resolve({ id: note.id }) },
     );
     expect(res.status).toBe(400);
   });
@@ -110,7 +110,7 @@ describe('POST /api/notes/[noteId]/assets', () => {
         method: 'POST',
         body: pdf,
       }),
-      { params: Promise.resolve({ noteId: note.id }) },
+      { params: Promise.resolve({ id: note.id }) },
     );
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
@@ -130,7 +130,7 @@ describe('POST /api/notes/[noteId]/assets', () => {
         method: 'POST',
         body: big,
       }),
-      { params: Promise.resolve({ noteId: note.id }) },
+      { params: Promise.resolve({ id: note.id }) },
     );
     expect(res.status).toBe(413);
   });
