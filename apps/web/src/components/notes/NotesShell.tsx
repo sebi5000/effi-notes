@@ -50,13 +50,32 @@ export function NotesShell({
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
   const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
   const [dragWidth, setDragWidth] = useState<number | null>(null);
+
+  // When the sidebar collapses mid-drag the handle unmounts without committing.
+  // Drop the stale transient width during render so a later expand restores the
+  // persisted width, not the interrupted drag value. This is React's documented
+  // "adjusting state when a prop changes" pattern — guarded so it converges.
+  const [wasCollapsed, setWasCollapsed] = useState(sidebarCollapsed);
+  if (sidebarCollapsed !== wasCollapsed) {
+    setWasCollapsed(sidebarCollapsed);
+    if (sidebarCollapsed && dragWidth !== null) {
+      setDragWidth(null);
+    }
+  }
+
   const effectiveWidth = dragWidth ?? sidebarWidth;
 
+  // Suppress page-wide text selection while a drag is in progress. The cleanup
+  // re-enables it — it runs when the drag commits (dragWidth → null), when the
+  // sidebar collapses (the handle unmounts mid-drag with no pointerup), and on
+  // unmount — so userSelect can never get stuck as 'none'.
   useEffect(() => {
+    if (dragWidth === null || sidebarCollapsed) return;
+    document.body.style.userSelect = 'none';
     return () => {
       document.body.style.userSelect = '';
     };
-  }, []);
+  }, [dragWidth, sidebarCollapsed]);
 
   const query = searchParams.get('q') ?? '';
   const [folders, setFolders] = useState<ReadonlyArray<FolderNode>>(initialFolders);
@@ -236,6 +255,7 @@ export function NotesShell({
 
   return (
     <div
+      data-testid="notes-shell-grid"
       className={`relative grid h-screen ${
         dragWidth === null ? 'transition-[grid-template-columns] duration-200' : ''
       }`}
@@ -252,11 +272,9 @@ export function NotesShell({
           label={t('resizeHandle')}
           onResize={(w, committed) => {
             if (committed) {
-              document.body.style.userSelect = '';
               setDragWidth(null);
               setSidebarWidth(w);
             } else {
-              document.body.style.userSelect = 'none';
               setDragWidth(w);
             }
           }}
