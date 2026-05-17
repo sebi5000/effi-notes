@@ -590,6 +590,47 @@ describe('Sidebar — note mutations', () => {
   });
 });
 
+describe('Sidebar — note row card layout', () => {
+  const cardNote: NoteListItem = {
+    id: 'card-note',
+    title: 'My Card Note',
+    snippet: 'a preview of the body text',
+    folderId: null,
+    authorId: 'u1',
+    archivedAt: null,
+    updatedAt: '2026-05-14T10:00:00.000Z',
+    tags: [{ id: 'tag-1', name: 'visible-tag', color: null }],
+    shareCount: 0,
+  };
+
+  it('renders the note title and snippet, but not tag chips', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[cardNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+
+    // Title must appear
+    expect(within(container).getByText('My Card Note')).toBeTruthy();
+
+    // Snippet must appear
+    expect(within(container).getByText('a preview of the body text')).toBeTruthy();
+
+    // Tag chip must NOT appear (chips render as #<name>)
+    expect(within(container).queryByText('#visible-tag')).toBeNull();
+  });
+});
+
 describe('Sidebar — two-pane layout', () => {
   it('renders a separate folder section and notes section as siblings', () => {
     const { container } = render(

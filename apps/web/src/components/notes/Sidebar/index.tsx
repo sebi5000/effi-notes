@@ -1,6 +1,6 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useFormatter, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
@@ -52,6 +52,7 @@ export function Sidebar({
   onCollapse,
 }: Props) {
   const t = useTranslations('notes.sidebar');
+  const format = useFormatter();
   const tA = useTranslations('notes.folderActions');
   const tNA = useTranslations('notes.noteActions');
   const tShare = useTranslations('notes.share');
@@ -266,14 +267,22 @@ export function Sidebar({
                               isSel ? 'bg-muted text-foreground' : 'text-muted-foreground'
                             }`}
                           >
-                            <div className="font-display truncate">{n.title}</div>
-                            {n.tags.length > 0 ? (
-                              <div className="text-muted-foreground/70 mt-0.5 flex gap-1 text-[10px]">
-                                {n.tags.slice(0, 3).map((tag) => (
-                                  <span key={tag.id}>#{tag.name}</span>
-                                ))}
+                            <div className="flex items-start gap-1.5">
+                              <span aria-hidden="true" className="mt-0.5 text-xs leading-none">
+                                📄
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-display line-clamp-2 text-sm">{n.title}</div>
+                                {n.snippet ? (
+                                  <div className="text-muted-foreground/70 line-clamp-2 mt-0.5 text-xs">
+                                    {n.snippet}
+                                  </div>
+                                ) : null}
+                                <div className="text-muted-foreground/60 mt-1 text-[10px]">
+                                  {format.relativeTime(new Date(n.updatedAt))}
+                                </div>
                               </div>
-                            ) : null}
+                            </div>
                           </button>
                           <div className="absolute right-1 flex items-center gap-0.5">
                             {noteMutations ? (
