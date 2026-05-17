@@ -3,7 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { type DragEvent, type KeyboardEvent, useMemo, useState } from 'react';
 import type { FolderNode } from '@/lib/api/schemas.ts';
-import { FOLDER_DND_MIME } from '@/lib/notes/dnd.ts';
+import { FOLDER_DND_MIME, NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
 import {
   buildFolderTree,
   computeReorder,
@@ -39,6 +39,8 @@ type Props = {
   mutations?: FolderMutationHandlers;
   /** When provided, an eye icon button is shown on rows with shareCount > 0. */
   onOpenShare?: (scope: ShareScope) => void;
+  /** When set, folder rows + the tree root accept a dropped note; arg is the new folderId (null = un-file). */
+  onNoteDrop?: (noteId: string, folderId: string | null) => Promise<void>;
 };
 
 /** Active drop target while dragging — a row + which zone, or the root zone. */
@@ -66,7 +68,14 @@ type DropTarget = { id: string; mode: DropMode } | { id: '__root__'; mode: 'insi
  * A folder dropped *inside* a target auto-expands that target so it doesn't
  * appear to vanish. Cycle drops (into your own subtree) are rejected.
  */
-export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenShare }: Props) {
+export function FolderTree({
+  folders,
+  selectedId,
+  onSelect,
+  mutations,
+  onOpenShare,
+  onNoteDrop,
+}: Props) {
   const t = useTranslations('notes.folderActions');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
     const roots = new Set<string>();
@@ -79,6 +88,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
   const [actionError, setActionError] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
+  const [noteDropTargetId, setNoteDropTargetId] = useState<string | null>(null);
 
   const tree = useMemo(() => buildFolderTree(folders), [folders]);
   const visible = useMemo(() => flatten(tree, expanded), [tree, expanded]);
@@ -144,6 +154,16 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
     }
     try {
       await mutations.onReorder(plan.parentId, plan.orderedIds);
+      setActionError(null);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'move failed');
+    }
+  };
+
+  const applyNoteDrop = async (noteId: string, folderId: string | null): Promise<void> => {
+    if (!onNoteDrop) return;
+    try {
+      await onNoteDrop(noteId, folderId);
       setActionError(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'move failed');
@@ -224,6 +244,22 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
     setDropTarget(null);
   };
 
+  const onRowNoteDragOver = (folderId: string) => (e: DragEvent<HTMLDivElement>) => {
+    if (!onNoteDrop || !e.dataTransfer.types.includes(NOTE_DND_MIME)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setNoteDropTargetId((prev) => (prev === folderId ? prev : folderId));
+  };
+
+  const onRowNoteDrop = (folderId: string) => (e: DragEvent<HTMLDivElement>) => {
+    if (!onNoteDrop || !e.dataTransfer.types.includes(NOTE_DND_MIME)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const noteId = e.dataTransfer.getData(NOTE_DND_MIME);
+    setNoteDropTargetId(null);
+    if (noteId) void applyNoteDrop(noteId, folderId);
+  };
+
   /** A row's drop zone received dragover — highlight it. */
   const onZoneDragOver = (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled || draggingId === null) return;
@@ -248,6 +284,12 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
   };
 
   const onRootDragOver = (e: DragEvent<HTMLDivElement>) => {
+    if (onNoteDrop && e.dataTransfer.types.includes(NOTE_DND_MIME)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setNoteDropTargetId((prev) => (prev === '__root__' ? prev : '__root__'));
+      return;
+    }
     if (!dndEnabled || draggingId === null) return;
     const dragged = folders.find((f) => f.id === draggingId);
     if (!dragged || dragged.parentId === null) return; // already at root
@@ -259,10 +301,18 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
   };
 
   const onRootDragLeave = () => {
+    setNoteDropTargetId((prev) => (prev === '__root__' ? null : prev));
     setDropTarget((prev) => (prev !== null && prev.id === '__root__' ? null : prev));
   };
 
   const onRootDrop = (e: DragEvent<HTMLDivElement>) => {
+    if (onNoteDrop && e.dataTransfer.types.includes(NOTE_DND_MIME)) {
+      e.preventDefault();
+      const noteId = e.dataTransfer.getData(NOTE_DND_MIME);
+      setNoteDropTargetId(null);
+      if (noteId) void applyNoteDrop(noteId, null);
+      return;
+    }
     if (!dndEnabled) return;
     e.preventDefault();
     const draggedId = e.dataTransfer.getData(FOLDER_DND_MIME) || draggingId;
@@ -276,11 +326,11 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
     // biome-ignore lint/a11y/noStaticElementInteractions: HTML5 DnD root drop-zone, not a click/keyboard control; the accessible surface is the keyboard-navigable tree below
     <div
       data-testid="folder-tree-root"
-      onDragOver={dndEnabled ? onRootDragOver : undefined}
-      onDragLeave={dndEnabled ? onRootDragLeave : undefined}
-      onDrop={dndEnabled ? onRootDrop : undefined}
+      onDragOver={dndEnabled || onNoteDrop !== undefined ? onRootDragOver : undefined}
+      onDragLeave={dndEnabled || onNoteDrop !== undefined ? onRootDragLeave : undefined}
+      onDrop={dndEnabled || onNoteDrop !== undefined ? onRootDrop : undefined}
       className={
-        dropTarget?.id === '__root__'
+        dropTarget?.id === '__root__' || noteDropTargetId === '__root__'
           ? 'ring-accent rounded ring-2 ring-inset transition'
           : undefined
       }
@@ -318,6 +368,13 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
                 ? () => onOpenShare({ kind: 'folder', id: row.id })
                 : undefined
             }
+            isNoteDropTarget={noteDropTargetId === row.id}
+            {...(onNoteDrop
+              ? {
+                  onNoteDragOver: onRowNoteDragOver(row.id),
+                  onNoteDrop: onRowNoteDrop(row.id),
+                }
+              : {})}
             {...(mutations
               ? {
                   onRequestRename: () => setRenamingId(row.id),
@@ -344,14 +401,18 @@ type RowProps = {
   isSelected: boolean;
   isRenaming: boolean;
   isDragging: boolean;
-  /** Non-null while this row is the active drop target. */
+  /** Non-null while this row is the active folder drop target. */
   dropMode: DropMode | null;
   draggable: boolean;
   showDropZones: boolean;
+  /** True while this row is the active note drop target. */
+  isNoteDropTarget: boolean;
   onDragStart?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
   onDragEnd?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
   onZoneDragOver: (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => void;
   onZoneDrop: (id: string, mode: DropMode) => (e: DragEvent<HTMLDivElement>) => void;
+  onNoteDragOver?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
+  onNoteDrop?: ((e: DragEvent<HTMLDivElement>) => void) | undefined;
   onSelect: (id: string) => void;
   onToggle: (id: string) => void;
   onRequestRename?: (() => void) | undefined;
@@ -378,10 +439,13 @@ function FolderRow({
   dropMode,
   draggable,
   showDropZones,
+  isNoteDropTarget,
   onDragStart,
   onDragEnd,
   onZoneDragOver,
   onZoneDrop,
+  onNoteDragOver,
+  onNoteDrop,
   onSelect,
   onToggle,
   onRequestRename,
@@ -399,6 +463,8 @@ function FolderRow({
       draggable={draggable && !isRenaming}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      onDragOver={onNoteDragOver}
+      onDrop={onNoteDrop}
       aria-level={row.depth + 1}
       aria-selected={isSelected}
       aria-expanded={row.hasChildren ? isExpanded : undefined}
@@ -412,7 +478,7 @@ function FolderRow({
       className={`hover:bg-muted/60 group relative flex cursor-pointer items-center gap-1 rounded px-2 py-1.5 text-sm transition-colors ${
         isSelected ? 'bg-muted text-foreground' : 'text-muted-foreground'
       } ${isDragging ? 'opacity-50' : ''} ${
-        dropMode === 'inside' ? 'bg-accent-soft/40 ring-accent ring-1' : ''
+        dropMode === 'inside' || isNoteDropTarget ? 'bg-accent-soft/40 ring-accent ring-1' : ''
       }`}
       onClick={() => !isRenaming && onSelect(row.id)}
       onKeyDown={(e) => {

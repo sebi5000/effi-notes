@@ -1,8 +1,17 @@
 // @vitest-environment jsdom
-import { cleanup, createEvent, fireEvent, render, waitFor, within } from '@testing-library/react';
+import {
+  cleanup,
+  createEvent,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FolderNode } from '@/lib/api/schemas.ts';
+import { FOLDER_DND_MIME, NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
 
 afterEach(cleanup);
@@ -44,9 +53,26 @@ const makeDataTransfer = (): DataTransfer => {
   return {
     setData: (type: string, value: string) => store.set(type, value),
     getData: (type: string) => store.get(type) ?? '',
+    get types(): string[] {
+      return Array.from(store.keys());
+    },
     effectAllowed: 'all',
     dropEffect: 'none',
   } as unknown as DataTransfer;
+};
+
+/** Build a note dataTransfer carrying the given noteId. */
+const makeNoteDataTransfer = (noteId: string): DataTransfer => {
+  const dt = makeDataTransfer();
+  dt.setData(NOTE_DND_MIME, noteId);
+  return dt;
+};
+
+/** Build a folder dataTransfer carrying the given folderId. */
+const makeFolderDataTransfer = (folderId: string): DataTransfer => {
+  const dt = makeDataTransfer();
+  dt.setData(FOLDER_DND_MIME, folderId);
+  return dt;
 };
 
 const wrap = (ui: React.ReactNode) => (
@@ -563,6 +589,81 @@ describe('FolderTree (drag-and-drop)', () => {
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('move rejected by server'),
     );
+  });
+});
+
+describe('FolderTree (note drop)', () => {
+  const renderWithNoteDrop = (onNoteDrop = vi.fn().mockResolvedValue(undefined)) =>
+    render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          onNoteDrop={onNoteDrop}
+        />,
+      ),
+    );
+
+  it('calls onNoteDrop(noteId, folderId) when a note is dropped on a folder row', async () => {
+    const onNoteDrop = vi.fn().mockResolvedValue(undefined);
+    const { container } = renderWithNoteDrop(onNoteDrop);
+
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    const dt = makeNoteDataTransfer('note-abc');
+
+    fireDrag('dragOver', clientsRow, dt);
+    fireDrag('drop', clientsRow, dt);
+
+    await waitFor(() => expect(onNoteDrop).toHaveBeenCalledWith('note-abc', 'clients'));
+  });
+
+  it('calls onNoteDrop(noteId, null) when a note is dropped on the tree root', async () => {
+    const onNoteDrop = vi.fn().mockResolvedValue(undefined);
+    renderWithNoteDrop(onNoteDrop);
+
+    const root = screen.getByTestId('folder-tree-root');
+    const dt = makeNoteDataTransfer('note-xyz');
+
+    fireDrag('dragOver', root, dt);
+    fireDrag('drop', root, dt);
+
+    await waitFor(() => expect(onNoteDrop).toHaveBeenCalledWith('note-xyz', null));
+  });
+
+  it('does not call onNoteDrop when a folder (not a note) is dropped', async () => {
+    const onNoteDrop = vi.fn().mockResolvedValue(undefined);
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onReorder: vi.fn(async () => undefined),
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+          onNoteDrop={onNoteDrop}
+        />,
+      ),
+    );
+
+    // Start a folder drag
+    const internalRow = container.querySelector('[data-id="internal"]') as HTMLElement;
+    const dt = makeFolderDataTransfer('internal');
+    fireDrag('dragStart', internalRow, dt);
+
+    // Drop on a folder drop zone (folder-reorder path)
+    const inside = container.querySelector(
+      '[data-drop-zone="inside"][data-drop-zone-row="clients"]',
+    ) as HTMLElement;
+    fireDrag('dragOver', inside, dt);
+    fireDrag('drop', inside, dt);
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(onNoteDrop).not.toHaveBeenCalled();
   });
 });
 
