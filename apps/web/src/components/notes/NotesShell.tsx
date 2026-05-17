@@ -173,7 +173,9 @@ export function NotesShell({
   const handleRenameNote = useCallback(async (id: string, title: string) => {
     await notesApi.patch(id, { title, titleManuallySet: true });
     setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
-    setNoteDetail((prev) => (prev && prev.id === id ? { ...prev, title } : prev));
+    setNoteDetail((prev) =>
+      prev && prev.id === id ? { ...prev, title, titleManuallySet: true } : prev,
+    );
   }, []);
 
   const handleDuplicateNote = useCallback(
@@ -239,7 +241,7 @@ export function NotesShell({
               initialTitle={noteDetail.title}
               initialBody={noteDetail.body}
               initialUpdatedAt={noteDetail.updatedAt}
-              initialTitleManuallySet={noteDetail.titleManuallySet}
+              titleManuallySet={noteDetail.titleManuallySet}
               currentUser={currentUser}
               onTitleChange={(title) => {
                 setNoteDetail((prev) => (prev ? { ...prev, title } : prev));

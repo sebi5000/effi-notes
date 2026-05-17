@@ -23,7 +23,7 @@ type Props = {
   initialTitle: string;
   initialBody: string;
   initialUpdatedAt: string;
-  initialTitleManuallySet: boolean;
+  titleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
   onTitleChange: (title: string) => void;
 };
@@ -61,7 +61,7 @@ export function NoteEditor({
   initialTitle,
   initialBody,
   initialUpdatedAt,
-  initialTitleManuallySet,
+  titleManuallySet,
   currentUser,
   onTitleChange,
 }: Props) {
@@ -130,7 +130,7 @@ export function NoteEditor({
       initialTitle={initialTitle}
       initialBody={initialBody}
       initialUpdatedAt={initialUpdatedAt}
-      initialTitleManuallySet={initialTitleManuallySet}
+      titleManuallySet={titleManuallySet}
       currentUser={currentUser}
       onTitleChange={onTitleChange}
     />
@@ -162,7 +162,7 @@ function CollaborativeEditor({
   initialTitle,
   initialBody,
   initialUpdatedAt,
-  initialTitleManuallySet,
+  titleManuallySet,
   currentUser,
   onTitleChange,
 }: {
@@ -173,7 +173,7 @@ function CollaborativeEditor({
   initialTitle: string;
   initialBody: string;
   initialUpdatedAt: string;
-  initialTitleManuallySet: boolean;
+  titleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
   onTitleChange: (title: string) => void;
 }) {
@@ -238,10 +238,10 @@ function CollaborativeEditor({
   // Auto-title: every 2 s, derive the first heading from the doc and sync the
   // note title when it differs and the title is not manually pinned.
   useEffect(() => {
-    if (!editor || initialTitleManuallySet) return;
+    if (!editor || titleManuallySet) return;
     const interval = window.setInterval(async () => {
       const heading = deriveDocItems(editor.state.doc, window.location.origin).headings[0]?.text;
-      const next = nextAutoTitle(heading, currentTitle, initialTitleManuallySet);
+      const next = nextAutoTitle(heading, currentTitle, titleManuallySet);
       if (next === null) return;
       try {
         await notesApi.patch(noteId, { title: next });
@@ -252,7 +252,7 @@ function CollaborativeEditor({
       }
     }, 2000);
     return () => window.clearInterval(interval);
-  }, [editor, noteId, currentTitle, initialTitleManuallySet, onTitleChange]);
+  }, [editor, noteId, currentTitle, titleManuallySet, onTitleChange]);
 
   // Auto-dismiss the upload-failure notice so it stays transient and
   // non-blocking — the user can also close it early via the dismiss button.
