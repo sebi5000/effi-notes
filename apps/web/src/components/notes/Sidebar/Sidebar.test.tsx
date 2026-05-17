@@ -446,6 +446,7 @@ describe('Sidebar — note mutations', () => {
             onCreate,
             onRename: vi.fn(async () => undefined),
             onDuplicate: vi.fn(async () => undefined),
+            onMove: vi.fn(async () => undefined),
           }}
         />,
       ),
@@ -483,6 +484,7 @@ describe('Sidebar — note mutations', () => {
             onCreate: vi.fn(async () => undefined),
             onRename,
             onDuplicate: vi.fn(async () => undefined),
+            onMove: vi.fn(async () => undefined),
           }}
         />,
       ),
@@ -516,6 +518,7 @@ describe('Sidebar — note mutations', () => {
             onCreate: vi.fn(async () => undefined),
             onRename: vi.fn(async () => undefined),
             onDuplicate,
+            onMove: vi.fn(async () => undefined),
           }}
         />,
       ),
@@ -543,6 +546,7 @@ describe('Sidebar — note mutations', () => {
             onCreate: vi.fn(async () => undefined),
             onRename: vi.fn(async () => undefined),
             onDuplicate: vi.fn(async () => undefined),
+            onMove: vi.fn(async () => undefined),
           }}
         />,
       ),

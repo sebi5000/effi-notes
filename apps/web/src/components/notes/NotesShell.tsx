@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { foldersApi, notesApi } from '@/lib/notes/api-client.ts';
 import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
@@ -64,30 +64,34 @@ export function NotesShell({
   );
   const [pending, setPending] = useState(filterActive);
 
+  const notesReqRef = useRef(0);
+
+  // Cancel-safe list fetch — a stale request never overwrites a newer one.
+  const refreshNotes = useCallback(async () => {
+    const reqId = ++notesReqRef.current;
+    setPending(true);
+    try {
+      const list = await notesApi.list({
+        ...(folderId !== null ? { folderId } : {}),
+        ...(tagId !== null ? { tagId } : {}),
+      });
+      if (notesReqRef.current === reqId) setNotes(byUpdatedAtDesc(list.notes));
+    } catch {
+      // keep the previous list on error
+    } finally {
+      if (notesReqRef.current === reqId) setPending(false);
+    }
+  }, [folderId, tagId]);
+
   // Re-fetch whenever the resolved filter changes. Keyed on folderId/tagId —
   // not raw `query` — so typing free text never triggers a list fetch.
   useEffect(() => {
-    let cancelled = false;
+    // Inside the async IIFE — not the synchronous effect body — so the
+    // react-hooks/set-state-in-effect rule does not flag a cascading render.
     (async () => {
-      // Inside the async IIFE — not the synchronous effect body — so the
-      // react-hooks/set-state-in-effect rule does not flag a cascading render.
-      setPending(true);
-      try {
-        const list = await notesApi.list({
-          ...(folderId !== null ? { folderId } : {}),
-          ...(tagId !== null ? { tagId } : {}),
-        });
-        if (!cancelled) setNotes(byUpdatedAtDesc(list.notes));
-      } catch {
-        // keep the previous list on error
-      } finally {
-        if (!cancelled) setPending(false);
-      }
+      await refreshNotes();
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [folderId, tagId]);
+  }, [refreshNotes]);
 
   const setQuery = useCallback(
     (next: string) => {
@@ -186,6 +190,16 @@ export function NotesShell({
     [router, query],
   );
 
+  const handleMoveNote = useCallback(
+    async (noteId: string, targetFolderId: string | null) => {
+      const note = notes.find((n) => n.id === noteId);
+      if (note && note.folderId === targetFolderId) return; // no-op: already there
+      await notesApi.patch(noteId, { folderId: targetFolderId });
+      await refreshNotes();
+    },
+    [notes, refreshNotes],
+  );
+
   return (
     <div
       className={`grid h-screen transition-[grid-template-columns] duration-200 ${
@@ -215,6 +229,7 @@ export function NotesShell({
             onCreate: handleCreateNote,
             onRename: handleRenameNote,
             onDuplicate: handleDuplicateNote,
+            onMove: handleMoveNote,
           }}
         />
       </div>

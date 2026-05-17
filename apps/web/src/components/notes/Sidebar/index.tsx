@@ -30,6 +30,7 @@ type Props = {
     onCreate: () => Promise<void>;
     onRename: (id: string, title: string) => Promise<void>;
     onDuplicate: (id: string) => Promise<void>;
+    onMove: (noteId: string, folderId: string | null) => Promise<void>;
   };
   /** When provided, a collapse button is shown in the sidebar header. */
   onCollapse?: () => void;
@@ -158,6 +159,7 @@ export function Sidebar({
             selectedId={selectedFolderId}
             onSelect={onSelectFolder}
             onOpenShare={setShareTarget}
+            {...(noteMutations ? { onNoteDrop: noteMutations.onMove } : {})}
             {...(folderMutations
               ? {
                   mutations: {
