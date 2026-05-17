@@ -37,7 +37,8 @@
     "shell": {
       "welcome": "Pick a note from the sidebar",
       "emptyHint": "Or hit ⌘K to search across every note in the workspace.",
-      "expandSidebar": "Expand sidebar"
+      "expandSidebar": "Expand sidebar",
+      "resizeHandle": "Resize sidebar"
     },
     "sidebar": {
       "foldersHeading": "Folders",

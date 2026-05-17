@@ -9,8 +9,15 @@ import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
 import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
 import { tagColor } from '@/lib/notes/tag-color.ts';
 import { useSidebarCollapsed } from '@/lib/notes/use-sidebar-collapsed.ts';
+import {
+  DEFAULT_WIDTH,
+  MAX_WIDTH,
+  MIN_WIDTH,
+  useSidebarWidth,
+} from '@/lib/notes/use-sidebar-width.ts';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
+import { SidebarResizeHandle } from './SidebarResizeHandle.tsx';
 
 type Props = {
   folders: ReadonlyArray<FolderNode>;
@@ -41,6 +48,15 @@ export function NotesShell({
   const searchParams = useSearchParams();
   const t = useTranslations('notes.shell');
   const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
+  const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
+  const effectiveWidth = dragWidth ?? sidebarWidth;
+
+  useEffect(() => {
+    return () => {
+      document.body.style.userSelect = '';
+    };
+  }, []);
 
   const query = searchParams.get('q') ?? '';
   const [folders, setFolders] = useState<ReadonlyArray<FolderNode>>(initialFolders);
@@ -220,10 +236,32 @@ export function NotesShell({
 
   return (
     <div
-      className={`grid h-screen transition-[grid-template-columns] duration-200 ${
-        sidebarCollapsed ? 'grid-cols-[0px_1fr]' : 'grid-cols-[480px_1fr]'
+      className={`relative grid h-screen ${
+        dragWidth === null ? 'transition-[grid-template-columns] duration-200' : ''
       }`}
+      style={{
+        gridTemplateColumns: sidebarCollapsed ? '0px 1fr' : `${effectiveWidth}px 1fr`,
+      }}
     >
+      {sidebarCollapsed ? null : (
+        <SidebarResizeHandle
+          width={effectiveWidth}
+          min={MIN_WIDTH}
+          max={MAX_WIDTH}
+          defaultWidth={DEFAULT_WIDTH}
+          label={t('resizeHandle')}
+          onResize={(w, committed) => {
+            if (committed) {
+              document.body.style.userSelect = '';
+              setDragWidth(null);
+              setSidebarWidth(w);
+            } else {
+              document.body.style.userSelect = 'none';
+              setDragWidth(w);
+            }
+          }}
+        />
+      )}
       <div className="overflow-hidden">
         <Sidebar
           folders={folders}

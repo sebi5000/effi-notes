@@ -37,7 +37,8 @@
     "shell": {
       "welcome": "Wählen Sie eine Notiz in der Seitenleiste",
       "emptyHint": "Oder drücken Sie ⌘K, um alle Notizen im Workspace zu durchsuchen.",
-      "expandSidebar": "Seitenleiste ausklappen"
+      "expandSidebar": "Seitenleiste ausklappen",
+      "resizeHandle": "Seitenleiste anpassen"
     },
     "sidebar": {
       "foldersHeading": "Ordner",

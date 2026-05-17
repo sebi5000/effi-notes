@@ -85,7 +85,7 @@ export function Sidebar({
 
   return (
     <>
-      <aside className="border-paper-line/80 flex h-full min-w-[480px] flex-col gap-4 border-r p-4">
+      <aside className="border-paper-line/80 flex h-full flex-col gap-4 border-r p-4">
         <header className="flex items-center gap-2">
           <span className="font-display text-foreground text-lg font-semibold tracking-tight">
             effi · notes
