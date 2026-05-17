@@ -57,6 +57,8 @@ export function Sidebar({
   const [createName, setCreateName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
+  const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   const submitCreate = async () => {
     if (!folderMutations) return;
@@ -197,36 +199,93 @@ export function Sidebar({
             ) : (
               notes.map((n) => {
                 const isSel = n.id === selectedNoteId;
+                const isRenaming = renamingNoteId === n.id;
                 return (
                   <li key={n.id} className="group relative flex items-center">
-                    <button
-                      type="button"
-                      onClick={() => onSelectNote(n.id)}
-                      aria-current={isSel ? 'true' : undefined}
-                      className={`hover:bg-muted/60 flex-1 rounded px-2 py-1 text-left text-sm ${
-                        isSel ? 'bg-muted text-foreground' : 'text-muted-foreground'
-                      }`}
-                    >
-                      <div className="font-display truncate">{n.title}</div>
-                      {n.tags.length > 0 ? (
-                        <div className="text-muted-foreground/70 mt-0.5 flex gap-1 text-[10px]">
-                          {n.tags.slice(0, 3).map((tag) => (
-                            <span key={tag.id}>#{tag.name}</span>
-                          ))}
+                    {isRenaming ? (
+                      <input
+                        ref={(el) => {
+                          if (el) el.focus();
+                        }}
+                        aria-label={tNA('renameNote')}
+                        value={renameValue}
+                        placeholder={tNA('renameNotePlaceholder')}
+                        onChange={(e) => setRenameValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const trimmed = renameValue.trim();
+                            if (trimmed.length > 0 && noteMutations) {
+                              void noteMutations.onRename(n.id, trimmed);
+                            }
+                            setRenamingNoteId(null);
+                          } else if (e.key === 'Escape') {
+                            e.preventDefault();
+                            setRenamingNoteId(null);
+                          }
+                        }}
+                        onBlur={() => setRenamingNoteId(null)}
+                        className="border-border bg-background font-display flex-1 rounded border px-1 py-0.5 text-sm focus:outline-none"
+                      />
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onSelectNote(n.id)}
+                          aria-current={isSel ? 'true' : undefined}
+                          className={`hover:bg-muted/60 flex-1 rounded px-2 py-1 text-left text-sm ${
+                            isSel ? 'bg-muted text-foreground' : 'text-muted-foreground'
+                          }`}
+                        >
+                          <div className="font-display truncate">{n.title}</div>
+                          {n.tags.length > 0 ? (
+                            <div className="text-muted-foreground/70 mt-0.5 flex gap-1 text-[10px]">
+                              {n.tags.slice(0, 3).map((tag) => (
+                                <span key={tag.id}>#{tag.name}</span>
+                              ))}
+                            </div>
+                          ) : null}
+                        </button>
+                        <div className="absolute right-1 flex items-center gap-0.5">
+                          {noteMutations ? (
+                            <>
+                              <button
+                                type="button"
+                                aria-label={tNA('renameNote')}
+                                title={tNA('renameNote')}
+                                onClick={() => {
+                                  setRenameValue(n.title);
+                                  setRenamingNoteId(n.id);
+                                }}
+                                className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
+                              >
+                                <span aria-hidden="true">✎</span>
+                              </button>
+                              <button
+                                type="button"
+                                aria-label={tNA('duplicateNote')}
+                                title={tNA('duplicateNote')}
+                                onClick={() => void noteMutations.onDuplicate(n.id)}
+                                className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
+                              >
+                                <span aria-hidden="true">⎘</span>
+                              </button>
+                            </>
+                          ) : null}
+                          {n.shareCount > 0 ? (
+                            <button
+                              type="button"
+                              aria-label={tShare('sharedIndicatorLabel')}
+                              title={tShare('sharedIndicatorLabel')}
+                              onClick={() => setShareTarget({ kind: 'note', id: n.id })}
+                              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
+                            >
+                              <span aria-hidden="true">👁</span>
+                            </button>
+                          ) : null}
                         </div>
-                      ) : null}
-                    </button>
-                    {n.shareCount > 0 ? (
-                      <button
-                        type="button"
-                        aria-label={tShare('sharedIndicatorLabel')}
-                        title={tShare('sharedIndicatorLabel')}
-                        onClick={() => setShareTarget({ kind: 'note', id: n.id })}
-                        className="text-muted-foreground/50 hover:text-foreground absolute right-1 inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
-                      >
-                        <span aria-hidden="true">👁</span>
-                      </button>
-                    ) : null}
+                      </>
+                    )}
                   </li>
                 );
               })

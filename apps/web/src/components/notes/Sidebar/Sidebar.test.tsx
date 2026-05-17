@@ -427,4 +427,76 @@ describe('Sidebar — note mutations', () => {
     fireEvent.click(within(container).getByLabelText('New note'));
     await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
   });
+
+  const noteWithMutations: NoteListItem = {
+    id: 'note-mutations-target',
+    title: 'Target note',
+    folderId: null,
+    authorId: 'u1',
+    archivedAt: null,
+    updatedAt: '2026-05-14T00:00:00.000Z',
+    tags: [],
+    shareCount: 0,
+  };
+
+  it('activating the rename control shows an input and Enter commits the new title', async () => {
+    const onRename = vi.fn(async () => undefined);
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate: vi.fn(async () => undefined),
+            onRename,
+            onDuplicate: vi.fn(async () => undefined),
+          }}
+        />,
+      ),
+    );
+
+    fireEvent.click(within(container).getByLabelText('Rename note'));
+    const input = within(container).getByLabelText('Rename note') as HTMLInputElement;
+    fireEvent.change(input, { target: { value: 'Renamed title' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() =>
+      expect(onRename).toHaveBeenCalledWith('note-mutations-target', 'Renamed title'),
+    );
+  });
+
+  it('activating the duplicate control calls noteMutations.onDuplicate with the note id', async () => {
+    const onDuplicate = vi.fn(async () => undefined);
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate: vi.fn(async () => undefined),
+            onRename: vi.fn(async () => undefined),
+            onDuplicate,
+          }}
+        />,
+      ),
+    );
+
+    fireEvent.click(within(container).getByLabelText('Duplicate note'));
+
+    await waitFor(() => expect(onDuplicate).toHaveBeenCalledWith('note-mutations-target'));
+  });
 });
