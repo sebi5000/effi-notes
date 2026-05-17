@@ -5,12 +5,14 @@ import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { createNoteSchema, listNotesQuerySchema, type NoteListItem } from '@/lib/api/schemas.ts';
 import { canEdit, listAccessibleScope, resolveFolderAccess } from '@/lib/notes/access.ts';
+import { toSnippet } from '@/lib/notes/snippet.ts';
 
 const log = createLogger({ component: 'api.notes' });
 
 const toListItem = (n: {
   id: string;
   title: string;
+  body: string;
   folderId: string | null;
   authorId: string;
   archivedAt: Date | null;
@@ -20,6 +22,7 @@ const toListItem = (n: {
 }): NoteListItem => ({
   id: n.id,
   title: n.title,
+  snippet: toSnippet(n.body),
   folderId: n.folderId,
   authorId: n.authorId,
   archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
@@ -71,6 +74,7 @@ export const GET = async (req: Request): Promise<Response> => {
         select: {
           id: true,
           title: true,
+          body: true,
           folderId: true,
           authorId: true,
           archivedAt: true,
@@ -125,6 +129,7 @@ export const POST = async (req: Request): Promise<Response> => {
       select: {
         id: true,
         title: true,
+        body: true,
         folderId: true,
         authorId: true,
         archivedAt: true,

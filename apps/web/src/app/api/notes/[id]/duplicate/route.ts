@@ -5,6 +5,7 @@ import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, requireSession } from '@/lib/api/responses.ts';
 import type { NoteListItem } from '@/lib/api/schemas.ts';
 import { resolveNoteAccess } from '@/lib/notes/access.ts';
+import { toSnippet } from '@/lib/notes/snippet.ts';
 
 const log = createLogger({ component: 'api.notes.duplicate' });
 type RouteContext = { params: Promise<{ id: string }> };
@@ -12,6 +13,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 const toListItem = (n: {
   id: string;
   title: string;
+  body: string;
   folderId: string | null;
   authorId: string;
   archivedAt: Date | null;
@@ -20,6 +22,7 @@ const toListItem = (n: {
 }): NoteListItem => ({
   id: n.id,
   title: n.title,
+  snippet: toSnippet(n.body),
   folderId: n.folderId,
   authorId: n.authorId,
   archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
@@ -70,6 +73,7 @@ export const POST = async (_req: Request, ctx: RouteContext): Promise<Response> 
       select: {
         id: true,
         title: true,
+        body: true,
         folderId: true,
         authorId: true,
         archivedAt: true,

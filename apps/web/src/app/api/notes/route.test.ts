@@ -113,6 +113,24 @@ describe('GET /api/notes', () => {
     const res = await GET(new Request('http://localhost/api/notes?limit=not-a-number'));
     expect(res.status).toBe(400);
   });
+
+  it('returns a snippet derived from the body, not the full body', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    await prisma.note.create({
+      data: {
+        title: 'api-test-snippet',
+        body: 'First line of the note.\n\nSecond paragraph here.',
+        authorId: user.id,
+      },
+    });
+    const res = await GET(new Request('http://localhost/api/notes'));
+    const body = (await res.json()) as { notes: Array<Record<string, unknown>> };
+    const item = body.notes.find((n) => n.title === 'api-test-snippet');
+    expect(item).toBeDefined();
+    expect(item?.snippet).toBe('First line of the note. Second paragraph here.');
+    expect(item).not.toHaveProperty('body');
+  });
 });
 
 describe('POST /api/notes', () => {

@@ -10,6 +10,7 @@ import {
   resolveFolderAccess,
   resolveNoteAccess,
 } from '@/lib/notes/access.ts';
+import { toSnippet } from '@/lib/notes/snippet.ts';
 
 const log = createLogger({ component: 'api.notes.id' });
 
@@ -45,6 +46,7 @@ const toDetail = (n: {
 }): NoteDetail => ({
   id: n.id,
   title: n.title,
+  snippet: toSnippet(n.body),
   body: n.body,
   folderId: n.folderId,
   authorId: n.authorId,

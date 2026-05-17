@@ -313,6 +313,7 @@ describe('Sidebar — notes list', () => {
       {
         id: 'n1',
         title: 'First note',
+        snippet: '',
         folderId: null,
         authorId: 'u1',
         archivedAt: null,
@@ -344,6 +345,7 @@ describe('Sidebar — share indicator on note rows', () => {
   const sharedNote: NoteListItem = {
     id: 'shared-note',
     title: 'Shared note',
+    snippet: '',
     folderId: null,
     authorId: 'u1',
     archivedAt: null,
@@ -355,6 +357,7 @@ describe('Sidebar — share indicator on note rows', () => {
   const unsharedNote: NoteListItem = {
     id: 'plain-note',
     title: 'Plain note',
+    snippet: '',
     folderId: null,
     authorId: 'u1',
     archivedAt: null,
@@ -458,6 +461,7 @@ describe('Sidebar — note mutations', () => {
   const noteWithMutations: NoteListItem = {
     id: 'note-mutations-target',
     title: 'Target note',
+    snippet: '',
     folderId: null,
     authorId: 'u1',
     archivedAt: null,

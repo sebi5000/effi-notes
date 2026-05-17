@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { auth } from '@/auth';
 import { NotesShell } from '@/components/notes/NotesShell.tsx';
 import { listAccessibleScope } from '@/lib/notes/access.ts';
+import { toSnippet } from '@/lib/notes/snippet.ts';
 
 const PRESENCE_COLORS = ['#C26A20', '#7C3F00', '#4B5066', '#1E2230', '#A03A2B', '#9B6A2F'] as const;
 
@@ -52,6 +53,7 @@ export default async function NotesIndexPage() {
       select: {
         id: true,
         title: true,
+        body: true,
         folderId: true,
         authorId: true,
         archivedAt: true,
@@ -76,6 +78,7 @@ export default async function NotesIndexPage() {
         initialNotes={notes.map((n) => ({
           id: n.id,
           title: n.title,
+          snippet: toSnippet(n.body),
           folderId: n.folderId,
           authorId: n.authorId,
           archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,

@@ -112,6 +112,7 @@ export type SearchQuery = z.infer<typeof searchQuerySchema>;
 export type NoteListItem = {
   id: string;
   title: string;
+  snippet: string;
   folderId: string | null;
   authorId: string;
   archivedAt: string | null;
