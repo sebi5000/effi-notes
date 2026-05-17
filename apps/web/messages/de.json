@@ -55,6 +55,35 @@
       "delete": "Ordner löschen",
       "cycle": "Ein Ordner kann nicht in einen seiner Unterordner verschoben werden."
     },
+    "folderIcons": {
+      "pickerLabel": "Ordnersymbol ändern",
+      "names": {
+        "folder": "Ordner",
+        "folder-open": "Offener Ordner",
+        "briefcase": "Aktentasche",
+        "house": "Haus",
+        "user": "Person",
+        "users": "Personen",
+        "star": "Stern",
+        "archive": "Archiv",
+        "inbox": "Posteingang",
+        "file-text": "Dokument",
+        "book-open": "Buch",
+        "graduation-cap": "Bildung",
+        "code": "Code",
+        "rocket": "Rakete",
+        "lightbulb": "Idee",
+        "calendar": "Kalender",
+        "list-checks": "Checkliste",
+        "heart": "Herz",
+        "flag": "Flagge",
+        "image": "Bild",
+        "music": "Musik",
+        "wallet": "Geldbörse",
+        "globe": "Globus",
+        "mail": "Post"
+      }
+    },
     "noteActions": {
       "newNote": "Neue Notiz",
       "renameNote": "Notiz umbenennen",

@@ -55,6 +55,35 @@
       "delete": "Delete folder",
       "cycle": "A folder can't be moved into one of its own descendants."
     },
+    "folderIcons": {
+      "pickerLabel": "Change folder icon",
+      "names": {
+        "folder": "Folder",
+        "folder-open": "Open folder",
+        "briefcase": "Briefcase",
+        "house": "House",
+        "user": "Person",
+        "users": "People",
+        "star": "Star",
+        "archive": "Archive",
+        "inbox": "Inbox",
+        "file-text": "Document",
+        "book-open": "Book",
+        "graduation-cap": "Education",
+        "code": "Code",
+        "rocket": "Rocket",
+        "lightbulb": "Idea",
+        "calendar": "Calendar",
+        "list-checks": "Checklist",
+        "heart": "Heart",
+        "flag": "Flag",
+        "image": "Image",
+        "music": "Music",
+        "wallet": "Wallet",
+        "globe": "Globe",
+        "mail": "Mail"
+      }
+    },
     "noteActions": {
       "newNote": "New note",
       "renameNote": "Rename note",
