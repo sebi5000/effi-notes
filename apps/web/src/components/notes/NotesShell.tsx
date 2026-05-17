@@ -239,7 +239,12 @@ export function NotesShell({
               initialTitle={noteDetail.title}
               initialBody={noteDetail.body}
               initialUpdatedAt={noteDetail.updatedAt}
+              initialTitleManuallySet={noteDetail.titleManuallySet}
               currentUser={currentUser}
+              onTitleChange={(title) => {
+                setNoteDetail((prev) => (prev ? { ...prev, title } : prev));
+                setNotes((prev) => prev.map((n) => (n.id === noteDetail.id ? { ...n, title } : n)));
+              }}
             />
           </>
         ) : (

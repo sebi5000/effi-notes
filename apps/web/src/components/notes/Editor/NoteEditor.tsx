@@ -6,7 +6,8 @@ import { useEffect, useMemo, useReducer, useState } from 'react';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
-import { referencedAssetIds } from '@/lib/notes/doc-outline.ts';
+import { nextAutoTitle } from '@/lib/notes/auto-title.ts';
+import { deriveDocItems, referencedAssetIds } from '@/lib/notes/doc-outline.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
@@ -22,7 +23,9 @@ type Props = {
   initialTitle: string;
   initialBody: string;
   initialUpdatedAt: string;
+  initialTitleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
+  onTitleChange: (title: string) => void;
 };
 
 const PRESENCE_COLORS = ['#C26A20', '#7C3F00', '#4B5066', '#1E2230', '#A03A2B', '#9B6A2F'] as const;
@@ -58,7 +61,9 @@ export function NoteEditor({
   initialTitle,
   initialBody,
   initialUpdatedAt,
+  initialTitleManuallySet,
   currentUser,
+  onTitleChange,
 }: Props) {
   // The parent passes `key={noteId}` so this component remounts per note
   // and we get a fresh Y.Doc without depending on noteId here.
@@ -125,7 +130,9 @@ export function NoteEditor({
       initialTitle={initialTitle}
       initialBody={initialBody}
       initialUpdatedAt={initialUpdatedAt}
+      initialTitleManuallySet={initialTitleManuallySet}
       currentUser={currentUser}
+      onTitleChange={onTitleChange}
     />
   );
 }
@@ -155,7 +162,9 @@ function CollaborativeEditor({
   initialTitle,
   initialBody,
   initialUpdatedAt,
+  initialTitleManuallySet,
   currentUser,
+  onTitleChange,
 }: {
   noteId: string;
   ydoc: Y.Doc;
@@ -164,7 +173,9 @@ function CollaborativeEditor({
   initialTitle: string;
   initialBody: string;
   initialUpdatedAt: string;
+  initialTitleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
+  onTitleChange: (title: string) => void;
 }) {
   const tUpload = useTranslations('notes.editorUpload');
   const tPanel = useTranslations('notes.docPanel');
@@ -174,6 +185,7 @@ function CollaborativeEditor({
   const [uploadError, setUploadError] = useState<UploadErrorDetail | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [panelOpen, togglePanel] = useDocPanel();
+  const [currentTitle, setCurrentTitle] = useState(initialTitle);
 
   const editor = useEditor(
     {
@@ -222,6 +234,25 @@ function CollaborativeEditor({
     }, 5000);
     return () => window.clearInterval(interval);
   }, [editor, noteId, saveState, baseUpdatedAt]);
+
+  // Auto-title: every 2 s, derive the first heading from the doc and sync the
+  // note title when it differs and the title is not manually pinned.
+  useEffect(() => {
+    if (!editor || initialTitleManuallySet) return;
+    const interval = window.setInterval(async () => {
+      const heading = deriveDocItems(editor.state.doc, window.location.origin).headings[0]?.text;
+      const next = nextAutoTitle(heading, currentTitle, initialTitleManuallySet);
+      if (next === null) return;
+      try {
+        await notesApi.patch(noteId, { title: next });
+        setCurrentTitle(next);
+        onTitleChange(next);
+      } catch {
+        // keep the current title; retry on the next tick
+      }
+    }, 2000);
+    return () => window.clearInterval(interval);
+  }, [editor, noteId, currentTitle, initialTitleManuallySet, onTitleChange]);
 
   // Auto-dismiss the upload-failure notice so it stays transient and
   // non-blocking — the user can also close it early via the dismiss button.
