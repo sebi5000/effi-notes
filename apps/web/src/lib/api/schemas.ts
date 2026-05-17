@@ -34,6 +34,7 @@ export const patchNoteSchema = z
     folderId: cuidSchema.nullable().optional(),
     tagIds: z.array(cuidSchema).max(50).optional(),
     archivedAt: z.iso.datetime().nullable().optional(),
+    titleManuallySet: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
 export type PatchNoteInput = z.infer<typeof patchNoteSchema>;
@@ -123,6 +124,7 @@ export type NoteDetail = NoteListItem & {
   body: string;
   createdAt: string;
   lastEditorId: string | null;
+  titleManuallySet: boolean;
 };
 
 export type FolderNode = {

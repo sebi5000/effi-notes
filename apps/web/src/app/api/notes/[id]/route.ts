@@ -23,6 +23,7 @@ const noteSelect = {
   authorId: true,
   lastEditorId: true,
   archivedAt: true,
+  titleManuallySet: true,
   createdAt: true,
   updatedAt: true,
   tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
@@ -36,6 +37,7 @@ const toDetail = (n: {
   authorId: string;
   lastEditorId: string | null;
   archivedAt: Date | null;
+  titleManuallySet: boolean;
   createdAt: Date;
   updatedAt: Date;
   tags: Array<{ tag: { id: string; name: string; color: string | null } }>;
@@ -48,6 +50,7 @@ const toDetail = (n: {
   authorId: n.authorId,
   lastEditorId: n.lastEditorId,
   archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
+  titleManuallySet: n.titleManuallySet,
   createdAt: n.createdAt.toISOString(),
   updatedAt: n.updatedAt.toISOString(),
   tags: n.tags.map((t) => t.tag),
@@ -90,7 +93,7 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
   }
 
   return withSpan('notes.patch', { 'notes.id': id }, async () => {
-    const { title, folderId, tagIds, archivedAt } = parsed.data;
+    const { title, folderId, tagIds, archivedAt, titleManuallySet } = parsed.data;
     const updated = await prisma.note.update({
       where: { id },
       data: {
@@ -99,6 +102,7 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
         ...(archivedAt === undefined
           ? {}
           : { archivedAt: archivedAt === null ? null : new Date(archivedAt) }),
+        ...(titleManuallySet === undefined ? {} : { titleManuallySet }),
         lastEditorId: user.id,
         ...(tagIds === undefined
           ? {}

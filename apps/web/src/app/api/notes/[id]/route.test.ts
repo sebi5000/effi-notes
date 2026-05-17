@@ -164,6 +164,25 @@ describe('PATCH /api/notes/[id]', () => {
     );
     expect(res.status).toBe(400);
   });
+
+  it('persists titleManuallySet', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({
+      data: { title: 'api-test-pin', authorId: user.id },
+    });
+    const res = await PATCH(
+      new Request(`http://localhost/api/notes/${note.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'api-test-pinned', titleManuallySet: true }),
+      }),
+      { params: Promise.resolve({ id: note.id }) },
+    );
+    expect(res.status).toBe(200);
+    const reloaded = await prisma.note.findUnique({ where: { id: note.id } });
+    expect(reloaded?.titleManuallySet).toBe(true);
+  });
 });
 
 describe('DELETE /api/notes/[id]', () => {

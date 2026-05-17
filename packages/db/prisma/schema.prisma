@@ -91,9 +91,10 @@ model Note {
   author       User                     @relation("note_author", fields: [authorId], references: [id])
   lastEditorId String?
   lastEditor   User?                    @relation("note_last_editor", fields: [lastEditorId], references: [id], onDelete: SetNull)
-  archivedAt   DateTime?
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
+  archivedAt        DateTime?
+  titleManuallySet  Boolean                  @default(false)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
   tags         NoteTag[]
   history      NoteHistory[]
   assets       Asset[]
