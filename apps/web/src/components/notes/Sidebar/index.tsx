@@ -216,12 +216,8 @@ export function Sidebar({
       </aside>
 
       {shareTarget !== null ? (
-        <ShareDialog
-          scope={shareTarget}
-          // TODO: determine canManage based on ownership; API enforces 403 server-side
-          canManage={true}
-          onClose={() => setShareTarget(null)}
-        />
+        // TODO: determine canManage based on ownership; API enforces 403 server-side
+        <ShareDialog scope={shareTarget} canManage={true} onClose={() => setShareTarget(null)} />
       ) : null}
     </>
   );
