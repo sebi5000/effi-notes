@@ -54,6 +54,12 @@
       "delete": "Delete folder",
       "cycle": "A folder can't be moved into one of its own descendants."
     },
+    "noteActions": {
+      "newNote": "New note",
+      "renameNote": "Rename note",
+      "duplicateNote": "Duplicate note",
+      "renameNotePlaceholder": "Note title"
+    },
     "commandBar": {
       "label": "Search notes",
       "placeholder": "Search · #tag · /folder…",

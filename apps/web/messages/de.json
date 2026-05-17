@@ -54,6 +54,12 @@
       "delete": "Ordner löschen",
       "cycle": "Ein Ordner kann nicht in einen seiner Unterordner verschoben werden."
     },
+    "noteActions": {
+      "newNote": "Neue Notiz",
+      "renameNote": "Notiz umbenennen",
+      "duplicateNote": "Notiz duplizieren",
+      "renameNotePlaceholder": "Notiztitel"
+    },
     "commandBar": {
       "label": "Notizen durchsuchen",
       "placeholder": "Suchen · #tag · /ordner…",

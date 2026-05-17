@@ -24,6 +24,8 @@ type Props = {
 const byUpdatedAtDesc = (notes: ReadonlyArray<NoteListItem>): NoteListItem[] =>
   [...notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
+const DEFAULT_NOTE_TITLE = 'Neue Notiz';
+
 const qSuffix = (q: string): string => (q.length > 0 ? `?q=${encodeURIComponent(q)}` : '');
 
 export function NotesShell({
@@ -160,6 +162,28 @@ export function NotesShell({
     [refreshFolders],
   );
 
+  const handleCreateNote = useCallback(async () => {
+    const created = await notesApi.create({
+      title: DEFAULT_NOTE_TITLE,
+      ...(folderId !== null ? { folderId } : {}),
+    });
+    router.push(`/notes/${created.id}${qSuffix(query)}`);
+  }, [folderId, router, query]);
+
+  const handleRenameNote = useCallback(async (id: string, title: string) => {
+    await notesApi.patch(id, { title, titleManuallySet: true });
+    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
+    setNoteDetail((prev) => (prev && prev.id === id ? { ...prev, title } : prev));
+  }, []);
+
+  const handleDuplicateNote = useCallback(
+    async (id: string) => {
+      const created = await notesApi.duplicate(id);
+      router.push(`/notes/${created.id}${qSuffix(query)}`);
+    },
+    [router, query],
+  );
+
   return (
     <div
       className={`grid h-screen transition-[grid-template-columns] duration-200 ${
@@ -184,6 +208,11 @@ export function NotesShell({
             onRename: handleRenameFolder,
             onDelete: handleDeleteFolder,
             onReorder: handleReorderFolders,
+          }}
+          noteMutations={{
+            onCreate: handleCreateNote,
+            onRename: handleRenameNote,
+            onDuplicate: handleDuplicateNote,
           }}
         />
       </div>

@@ -25,6 +25,11 @@ type Props = {
   folderMutations?: FolderMutationHandlers & {
     onCreate: (name: string, parentId: string | null) => Promise<void>;
   };
+  noteMutations?: {
+    onCreate: () => Promise<void>;
+    onRename: (id: string, title: string) => Promise<void>;
+    onDuplicate: (id: string) => Promise<void>;
+  };
   /** When provided, a collapse button is shown in the sidebar header. */
   onCollapse?: () => void;
 };
@@ -41,10 +46,12 @@ export function Sidebar({
   onSelectFolder,
   onSelectNote,
   folderMutations,
+  noteMutations,
   onCollapse,
 }: Props) {
   const t = useTranslations('notes.sidebar');
   const tA = useTranslations('notes.folderActions');
+  const tNA = useTranslations('notes.noteActions');
   const tShare = useTranslations('notes.share');
   const [creating, setCreating] = useState(false);
   const [createName, setCreateName] = useState('');
@@ -164,9 +171,22 @@ export function Sidebar({
             </div>
           ) : null}
 
-          <h3 className="text-muted-foreground mb-1 mt-4 text-xs font-medium uppercase tracking-wide">
-            {t('notesHeading')}
-          </h3>
+          <div className="mb-1 mt-4 flex items-center justify-between">
+            <h3 className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+              {t('notesHeading')}
+            </h3>
+            {noteMutations ? (
+              <button
+                type="button"
+                aria-label={tNA('newNote')}
+                title={tNA('newNote')}
+                onClick={() => void noteMutations.onCreate()}
+                className="text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-sm leading-none"
+              >
+                +
+              </button>
+            ) : null}
+          </div>
           <ul aria-label={t('notesHeading')} className="space-y-0.5">
             {pending && notes.length === 0 ? (
               <li className="text-muted-foreground/70 px-2 py-1 text-sm italic">{t('loading')}</li>

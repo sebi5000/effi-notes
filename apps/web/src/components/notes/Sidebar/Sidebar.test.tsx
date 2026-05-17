@@ -23,6 +23,12 @@ const messages = {
       rename: 'Rename folder',
       delete: 'Delete folder',
     },
+    noteActions: {
+      newNote: 'New note',
+      renameNote: 'Rename note',
+      duplicateNote: 'Duplicate note',
+      renameNotePlaceholder: 'Note title',
+    },
     commandBar: {
       label: 'Search',
       placeholder: 'Search…',
@@ -392,5 +398,33 @@ describe('Sidebar — share indicator on note rows', () => {
     fireEvent.click(within(container).getByRole('button', { name: 'Shared — click to manage' }));
     // ShareDialog should be open — it has role="dialog"
     expect(within(container).getByRole('dialog')).toBeTruthy();
+  });
+});
+
+describe('Sidebar — note mutations', () => {
+  it('clicking the new-note "+" button calls noteMutations.onCreate', async () => {
+    const onCreate = vi.fn(async () => undefined);
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={notes}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate,
+            onRename: vi.fn(async () => undefined),
+            onDuplicate: vi.fn(async () => undefined),
+          }}
+        />,
+      ),
+    );
+    fireEvent.click(within(container).getByLabelText('New note'));
+    await waitFor(() => expect(onCreate).toHaveBeenCalledTimes(1));
   });
 });
