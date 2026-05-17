@@ -140,6 +140,13 @@
       "link": "Link",
       "linkPrompt": "Link-URL (zum Entfernen leer lassen)"
     },
+    "tagBar": {
+      "addTag": "Tag",
+      "removeTag": "Tag {name} entfernen",
+      "createTag": "„{name}\" erstellen",
+      "placeholder": "Tag-Name…",
+      "noMatches": "Keine Tags gefunden"
+    },
     "share": {
       "title": "Freigabe",
       "currentAccess": "Aktueller Zugriff",
