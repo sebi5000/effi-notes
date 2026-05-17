@@ -589,3 +589,40 @@ describe('Sidebar — note mutations', () => {
     expect(li?.getAttribute('draggable')).not.toBe('true');
   });
 });
+
+describe('Sidebar — two-pane layout', () => {
+  it('renders a separate folder section and notes section as siblings', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+
+    const folderSection = within(container).getByRole('region', { name: 'Folders' });
+    const notesSection = within(container).getByRole('region', { name: 'Notes' });
+
+    // Both sections must exist.
+    expect(folderSection).toBeTruthy();
+    expect(notesSection).toBeTruthy();
+
+    // The FolderTree (role="tree") must be inside the folder section.
+    expect(within(folderSection).getByRole('tree')).toBeTruthy();
+
+    // The notes list must be inside the notes section.
+    expect(within(notesSection).getByRole('list')).toBeTruthy();
+
+    // Neither section contains the other.
+    expect(folderSection.contains(notesSection)).toBe(false);
+    expect(notesSection.contains(folderSection)).toBe(false);
+  });
+});

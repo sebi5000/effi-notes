@@ -203,7 +203,7 @@ export function NotesShell({
   return (
     <div
       className={`grid h-screen transition-[grid-template-columns] duration-200 ${
-        sidebarCollapsed ? 'grid-cols-[0px_1fr]' : 'grid-cols-[280px_1fr]'
+        sidebarCollapsed ? 'grid-cols-[0px_1fr]' : 'grid-cols-[480px_1fr]'
       }`}
     >
       <div className="overflow-hidden">
