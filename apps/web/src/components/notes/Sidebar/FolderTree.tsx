@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { type DragEvent, type KeyboardEvent, useMemo, useState } from 'react';
+import { type DragEvent, type KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import type { FolderNode } from '@/lib/api/schemas.ts';
 import { FOLDER_DND_MIME, NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
 import {
@@ -41,6 +41,8 @@ type Props = {
   onOpenShare?: (scope: ShareScope) => void;
   /** When set, folder rows + the tree root accept a dropped note; arg is the new folderId (null = un-file). */
   onNoteDrop?: (noteId: string, folderId: string | null) => Promise<void>;
+  /** True while the user is actively dragging a note; false once the drag ends (drop, Esc, or release-outside). */
+  noteDragActive?: boolean;
 };
 
 /** Active drop target while dragging — a row + which zone, or the root zone. */
@@ -75,6 +77,7 @@ export function FolderTree({
   mutations,
   onOpenShare,
   onNoteDrop,
+  noteDragActive,
 }: Props) {
   const t = useTranslations('notes.folderActions');
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => {
@@ -89,6 +92,13 @@ export function FolderTree({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [noteDropTargetId, setNoteDropTargetId] = useState<string | null>(null);
+
+  // Clear the note-drop highlight whenever a note drag ends (drop, Esc, or release-outside).
+  // Wrapped in a void async IIFE so the setState call is inside a callback,
+  // which satisfies the react-hooks/set-state-in-effect rule.
+  useEffect(() => {
+    if (!noteDragActive) void (async () => setNoteDropTargetId(null))();
+  }, [noteDragActive]);
 
   const tree = useMemo(() => buildFolderTree(folders), [folders]);
   const visible = useMemo(() => flatten(tree, expanded), [tree, expanded]);

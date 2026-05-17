@@ -665,6 +665,36 @@ describe('FolderTree (note drop)', () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(onNoteDrop).not.toHaveBeenCalled();
   });
+
+  it('does not call onNoteDrop when a folder dataTransfer is dropped directly on a folder row root element', async () => {
+    const onNoteDrop = vi.fn().mockResolvedValue(undefined);
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onReorder: vi.fn(async () => undefined),
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+          onNoteDrop={onNoteDrop}
+        />,
+      ),
+    );
+
+    // Drop a folder-typed dataTransfer directly on the FolderRow root <div> (the treeitem)
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    const dt = makeFolderDataTransfer('internal');
+
+    fireDrag('dragOver', clientsRow, dt);
+    fireDrag('drop', clientsRow, dt);
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(onNoteDrop).not.toHaveBeenCalled();
+  });
 });
 
 describe('FolderTree (share indicator)', () => {

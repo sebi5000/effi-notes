@@ -159,6 +159,7 @@ export function Sidebar({
             selectedId={selectedFolderId}
             onSelect={onSelectFolder}
             onOpenShare={setShareTarget}
+            noteDragActive={draggingNoteId !== null}
             {...(noteMutations ? { onNoteDrop: noteMutations.onMove } : {})}
             {...(folderMutations
               ? {
