@@ -1,6 +1,6 @@
 'use client';
 
-import { useFormatter, useTranslations } from 'next-intl';
+import { useFormatter, useNow, useTranslations } from 'next-intl';
 import { useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
@@ -53,6 +53,7 @@ export function Sidebar({
 }: Props) {
   const t = useTranslations('notes.sidebar');
   const format = useFormatter();
+  const now = useNow();
   const tA = useTranslations('notes.folderActions');
   const tNA = useTranslations('notes.noteActions');
   const tShare = useTranslations('notes.share');
@@ -279,7 +280,7 @@ export function Sidebar({
                                   </div>
                                 ) : null}
                                 <div className="text-muted-foreground/60 mt-1 text-[10px]">
-                                  {format.relativeTime(new Date(n.updatedAt))}
+                                  {format.relativeTime(new Date(n.updatedAt), now)}
                                 </div>
                               </div>
                             </div>
