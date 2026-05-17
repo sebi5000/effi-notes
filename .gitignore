@@ -55,5 +55,8 @@ backups/
 # Lefthook local
 .lefthook-local.yml
 
+# Superpowers brainstorm companion (local mockups)
+.superpowers/
+
 # Claude Code – local user settings (project agents/CLAUDE.md ARE committed)
 .claude/settings.local.json
