@@ -64,7 +64,8 @@ const messages = {
       clearSearch: 'Clear search',
     },
     share: {
-      sharedIndicatorLabel: 'Shared — click to manage',
+      shareFolderLabel: 'Share folder',
+      shareNoteLabel: 'Share note',
       title: 'Share',
       currentAccess: 'Current access',
       addPeople: 'Add people',
@@ -341,7 +342,7 @@ describe('Sidebar — notes list', () => {
   });
 });
 
-describe('Sidebar — share indicator on note rows', () => {
+describe('Sidebar — share control on note rows', () => {
   const sharedNote: NoteListItem = {
     id: 'shared-note',
     title: 'Shared note',
@@ -366,7 +367,7 @@ describe('Sidebar — share indicator on note rows', () => {
     shareCount: 0,
   };
 
-  it('renders an eye button for a note with shareCount > 0', () => {
+  it('renders a share button on an already-shared note row', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -382,12 +383,10 @@ describe('Sidebar — share indicator on note rows', () => {
         />,
       ),
     );
-    expect(
-      within(container).getByRole('button', { name: 'Shared — click to manage' }),
-    ).toBeTruthy();
+    expect(within(container).getByRole('button', { name: 'Share note' })).toBeTruthy();
   });
 
-  it('does not render an eye button for a note with shareCount === 0', () => {
+  it('renders the share button for a note that has never been shared (shareCount === 0)', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -403,18 +402,16 @@ describe('Sidebar — share indicator on note rows', () => {
         />,
       ),
     );
-    expect(
-      within(container).queryByRole('button', { name: 'Shared — click to manage' }),
-    ).toBeNull();
+    expect(within(container).getByRole('button', { name: 'Share note' })).toBeTruthy();
   });
 
-  it('clicking the eye button on a note row opens the share dialog for that note', () => {
+  it('clicking the share button on an unshared note row opens the share dialog', () => {
     const { container } = render(
       wrap(
         <Sidebar
           folders={folders}
           tags={tags}
-          notes={[sharedNote]}
+          notes={[unsharedNote]}
           selectedFolderId={null}
           selectedNoteId={null}
           query=""
@@ -424,7 +421,7 @@ describe('Sidebar — share indicator on note rows', () => {
         />,
       ),
     );
-    fireEvent.click(within(container).getByRole('button', { name: 'Shared — click to manage' }));
+    fireEvent.click(within(container).getByRole('button', { name: 'Share note' }));
     // ShareDialog should be open — it has role="dialog"
     expect(within(container).getByRole('dialog')).toBeTruthy();
   });

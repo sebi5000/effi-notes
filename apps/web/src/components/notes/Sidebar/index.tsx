@@ -311,17 +311,15 @@ export function Sidebar({
                                 </button>
                               </>
                             ) : null}
-                            {n.shareCount > 0 ? (
-                              <button
-                                type="button"
-                                aria-label={tShare('sharedIndicatorLabel')}
-                                title={tShare('sharedIndicatorLabel')}
-                                onClick={() => setShareTarget({ kind: 'note', id: n.id })}
-                                className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
-                              >
-                                <span aria-hidden="true">👁</span>
-                              </button>
-                            ) : null}
+                            <button
+                              type="button"
+                              aria-label={tShare('shareNoteLabel')}
+                              title={tShare('shareNoteLabel')}
+                              onClick={() => setShareTarget({ kind: 'note', id: n.id })}
+                              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
+                            >
+                              <span aria-hidden="true">👁</span>
+                            </button>
                           </div>
                         </>
                       )}

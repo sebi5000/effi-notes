@@ -116,7 +116,8 @@ const messages = {
       clearSearch: 'Clear search',
     },
     share: {
-      sharedIndicatorLabel: 'Shared — click to manage',
+      shareFolderLabel: 'Share folder',
+      shareNoteLabel: 'Share note',
       title: 'Share',
       currentAccess: 'Current access',
       addPeople: 'Add people',

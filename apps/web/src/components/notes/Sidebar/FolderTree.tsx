@@ -37,7 +37,7 @@ type Props = {
   onSelect: (id: string | null) => void;
   /** Optional mutation surface — when provided, hover-reveals rename/delete + DnD if `onReorder` is set. */
   mutations?: FolderMutationHandlers;
-  /** When provided, an eye icon button is shown on rows with shareCount > 0. */
+  /** When provided, a share button is shown on every folder row; it opens the share dialog. */
   onOpenShare?: (scope: ShareScope) => void;
   /** When set, folder rows + the tree root accept a dropped note; arg is the new folderId (null = un-file). */
   onNoteDrop?: (noteId: string, folderId: string | null) => Promise<void>;
@@ -374,9 +374,7 @@ export function FolderTree({
             onSelect={onSelect}
             onToggle={toggle}
             onOpenShare={
-              onOpenShare && row.shareCount > 0
-                ? () => onOpenShare({ kind: 'folder', id: row.id })
-                : undefined
+              onOpenShare ? () => onOpenShare({ kind: 'folder', id: row.id }) : undefined
             }
             isNoteDropTarget={noteDropTargetId === row.id}
             {...(onNoteDrop
@@ -429,7 +427,7 @@ type RowProps = {
   onCommitRename?: ((name: string) => void) | undefined;
   onCancelRename?: (() => void) | undefined;
   onRequestDelete?: (() => void) | undefined;
-  /** When provided, an eye icon button is shown; folder has shareCount > 0. */
+  /** When provided, a share button is shown that opens the share dialog. */
   onOpenShare?: (() => void) | undefined;
 };
 
@@ -527,8 +525,8 @@ function FolderRow({
           {onOpenShare ? (
             <button
               type="button"
-              aria-label={tShare('sharedIndicatorLabel')}
-              title={tShare('sharedIndicatorLabel')}
+              aria-label={tShare('shareFolderLabel')}
+              title={tShare('shareFolderLabel')}
               onClick={(e) => {
                 e.stopPropagation();
                 onOpenShare();
