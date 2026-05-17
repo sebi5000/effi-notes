@@ -4,9 +4,10 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
-import { foldersApi, notesApi } from '@/lib/notes/api-client.ts';
+import { foldersApi, notesApi, tagsApi } from '@/lib/notes/api-client.ts';
 import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
 import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
+import { tagColor } from '@/lib/notes/tag-color.ts';
 import { useSidebarCollapsed } from '@/lib/notes/use-sidebar-collapsed.ts';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
@@ -30,7 +31,7 @@ const qSuffix = (q: string): string => (q.length > 0 ? `?q=${encodeURIComponent(
 
 export function NotesShell({
   folders: initialFolders,
-  tags,
+  tags: initialTags,
   initialNotes,
   currentUser,
   initialNote,
@@ -43,6 +44,7 @@ export function NotesShell({
 
   const query = searchParams.get('q') ?? '';
   const [folders, setFolders] = useState<ReadonlyArray<FolderNode>>(initialFolders);
+  const [tags, setTags] = useState<ReadonlyArray<TagItem>>(initialTags);
   const [noteDetail, setNoteDetail] = useState<NoteDetail | null>(initialNote);
 
   // The URL `?q=` param is the single source of truth for the filter. It is
@@ -200,6 +202,22 @@ export function NotesShell({
     [notes, refreshNotes],
   );
 
+  const handleSetNoteTags = useCallback(
+    async (tagIds: string[]) => {
+      if (!noteDetail) return;
+      const updated = await notesApi.patch(noteDetail.id, { tagIds });
+      setNoteDetail(updated);
+      setNotes((prev) => prev.map((n) => (n.id === updated.id ? { ...n, tags: updated.tags } : n)));
+    },
+    [noteDetail],
+  );
+
+  const handleCreateTag = useCallback(async (name: string): Promise<TagItem> => {
+    const tag = await tagsApi.create({ name, color: tagColor(name) });
+    setTags((prev) => (prev.some((tg) => tg.id === tag.id) ? prev : [...prev, tag]));
+    return tag;
+  }, []);
+
   return (
     <div
       className={`grid h-screen transition-[grid-template-columns] duration-200 ${
@@ -262,6 +280,10 @@ export function NotesShell({
                 setNoteDetail((prev) => (prev ? { ...prev, title } : prev));
                 setNotes((prev) => prev.map((n) => (n.id === noteDetail.id ? { ...n, title } : n)));
               }}
+              noteTags={noteDetail.tags}
+              allTags={tags}
+              onTagsChange={handleSetNoteTags}
+              onCreateTag={handleCreateTag}
             />
           </>
         ) : (

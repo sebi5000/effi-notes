@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 import { WebsocketProvider } from 'y-websocket';
 import * as Y from 'yjs';
+import type { TagItem } from '@/lib/api/schemas.ts';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { nextAutoTitle } from '@/lib/notes/auto-title.ts';
 import { deriveDocItems, referencedAssetIds } from '@/lib/notes/doc-outline.ts';
@@ -17,6 +18,7 @@ import { EditorToolbar } from './EditorToolbar.tsx';
 import { buildExtensions, type UploadErrorDetail } from './MarkdownExtensions.ts';
 import { initialsFromName, PresenceBar, type PresenceUser } from './PresenceBar.tsx';
 import { SaveIndicator } from './SaveIndicator.tsx';
+import { TagBar } from './TagBar.tsx';
 
 type Props = {
   noteId: string;
@@ -26,6 +28,10 @@ type Props = {
   titleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
   onTitleChange: (title: string) => void;
+  noteTags: ReadonlyArray<TagItem>;
+  allTags: ReadonlyArray<TagItem>;
+  onTagsChange: (tagIds: string[]) => Promise<void>;
+  onCreateTag: (name: string) => Promise<TagItem>;
 };
 
 const PRESENCE_COLORS = ['#C26A20', '#7C3F00', '#4B5066', '#1E2230', '#A03A2B', '#9B6A2F'] as const;
@@ -64,6 +70,10 @@ export function NoteEditor({
   titleManuallySet,
   currentUser,
   onTitleChange,
+  noteTags,
+  allTags,
+  onTagsChange,
+  onCreateTag,
 }: Props) {
   // The parent passes `key={noteId}` so this component remounts per note
   // and we get a fresh Y.Doc without depending on noteId here.
@@ -133,6 +143,10 @@ export function NoteEditor({
       titleManuallySet={titleManuallySet}
       currentUser={currentUser}
       onTitleChange={onTitleChange}
+      noteTags={noteTags}
+      allTags={allTags}
+      onTagsChange={onTagsChange}
+      onCreateTag={onCreateTag}
     />
   );
 }
@@ -165,6 +179,10 @@ function CollaborativeEditor({
   titleManuallySet,
   currentUser,
   onTitleChange,
+  noteTags,
+  allTags,
+  onTagsChange,
+  onCreateTag,
 }: {
   noteId: string;
   ydoc: Y.Doc;
@@ -176,6 +194,10 @@ function CollaborativeEditor({
   titleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
   onTitleChange: (title: string) => void;
+  noteTags: ReadonlyArray<TagItem>;
+  allTags: ReadonlyArray<TagItem>;
+  onTagsChange: (tagIds: string[]) => Promise<void>;
+  onCreateTag: (name: string) => Promise<TagItem>;
 }) {
   const tUpload = useTranslations('notes.editorUpload');
   const tPanel = useTranslations('notes.docPanel');
@@ -281,6 +303,12 @@ function CollaborativeEditor({
             <DeleteNoteButton noteId={noteId} noteTitle={initialTitle} onError={setDeleteError} />
           </div>
         </div>
+        <TagBar
+          tags={noteTags}
+          allTags={allTags}
+          onChange={onTagsChange}
+          onCreateTag={onCreateTag}
+        />
         {uploadError ? (
           <div
             role="alert"
