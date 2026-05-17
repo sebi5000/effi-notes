@@ -1,9 +1,35 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, waitFor, within } from '@testing-library/react';
+import { cleanup, createEvent, fireEvent, render, waitFor, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
+import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
 import { Sidebar } from './index.tsx';
+
+/**
+ * jsdom has no DragEvent and drops a `dataTransfer` init prop, so build the
+ * event explicitly and pin `dataTransfer` on before dispatching.
+ */
+const fireDrag = (
+  type: 'dragOver' | 'drop' | 'dragStart',
+  el: Element,
+  dataTransfer: DataTransfer,
+) => {
+  const ev = createEvent[type](el);
+  Object.defineProperty(ev, 'dataTransfer', { value: dataTransfer });
+  fireEvent(el, ev);
+};
+
+/** Minimal DataTransfer stand-in — jsdom doesn't implement the real one. */
+const makeDataTransfer = (): DataTransfer => {
+  const store = new Map<string, string>();
+  return {
+    setData: (type: string, value: string) => store.set(type, value),
+    getData: (type: string) => store.get(type) ?? '',
+    effectAllowed: 'all',
+    dropEffect: 'none',
+  } as unknown as DataTransfer;
+};
 
 afterEach(cleanup);
 
@@ -498,5 +524,60 @@ describe('Sidebar — note mutations', () => {
     fireEvent.click(within(container).getByLabelText('Duplicate note'));
 
     await waitFor(() => expect(onDuplicate).toHaveBeenCalledWith('note-mutations-target'));
+  });
+
+  it('note rows are draggable when noteMutations is provided and dragStart sets NOTE_DND_MIME', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate: vi.fn(async () => undefined),
+            onRename: vi.fn(async () => undefined),
+            onDuplicate: vi.fn(async () => undefined),
+          }}
+        />,
+      ),
+    );
+
+    const li = within(container).getByText('Target note').closest('li');
+    expect(li).not.toBeNull();
+    expect(li?.getAttribute('draggable')).toBe('true');
+
+    const dt = makeDataTransfer();
+    fireDrag('dragStart', li as Element, dt);
+
+    expect(dt.getData(NOTE_DND_MIME)).toBe('note-mutations-target');
+  });
+
+  it('note rows are NOT draggable when noteMutations is omitted', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+
+    const li = within(container).getByText('Target note').closest('li');
+    expect(li).not.toBeNull();
+    // draggable should be false or absent when read-only
+    expect(li?.getAttribute('draggable')).not.toBe('true');
   });
 });

@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
+import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
 import { ShareDialog } from '../Share/ShareDialog.tsx';
 import { CommandBar } from './CommandBar.tsx';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
@@ -59,6 +60,7 @@ export function Sidebar({
   const [shareTarget, setShareTarget] = useState<ShareTarget | null>(null);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
 
   const submitCreate = async () => {
     if (!folderMutations) return;
@@ -201,7 +203,18 @@ export function Sidebar({
                 const isSel = n.id === selectedNoteId;
                 const isRenaming = renamingNoteId === n.id;
                 return (
-                  <li key={n.id} className="group relative flex items-center">
+                  <li
+                    key={n.id}
+                    className={`group relative flex items-center ${draggingNoteId === n.id ? 'opacity-50' : ''}`}
+                    draggable={noteMutations !== undefined && !isRenaming}
+                    onDragStart={(e) => {
+                      if (!noteMutations) return;
+                      e.dataTransfer.setData(NOTE_DND_MIME, n.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDraggingNoteId(n.id);
+                    }}
+                    onDragEnd={() => setDraggingNoteId(null)}
+                  >
                     {isRenaming ? (
                       <input
                         ref={(el) => {
