@@ -20,6 +20,7 @@ const f = (id: string, name: string, parentId: string | null = null, position = 
   name,
   parentId,
   position,
+  icon: 'folder',
   createdAt: '2026-05-14T00:00:00.000Z',
   updatedAt: '2026-05-14T00:00:00.000Z',
   shareCount: 0,

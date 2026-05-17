@@ -14,6 +14,7 @@ import {
   authedAs,
   cleanupNotesDomain,
   makeTestFolder,
+  makeTestShare,
   makeTestUser,
   unauthed,
 } from '@/lib/api/test-session.ts';
@@ -158,6 +159,66 @@ describe('PATCH /api/folders/[id]', () => {
       { params: Promise.resolve({ id: 'x' }) },
     );
     expect(res.status).toBe(401);
+  });
+
+  it('sets a folder icon', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-icon', ownerId: user.id },
+    });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ icon: 'rocket' }),
+      }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { icon: string };
+    expect(body.icon).toBe('rocket');
+    const reloaded = await prisma.folder.findUnique({ where: { id: f.id } });
+    expect(reloaded?.icon).toBe('rocket');
+  });
+
+  it('rejects an unknown icon key with 400', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-bad-icon', ownerId: user.id },
+    });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${f.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ icon: 'definitely-not-an-icon' }),
+      }),
+      { params: Promise.resolve({ id: f.id }) },
+    );
+    expect(res.status).toBe(400);
+  });
+
+  it('forbids an icon change for a view-only collaborator', async () => {
+    const { user: userA } = await makeTestUser();
+    const { user: userB } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: userA.id });
+    await makeTestShare({
+      folderId: folder.id,
+      granteeId: userB.id,
+      createdById: userA.id,
+      access: 'VIEW',
+    });
+    setAuthed(userB);
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${folder.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ icon: 'star' }),
+      }),
+      { params: Promise.resolve({ id: folder.id }) },
+    );
+    expect(res.status).toBe(403);
   });
 });
 

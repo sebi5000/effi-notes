@@ -17,6 +17,7 @@ const toNode = (f: {
   name: string;
   parentId: string | null;
   position: number;
+  icon: string;
   createdAt: Date;
   updatedAt: Date;
   _count: { shares: number };
@@ -25,6 +26,7 @@ const toNode = (f: {
   name: f.name,
   parentId: f.parentId,
   position: f.position,
+  icon: f.icon,
   createdAt: f.createdAt.toISOString(),
   updatedAt: f.updatedAt.toISOString(),
   shareCount: f._count.shares,
@@ -42,6 +44,7 @@ export const GET = async (_req: Request, ctx: RouteContext): Promise<Response> =
       name: true,
       parentId: true,
       position: true,
+      icon: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { shares: { where: activeShareWhere } } },
@@ -90,12 +93,14 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
       ...(parsed.data.name === undefined ? {} : { name: parsed.data.name }),
       ...(parsed.data.parentId === undefined ? {} : { parentId: parsed.data.parentId }),
       ...(parsed.data.position === undefined ? {} : { position: parsed.data.position }),
+      ...(parsed.data.icon === undefined ? {} : { icon: parsed.data.icon }),
     },
     select: {
       id: true,
       name: true,
       parentId: true,
       position: true,
+      icon: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { shares: { where: activeShareWhere } } },

@@ -100,6 +100,7 @@ const folders: FolderNode[] = [
     name: 'Clients',
     parentId: null,
     position: 0,
+    icon: 'folder',
     createdAt: '2026-05-14T00:00:00.000Z',
     updatedAt: '2026-05-14T00:00:00.000Z',
     shareCount: 0,

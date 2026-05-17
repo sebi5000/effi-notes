@@ -16,6 +16,7 @@ const toNode = (f: {
   name: string;
   parentId: string | null;
   position: number;
+  icon: string;
   createdAt: Date;
   updatedAt: Date;
   _count: { shares: number };
@@ -24,6 +25,7 @@ const toNode = (f: {
   name: f.name,
   parentId: f.parentId,
   position: f.position,
+  icon: f.icon,
   createdAt: f.createdAt.toISOString(),
   updatedAt: f.updatedAt.toISOString(),
   shareCount: f._count.shares,
@@ -42,6 +44,7 @@ export const GET = async (): Promise<Response> => {
       name: true,
       parentId: true,
       position: true,
+      icon: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { shares: { where: activeShareWhere } } },
@@ -83,6 +86,7 @@ export const POST = async (req: Request): Promise<Response> => {
       name: true,
       parentId: true,
       position: true,
+      icon: true,
       createdAt: true,
       updatedAt: true,
       _count: { select: { shares: { where: activeShareWhere } } },

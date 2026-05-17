@@ -21,6 +21,9 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
 
   const scope = await listAccessibleScope(session.user.id);
 
+  // A share counts toward the badge only while still active (no expiry, or not yet expired).
+  const activeShareWhere = { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] };
+
   const [folders, tags, notes, note] = await Promise.all([
     prisma.folder.findMany({
       where: { id: { in: scope.accessibleFolderIds } },
@@ -29,8 +32,10 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
         name: true,
         parentId: true,
         position: true,
+        icon: true,
         createdAt: true,
         updatedAt: true,
+        _count: { select: { shares: { where: activeShareWhere } } },
       },
       orderBy: [{ parentId: 'asc' }, { position: 'asc' }, { name: 'asc' }],
     }),
@@ -60,6 +65,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
         archivedAt: true,
         updatedAt: true,
         tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+        _count: { select: { shares: { where: activeShareWhere } } },
       },
       orderBy: { updatedAt: 'desc' },
       take: 50,
@@ -78,6 +84,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
         createdAt: true,
         updatedAt: true,
         tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+        _count: { select: { shares: { where: activeShareWhere } } },
       },
     }),
   ]);
@@ -90,11 +97,11 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
   return (
     <Suspense fallback={null}>
       <NotesShell
-        folders={folders.map((f) => ({
+        folders={folders.map(({ _count, ...f }) => ({
           ...f,
           createdAt: f.createdAt.toISOString(),
           updatedAt: f.updatedAt.toISOString(),
-          shareCount: 0,
+          shareCount: _count.shares,
         }))}
         tags={tags}
         initialNotes={notes.map((n) => ({
@@ -106,7 +113,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
           archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
           updatedAt: n.updatedAt.toISOString(),
           tags: n.tags.map((t) => t.tag),
-          shareCount: 0,
+          shareCount: n._count.shares,
         }))}
         currentUser={{
           id: session.user.id,
@@ -126,7 +133,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
           createdAt: note.createdAt.toISOString(),
           updatedAt: note.updatedAt.toISOString(),
           tags: note.tags.map((t) => t.tag),
-          shareCount: 0,
+          shareCount: note._count.shares,
         }}
       />
     </Suspense>

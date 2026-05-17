@@ -4,6 +4,7 @@ import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { reorderFoldersSchema } from '@/lib/api/schemas.ts';
 import { canEdit, resolveFolderAccess } from '@/lib/notes/access.ts';
+import { DEFAULT_FOLDER_ICON } from '@/lib/notes/folder-icons.ts';
 import { isDescendant } from '@/lib/notes/folder-tree.ts';
 
 const log = createLogger({ component: 'api.folders.reorder' });
@@ -76,6 +77,7 @@ export const PATCH = async (req: Request): Promise<Response> => {
           parentId: f.parentId,
           name: '',
           position: 0,
+          icon: DEFAULT_FOLDER_ICON,
           createdAt: '',
           updatedAt: '',
           shareCount: 0,

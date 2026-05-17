@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { folderIconSchema } from '@/lib/notes/folder-icons.ts';
 
 /**
  * Shared Zod schemas + types for the notes REST API.
@@ -74,6 +75,7 @@ export const patchFolderSchema = z
     name: z.string().min(1).max(FOLDER_NAME_MAX).optional(),
     parentId: cuidSchema.nullable().optional(),
     position: z.number().int().min(0).optional(),
+    icon: folderIconSchema.optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: 'no fields to update' });
 export type PatchFolderInput = z.infer<typeof patchFolderSchema>;
@@ -133,6 +135,7 @@ export type FolderNode = {
   name: string;
   parentId: string | null;
   position: number;
+  icon: string;
   createdAt: string;
   updatedAt: string;
   shareCount: number;

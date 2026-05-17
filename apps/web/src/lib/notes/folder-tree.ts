@@ -53,6 +53,7 @@ export const flatten = (
       name: node.name,
       parentId: node.parentId,
       position: node.position,
+      icon: node.icon,
       createdAt: node.createdAt,
       updatedAt: node.updatedAt,
       shareCount: node.shareCount,
