@@ -7,7 +7,6 @@ import type { NoteListItem } from '@/lib/api/schemas.ts';
 import { resolveNoteAccess } from '@/lib/notes/access.ts';
 
 const log = createLogger({ component: 'api.notes.duplicate' });
-
 type RouteContext = { params: Promise<{ id: string }> };
 
 const toListItem = (n: {
@@ -29,7 +28,13 @@ const toListItem = (n: {
   shareCount: 0,
 });
 
-/** POST /api/notes/[id]/duplicate — deep-copies a note (body, tags, assets). */
+/**
+ * POST /api/notes/[id]/duplicate — copies a note into a new note owned by
+ * the caller. The Yjs document state (`yjsState`) is copied verbatim, so the
+ * duplicate is a faithful visual replica including images and PDFs. Embedded
+ * assets are NOT deep-copied: the copy's asset nodes reference the original's
+ * Asset rows — the pre-existing cross-note asset-reuse limitation (ADR 0025).
+ */
 export const POST = async (_req: Request, ctx: RouteContext): Promise<Response> => {
   const user = await requireSession();
   if (!user) return jsonError(401, 'unauthorised');
@@ -38,26 +43,11 @@ export const POST = async (_req: Request, ctx: RouteContext): Promise<Response> 
   const source = await prisma.note.findUnique({
     where: { id },
     select: {
-      id: true,
       title: true,
       body: true,
+      yjsState: true,
       folderId: true,
       tags: { select: { tagId: true } },
-      assets: {
-        select: {
-          id: true,
-          kind: true,
-          contentType: true,
-          filename: true,
-          caption: true,
-          extractedText: true,
-          byteSize: true,
-          data: true,
-          previewImage: true,
-          previewContentType: true,
-          pageCount: true,
-        },
-      },
     },
   });
   if (!source) return jsonError(404, 'not found');
@@ -65,58 +55,28 @@ export const POST = async (_req: Request, ctx: RouteContext): Promise<Response> 
   if (access === null) return jsonError(403, 'forbidden');
 
   return withSpan('notes.duplicate', { 'notes.id': id }, async () => {
-    const created = await prisma.$transaction(async (tx) => {
-      const note = await tx.note.create({
-        data: {
-          title: `${source.title} (Kopie)`,
-          titleManuallySet: true,
-          body: source.body,
-          authorId: user.id,
-          ...(source.folderId ? { folderId: source.folderId } : {}),
-          ...(source.tags.length > 0
-            ? { tags: { create: source.tags.map((t) => ({ tagId: t.tagId })) } }
-            : {}),
-        },
-        select: {
-          id: true,
-          title: true,
-          folderId: true,
-          authorId: true,
-          archivedAt: true,
-          updatedAt: true,
-          tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
-        },
-      });
-
-      let body = source.body;
-      for (const a of source.assets) {
-        const copy = await tx.asset.create({
-          data: {
-            noteId: note.id,
-            authorId: user.id,
-            kind: a.kind,
-            contentType: a.contentType,
-            filename: a.filename,
-            caption: a.caption,
-            extractedText: a.extractedText,
-            byteSize: a.byteSize,
-            data: a.data,
-            previewImage: a.previewImage,
-            previewContentType: a.previewContentType,
-            pageCount: a.pageCount,
-          },
-          select: { id: true },
-        });
-        // Asset ids are unique cuids — a plain split/join rewrites every
-        // reference (image URL + pdf-chip attribute) with no false matches.
-        body = body.split(a.id).join(copy.id);
-      }
-      if (source.assets.length > 0) {
-        await tx.note.update({ where: { id: note.id }, data: { body } });
-      }
-      return note;
+    const created = await prisma.note.create({
+      data: {
+        title: `${source.title} (Kopie)`,
+        titleManuallySet: true,
+        body: source.body,
+        ...(source.yjsState ? { yjsState: source.yjsState } : {}),
+        authorId: user.id,
+        ...(source.folderId ? { folderId: source.folderId } : {}),
+        ...(source.tags.length > 0
+          ? { tags: { create: source.tags.map((t) => ({ tagId: t.tagId })) } }
+          : {}),
+      },
+      select: {
+        id: true,
+        title: true,
+        folderId: true,
+        authorId: true,
+        archivedAt: true,
+        updatedAt: true,
+        tags: { select: { tag: { select: { id: true, name: true, color: true } } } },
+      },
     });
-
     await recordAudit({
       action: 'notes.duplicated',
       actorId: user.id,

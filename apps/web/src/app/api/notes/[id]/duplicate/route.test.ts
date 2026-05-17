@@ -121,52 +121,21 @@ describe('POST /api/notes/[id]/duplicate', () => {
     expect(noteTags.map((t) => t.tagId)).toContain(tag.id);
   });
 
-  it('assets are deep-copied: new asset row with same bytes, body rewritten with new asset id', async () => {
+  it('copies the Yjs document state', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-
-    // Create the source note first
+    const state = Buffer.from([1, 2, 3, 4]);
     const note = await prisma.note.create({
-      data: { title: 'api-test-asset-dup', body: '', authorId: user.id },
+      data: { title: 'api-test-dup-yjs', authorId: user.id, yjsState: state },
     });
-
-    // Create an asset attached to the source note
-    const asset = await prisma.asset.create({
-      data: {
-        noteId: note.id,
-        authorId: user.id,
-        kind: 'IMAGE',
-        contentType: 'image/png',
-        filename: 'x.png',
-        byteSize: 3,
-        data: Buffer.from([1, 2, 3]),
-      },
-    });
-
-    // Update note body to reference the asset id
-    const originalBody = `<img data-id="${asset.id}" src="/api/assets/${asset.id}" />`;
-    await prisma.note.update({ where: { id: note.id }, data: { body: originalBody } });
-
-    const res = await POST(new Request(`http://localhost/api/notes/${note.id}/duplicate`), {
+    const res = await POST(new Request('http://localhost/x', { method: 'POST' }), {
       params: Promise.resolve({ id: note.id }),
     });
     expect(res.status).toBe(201);
-
     const body = (await res.json()) as { id: string };
-    const copyId = body.id;
-
-    // The copy should have its own Asset row
-    const copyAssets = await prisma.asset.findMany({ where: { noteId: copyId } });
-    expect(copyAssets).toHaveLength(1);
-    const copyAsset = copyAssets[0];
-    if (!copyAsset) throw new Error('expected a copy asset');
-    expect(copyAsset.id).not.toBe(asset.id);
-    expect(Buffer.from(copyAsset.data).equals(Buffer.from([1, 2, 3]))).toBe(true);
-
-    // The copy's body should reference the new asset id, not the old one
-    const copyNote = await prisma.note.findUnique({ where: { id: copyId } });
-    expect(copyNote?.body).toContain(copyAsset.id);
-    expect(copyNote?.body).not.toContain(asset.id);
+    const copy = await prisma.note.findUnique({ where: { id: body.id } });
+    expect(copy?.yjsState).not.toBeNull();
+    expect(Buffer.from(copy?.yjsState ?? []).equals(state)).toBe(true);
   });
 
   it('writes an AuditLog row with action notes.duplicated for the new note', async () => {
