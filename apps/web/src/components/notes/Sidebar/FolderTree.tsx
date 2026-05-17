@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { type DragEvent, type KeyboardEvent, useMemo, useState } from 'react';
 import type { FolderNode } from '@/lib/api/schemas.ts';
+import { FOLDER_DND_MIME } from '@/lib/notes/dnd.ts';
 import {
   buildFolderTree,
   computeReorder,
@@ -39,8 +40,6 @@ type Props = {
   /** When provided, an eye icon button is shown on rows with shareCount > 0. */
   onOpenShare?: (scope: ShareScope) => void;
 };
-
-const DND_MIME = 'application/x-effi-folder';
 
 /** Active drop target while dragging — a row + which zone, or the root zone. */
 type DropTarget = { id: string; mode: DropMode } | { id: '__root__'; mode: 'inside' };
@@ -215,7 +214,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
 
   const onRowDragStart = (id: string) => (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled) return;
-    e.dataTransfer.setData(DND_MIME, id);
+    e.dataTransfer.setData(FOLDER_DND_MIME, id);
     e.dataTransfer.effectAllowed = 'move';
     setDraggingId(id);
   };
@@ -241,7 +240,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
     if (!dndEnabled) return;
     e.stopPropagation();
     e.preventDefault();
-    const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
+    const draggedId = e.dataTransfer.getData(FOLDER_DND_MIME) || draggingId;
     setDraggingId(null);
     setDropTarget(null);
     if (!draggedId) return;
@@ -266,7 +265,7 @@ export function FolderTree({ folders, selectedId, onSelect, mutations, onOpenSha
   const onRootDrop = (e: DragEvent<HTMLDivElement>) => {
     if (!dndEnabled) return;
     e.preventDefault();
-    const draggedId = e.dataTransfer.getData(DND_MIME) || draggingId;
+    const draggedId = e.dataTransfer.getData(FOLDER_DND_MIME) || draggingId;
     setDraggingId(null);
     setDropTarget(null);
     if (!draggedId) return;
