@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { auth } from '@/auth';
 import { NotesShell } from '@/components/notes/NotesShell.tsx';
+import { listAccessibleScope } from '@/lib/notes/access.ts';
 
 const PRESENCE_COLORS = ['#C26A20', '#7C3F00', '#4B5066', '#1E2230', '#A03A2B', '#9B6A2F'] as const;
 
@@ -16,8 +17,11 @@ export default async function NotesIndexPage() {
   const session = await auth();
   if (!session?.user) redirect('/login?from=/notes');
 
+  const scope = await listAccessibleScope(session.user.id);
+
   const [folders, tags, notes] = await Promise.all([
     prisma.folder.findMany({
+      where: { id: { in: scope.accessibleFolderIds } },
       select: {
         id: true,
         name: true,
@@ -33,7 +37,18 @@ export default async function NotesIndexPage() {
       orderBy: { name: 'asc' },
     }),
     prisma.note.findMany({
-      where: { archivedAt: null },
+      where: {
+        AND: [
+          { archivedAt: null },
+          {
+            OR: [
+              { authorId: session.user.id },
+              { folderId: { in: scope.accessibleFolderIds } },
+              { id: { in: scope.sharedNoteIds } },
+            ],
+          },
+        ],
+      },
       select: {
         id: true,
         title: true,
