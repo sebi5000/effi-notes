@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { type DragEvent, type KeyboardEvent, useEffect, useMemo, useState } from 'react';
 import type { FolderNode } from '@/lib/api/schemas.ts';
 import { FOLDER_DND_MIME, NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
+import type { FolderIcon as FolderIconKey } from '@/lib/notes/folder-icons.ts';
 import {
   buildFolderTree,
   computeReorder,
@@ -15,6 +16,8 @@ import {
   isNoopReorder,
   moveSelection,
 } from '@/lib/notes/folder-tree.ts';
+import { FolderIcon } from './FolderIcon.tsx';
+import { FolderIconPicker } from './FolderIconPicker.tsx';
 
 type ShareScope = { kind: 'note' | 'folder'; id: string };
 
@@ -29,6 +32,8 @@ export type FolderMutationHandlers = {
    * drag-and-drop is disabled.
    */
   onReorder?: (parentId: string | null, orderedIds: string[]) => Promise<void>;
+  /** Set folder `id`'s icon. When omitted, the icon is not a picker trigger. */
+  onSetIcon?: (id: string, icon: FolderIconKey) => Promise<void>;
 };
 
 type Props = {
@@ -92,6 +97,7 @@ export function FolderTree({
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null);
   const [noteDropTargetId, setNoteDropTargetId] = useState<string | null>(null);
+  const [iconPicker, setIconPicker] = useState<{ folderId: string; rect: DOMRect } | null>(null);
 
   // Clear the note-drop highlight whenever a note drag ends (drop, Esc, or release-outside).
   // Wrapped in a void async IIFE so the setState call is inside a callback,
@@ -140,6 +146,17 @@ export function FolderTree({
       setActionError(null);
     } catch (err) {
       setActionError(err instanceof Error ? err.message : 'delete failed');
+    }
+  };
+
+  const handlePickIcon = async (icon: FolderIconKey) => {
+    const picker = iconPicker;
+    if (picker === null || mutations?.onSetIcon === undefined) return;
+    setIconPicker(null);
+    try {
+      await mutations.onSetIcon(picker.folderId, icon);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'icon update failed');
     }
   };
 
@@ -376,6 +393,11 @@ export function FolderTree({
             onOpenShare={
               onOpenShare ? () => onOpenShare({ kind: 'folder', id: row.id }) : undefined
             }
+            onOpenIconPicker={
+              mutations?.onSetIcon
+                ? (rect: DOMRect) => setIconPicker({ folderId: row.id, rect })
+                : undefined
+            }
             isNoteDropTarget={noteDropTargetId === row.id}
             {...(onNoteDrop
               ? {
@@ -398,6 +420,14 @@ export function FolderTree({
         <div role="alert" className="text-danger mt-2 rounded bg-red-50 px-2 py-1 text-xs">
           {actionError}
         </div>
+      ) : null}
+      {iconPicker && mutations?.onSetIcon ? (
+        <FolderIconPicker
+          anchorRect={iconPicker.rect}
+          current={folders.find((f) => f.id === iconPicker.folderId)?.icon ?? 'folder'}
+          onPick={(icon) => void handlePickIcon(icon)}
+          onClose={() => setIconPicker(null)}
+        />
       ) : null}
     </div>
   );
@@ -429,6 +459,8 @@ type RowProps = {
   onRequestDelete?: (() => void) | undefined;
   /** When provided, a share button is shown that opens the share dialog. */
   onOpenShare?: (() => void) | undefined;
+  /** When provided, the folder icon is a button that opens the icon picker. */
+  onOpenIconPicker?: ((rect: DOMRect) => void) | undefined;
 };
 
 /** before/after → an inset accent line at the top/bottom edge (no layout shift). */
@@ -461,9 +493,11 @@ function FolderRow({
   onCancelRename,
   onRequestDelete,
   onOpenShare,
+  onOpenIconPicker,
 }: RowProps) {
   const t = useTranslations('notes.folderActions');
   const tShare = useTranslations('notes.share');
+  const tIcons = useTranslations('notes.folderIcons');
   return (
     <div
       role="treeitem"
@@ -512,6 +546,23 @@ function FolderRow({
         </button>
       ) : (
         <span aria-hidden="true" className="inline-block h-4 w-4" />
+      )}
+
+      {onOpenIconPicker ? (
+        <button
+          type="button"
+          aria-label={tIcons('pickerLabel')}
+          title={tIcons('pickerLabel')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenIconPicker(e.currentTarget.getBoundingClientRect());
+          }}
+          className="hover:ring-accent inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm hover:ring-1"
+        >
+          <FolderIcon icon={row.icon} className="h-4 w-4" />
+        </button>
+      ) : (
+        <FolderIcon icon={row.icon} className="h-4 w-4 shrink-0" />
       )}
 
       {isRenaming && onCommitRename && onCancelRename ? (

@@ -41,6 +41,35 @@ const messages = {
       delete: 'Delete folder',
       cycle: "A folder can't be moved into one of its own descendants.",
     },
+    folderIcons: {
+      pickerLabel: 'Change folder icon',
+      names: {
+        folder: 'Folder',
+        'folder-open': 'Open folder',
+        briefcase: 'Briefcase',
+        house: 'House',
+        user: 'Person',
+        users: 'People',
+        star: 'Star',
+        archive: 'Archive',
+        inbox: 'Inbox',
+        'file-text': 'Document',
+        'book-open': 'Book',
+        'graduation-cap': 'Education',
+        code: 'Code',
+        rocket: 'Rocket',
+        lightbulb: 'Idea',
+        calendar: 'Calendar',
+        'list-checks': 'Checklist',
+        heart: 'Heart',
+        flag: 'Flag',
+        image: 'Image',
+        music: 'Music',
+        wallet: 'Wallet',
+        globe: 'Globe',
+        mail: 'Mail',
+      },
+    },
     share: {
       shareFolderLabel: 'Share folder',
     },
@@ -751,5 +780,100 @@ describe('FolderTree (share control)', () => {
     );
     fireEvent.click(within(container).getByRole('button', { name: 'Share folder' }));
     expect(onOpenShare).toHaveBeenCalledWith({ kind: 'folder', id: 'f1' });
+  });
+});
+
+describe('FolderTree — folder icons', () => {
+  beforeEach(() => {
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  it('renders an icon button for each folder when mutations.onSetIcon is given', () => {
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onSetIcon: vi.fn(async () => undefined),
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    const iconBtns = within(container).getAllByLabelText('Change folder icon');
+    expect(iconBtns.length).toBe(fixture.length);
+  });
+
+  it('opens the picker when the icon button is clicked, without selecting the folder', () => {
+    const onSelect = vi.fn();
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onSetIcon: vi.fn(async () => undefined),
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={onSelect}
+          mutations={mutations}
+        />,
+      ),
+    );
+    const firstIconBtn = within(container).getAllByLabelText(
+      'Change folder icon',
+    )[0] as HTMLElement;
+    fireEvent.click(firstIconBtn);
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it('renders the icon without a button when the tree is read-only', () => {
+    const { container } = render(
+      wrap(<FolderTree folders={fixture} selectedId={null} onSelect={() => undefined} />),
+    );
+    expect(within(container).queryByLabelText('Change folder icon')).toBeNull();
+    // An svg should still be present in the row (the non-interactive icon)
+    expect(container.querySelector('svg')).not.toBeNull();
+  });
+
+  it('calls onSetIcon when an icon is picked', async () => {
+    const onSetIcon = vi.fn().mockResolvedValue(undefined);
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onSetIcon,
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+    // Click the icon button for the first rendered folder (clients)
+    const firstIconBtn = within(container).getAllByLabelText(
+      'Change folder icon',
+    )[0] as HTMLElement;
+    fireEvent.click(firstIconBtn);
+
+    // The picker portals into document.body
+    const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog).not.toBeNull();
+
+    // Click the rocket icon cell
+    const rocketBtn = dialog.querySelector('[data-icon="rocket"]') as HTMLElement;
+    expect(rocketBtn).not.toBeNull();
+    fireEvent.click(rocketBtn);
+
+    await waitFor(() => expect(onSetIcon).toHaveBeenCalledWith('clients', 'rocket'));
   });
 });
