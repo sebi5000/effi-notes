@@ -102,6 +102,11 @@ export const notesApi = {
       body: JSON.stringify(input),
       ...(fetcher ? { fetcher } : {}),
     }),
+  duplicate: (id: string, fetcher?: typeof fetch): Promise<NoteListItem> =>
+    request(`/api/notes/${id}/duplicate`, {
+      method: 'POST',
+      ...(fetcher ? { fetcher } : {}),
+    }),
 };
 
 export const foldersApi = {
