@@ -12,6 +12,7 @@ import { ApiError, assetsApi } from '@/lib/notes/api-client.ts';
 import { Callout } from './CalloutExtension.ts';
 import { NoteImage } from './ImageExtension.ts';
 import { PdfChipNode } from './PdfChipExtension.ts';
+import { tableExtensions } from './TableExtension.ts';
 
 type AwarenessLike = {
   setLocalStateField: (field: string, value: unknown) => void;
@@ -87,6 +88,7 @@ export const buildExtensions = (input: {
     Callout,
     NoteImage,
     PdfChipNode,
+    ...tableExtensions,
     FileHandler.configure({
       allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'],
       onDrop: (currentEditor, files, pos) => {
