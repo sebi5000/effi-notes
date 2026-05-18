@@ -48,6 +48,15 @@
       "loading": "Loading…",
       "collapseSidebar": "Collapse sidebar"
     },
+    "sharedWithMe": {
+      "heading": "Shared with me",
+      "sharedBy": "Shared by {name}",
+      "accessView": "View",
+      "accessEdit": "Can edit",
+      "unseenLabel": "Not opened yet",
+      "expandFolder": "Expand folder",
+      "collapseFolder": "Collapse folder"
+    },
     "folderActions": {
       "newFolder": "New folder",
       "newFolderPlaceholder": "Folder name",

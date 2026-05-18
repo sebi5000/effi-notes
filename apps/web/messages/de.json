@@ -48,6 +48,15 @@
       "loading": "Wird geladen…",
       "collapseSidebar": "Seitenleiste einklappen"
     },
+    "sharedWithMe": {
+      "heading": "Mit mir geteilt",
+      "sharedBy": "Geteilt von {name}",
+      "accessView": "Ansehen",
+      "accessEdit": "Bearbeiten",
+      "unseenLabel": "Noch nicht geöffnet",
+      "expandFolder": "Ordner ausklappen",
+      "collapseFolder": "Ordner einklappen"
+    },
     "folderActions": {
       "newFolder": "Neuer Ordner",
       "newFolderPlaceholder": "Ordnername",
