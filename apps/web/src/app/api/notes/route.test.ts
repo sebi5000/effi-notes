@@ -14,6 +14,7 @@ import {
   authedAs,
   cleanupNotesDomain,
   makeTestNote,
+  makeTestShare,
   makeTestUser,
   unauthed,
 } from '@/lib/api/test-session.ts';
@@ -112,6 +113,58 @@ describe('GET /api/notes', () => {
     setAuthed(user);
     const res = await GET(new Request('http://localhost/api/notes?limit=not-a-number'));
     expect(res.status).toBe(400);
+  });
+
+  it('tags a directly-shared note with sharedWithMe', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const note = await prisma.note.create({
+      data: { title: 'api-test-shared-note', body: '', authorId: owner.id },
+    });
+    await makeTestShare({
+      noteId: note.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+    });
+    setAuthed(grantee);
+    const res = await GET(new Request('http://localhost/api/notes'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      notes: Array<{ id: string; sharedWithMe?: { access: string } }>;
+    };
+    expect(body.notes.find((n) => n.id === note.id)?.sharedWithMe?.access).toBe('VIEW');
+  });
+
+  it('does not tag a note that is only inside a shared folder', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-shared-folder-container', ownerId: owner.id },
+    });
+    const note = await prisma.note.create({
+      data: {
+        title: 'api-test-note-inside-shared-folder',
+        body: '',
+        authorId: owner.id,
+        folderId: folder.id,
+      },
+    });
+    await makeTestShare({
+      folderId: folder.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+    });
+    setAuthed(grantee);
+    const res = await GET(new Request('http://localhost/api/notes'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      notes: Array<{ id: string; sharedWithMe?: { access: string } }>;
+    };
+    const found = body.notes.find((n) => n.id === note.id);
+    expect(found).toBeDefined();
+    expect(found?.sharedWithMe).toBeUndefined();
   });
 
   it('returns a snippet derived from the body, not the full body', async () => {

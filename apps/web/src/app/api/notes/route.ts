@@ -3,33 +3,57 @@ import { recordAudit } from '@app/db/audit';
 import { createLogger } from '@app/observability/logger';
 import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
-import { createNoteSchema, listNotesQuerySchema, type NoteListItem } from '@/lib/api/schemas.ts';
-import { canEdit, listAccessibleScope, resolveFolderAccess } from '@/lib/notes/access.ts';
+import {
+  createNoteSchema,
+  listNotesQuerySchema,
+  type NoteListItem,
+  type SharedWithMe,
+} from '@/lib/api/schemas.ts';
+import {
+  canEdit,
+  type DirectShare,
+  listAccessibleScope,
+  resolveFolderAccess,
+} from '@/lib/notes/access.ts';
 import { toSnippet } from '@/lib/notes/snippet.ts';
 
 const log = createLogger({ component: 'api.notes' });
 
-const toListItem = (n: {
-  id: string;
-  title: string;
-  body: string;
-  folderId: string | null;
-  authorId: string;
-  archivedAt: Date | null;
-  updatedAt: Date;
-  tags: Array<{ tag: { id: string; name: string; color: string | null } }>;
-  _count: { shares: number };
-}): NoteListItem => ({
-  id: n.id,
-  title: n.title,
-  snippet: toSnippet(n.body),
-  folderId: n.folderId,
-  authorId: n.authorId,
-  archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
-  updatedAt: n.updatedAt.toISOString(),
-  tags: n.tags.map((t) => t.tag),
-  shareCount: n._count.shares,
+const toSharedWithMe = (ds: DirectShare): SharedWithMe => ({
+  shareId: ds.shareId,
+  sharedByName: ds.sharedByName,
+  access: ds.access,
+  seenAt: ds.seenAt === null ? null : ds.seenAt.toISOString(),
 });
+
+const toListItem = (
+  n: {
+    id: string;
+    title: string;
+    body: string;
+    folderId: string | null;
+    authorId: string;
+    archivedAt: Date | null;
+    updatedAt: Date;
+    tags: Array<{ tag: { id: string; name: string; color: string | null } }>;
+    _count: { shares: number };
+  },
+  directShares?: Map<string, DirectShare>,
+): NoteListItem => {
+  const ds = directShares?.get(n.id);
+  return {
+    id: n.id,
+    title: n.title,
+    snippet: toSnippet(n.body),
+    folderId: n.folderId,
+    authorId: n.authorId,
+    archivedAt: n.archivedAt ? n.archivedAt.toISOString() : null,
+    updatedAt: n.updatedAt.toISOString(),
+    tags: n.tags.map((t) => t.tag),
+    shareCount: n._count.shares,
+    ...(ds === undefined ? {} : { sharedWithMe: toSharedWithMe(ds) }),
+  };
+};
 
 export const GET = async (req: Request): Promise<Response> => {
   const user = await requireSession();
@@ -90,7 +114,7 @@ export const GET = async (req: Request): Promise<Response> => {
         take: limit,
         skip: offset,
       });
-      return jsonOk({ notes: notes.map(toListItem) });
+      return jsonOk({ notes: notes.map((n) => toListItem(n, scope.directShares)) });
     },
   );
 };

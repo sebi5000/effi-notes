@@ -14,6 +14,7 @@ import {
   authedAs,
   cleanupNotesDomain,
   makeTestFolder,
+  makeTestShare,
   makeTestUser,
   unauthed,
 } from '@/lib/api/test-session.ts';
@@ -50,6 +51,43 @@ describe('GET /api/folders', () => {
     expect(body.folders.map((f) => f.name)).toEqual(
       expect.arrayContaining(['api-test-A', 'api-test-B']),
     );
+  });
+
+  it('tags a folder shared with the user with sharedWithMe', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-shared-folder', ownerId: owner.id },
+    });
+    await makeTestShare({
+      folderId: folder.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'EDIT',
+    });
+    setAuthed(grantee);
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      folders: Array<{ id: string; sharedWithMe?: { access: string; seenAt: string | null } }>;
+    };
+    const node = body.folders.find((f) => f.id === folder.id);
+    expect(node?.sharedWithMe).toBeDefined();
+    expect(node?.sharedWithMe?.access).toBe('EDIT');
+    expect(node?.sharedWithMe?.seenAt).toBeNull();
+  });
+
+  it("does not tag the owner's own folder with sharedWithMe", async () => {
+    const { user } = await makeTestUser();
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-own-folder', ownerId: user.id },
+    });
+    setAuthed(user);
+    const res = await GET();
+    const body = (await res.json()) as {
+      folders: Array<{ id: string; sharedWithMe?: unknown }>;
+    };
+    expect(body.folders.find((f) => f.id === folder.id)?.sharedWithMe).toBeUndefined();
   });
 });
 

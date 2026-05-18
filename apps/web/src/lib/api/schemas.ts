@@ -121,6 +121,7 @@ export type NoteListItem = {
   updatedAt: string;
   tags: Array<{ id: string; name: string; color: string | null }>;
   shareCount: number;
+  sharedWithMe?: SharedWithMe;
 };
 
 export type NoteDetail = NoteListItem & {
@@ -139,6 +140,7 @@ export type FolderNode = {
   createdAt: string;
   updatedAt: string;
   shareCount: number;
+  sharedWithMe?: SharedWithMe;
 };
 
 export type TagItem = {
@@ -184,6 +186,15 @@ export type ShareView = {
   expiresAt: string | null;
   createdById: string;
   createdAt: string;
+};
+
+/** Present on a folder/note that is directly shared with the current user. */
+export type SharedWithMe = {
+  shareId: string;
+  sharedByName: string;
+  access: 'VIEW' | 'EDIT';
+  /** ISO timestamp the grantee first opened the resource, or null. */
+  seenAt: string | null;
 };
 
 export type UserSearchHit = { id: string; displayName: string | null; email: string };
