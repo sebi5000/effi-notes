@@ -34,6 +34,8 @@ type Props = {
   };
   /** When provided, a collapse button is shown in the sidebar header. */
   onCollapse?: () => void;
+  /** Called after the share dialog closes so the parent can refresh share counts. */
+  onSharesChanged?: () => void;
 };
 
 export function Sidebar({
@@ -50,6 +52,7 @@ export function Sidebar({
   folderMutations,
   noteMutations,
   onCollapse,
+  onSharesChanged,
 }: Props) {
   const t = useTranslations('notes.sidebar');
   const format = useFormatter();
@@ -285,7 +288,7 @@ export function Sidebar({
                               </div>
                             </div>
                           </button>
-                          <div className="absolute right-1 flex items-center gap-0.5">
+                          <div className="absolute right-1 top-1 flex items-center gap-0.5">
                             {noteMutations ? (
                               <>
                                 <button
@@ -316,7 +319,11 @@ export function Sidebar({
                               aria-label={tShare('shareNoteLabel')}
                               title={tShare('shareNoteLabel')}
                               onClick={() => setShareTarget({ kind: 'note', id: n.id })}
-                              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
+                              className={`text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] transition-colors ${
+                                n.shareCount > 0
+                                  ? ''
+                                  : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
+                              }`}
                             >
                               <span aria-hidden="true">👁</span>
                             </button>
@@ -334,7 +341,14 @@ export function Sidebar({
 
       {shareTarget !== null ? (
         // TODO: determine canManage based on ownership; API enforces 403 server-side
-        <ShareDialog scope={shareTarget} canManage={true} onClose={() => setShareTarget(null)} />
+        <ShareDialog
+          scope={shareTarget}
+          canManage={true}
+          onClose={() => {
+            setShareTarget(null);
+            onSharesChanged?.();
+          }}
+        />
       ) : null}
     </>
   );

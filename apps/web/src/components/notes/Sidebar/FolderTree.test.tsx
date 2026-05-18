@@ -781,6 +781,37 @@ describe('FolderTree (share control)', () => {
     fireEvent.click(within(container).getByRole('button', { name: 'Share folder' }));
     expect(onOpenShare).toHaveBeenCalledWith({ kind: 'folder', id: 'f1' });
   });
+
+  it('keeps the share button always visible (not hover-gated) for a shared folder', () => {
+    const sharedFolder = { ...f('s1', 'Shared'), shareCount: 2 };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={[sharedFolder]}
+          selectedId={null}
+          onSelect={() => undefined}
+          onOpenShare={vi.fn()}
+        />,
+      ),
+    );
+    const btn = within(container).getByRole('button', { name: 'Share folder' });
+    expect(btn.className.split(' ')).not.toContain('opacity-0');
+  });
+
+  it('hover-gates the share button for a folder with no shares', () => {
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={[f('f1', 'Not shared')]}
+          selectedId={null}
+          onSelect={() => undefined}
+          onOpenShare={vi.fn()}
+        />,
+      ),
+    );
+    const btn = within(container).getByRole('button', { name: 'Share folder' });
+    expect(btn.className.split(' ')).toContain('opacity-0');
+  });
 });
 
 describe('FolderTree — folder icons', () => {

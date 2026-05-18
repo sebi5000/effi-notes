@@ -470,6 +470,12 @@ const dropShadow: Record<DropMode, string | undefined> = {
   inside: undefined,
 };
 
+/**
+ * Row action buttons reveal on hover/focus — except the share button on an
+ * already-shared folder, which stays visible as an at-a-glance "shared" cue.
+ */
+const revealOnHover = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100';
+
 function FolderRow({
   row,
   isExpanded,
@@ -572,7 +578,7 @@ function FolderRow({
       )}
 
       {!isRenaming && (onRequestRename || onRequestDelete || onOpenShare) ? (
-        <span className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <span className="ml-auto flex items-center gap-1">
           {onOpenShare ? (
             <button
               type="button"
@@ -582,7 +588,9 @@ function FolderRow({
                 e.stopPropagation();
                 onOpenShare();
               }}
-              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] transition-colors"
+              className={`text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] transition-colors${
+                row.shareCount > 0 ? '' : ` ${revealOnHover}`
+              }`}
             >
               <span aria-hidden="true">👁</span>
             </button>
@@ -596,7 +604,7 @@ function FolderRow({
                 e.stopPropagation();
                 onRequestRename();
               }}
-              className="text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px]"
+              className={`text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] ${revealOnHover}`}
             >
               ✎
             </button>
@@ -610,7 +618,7 @@ function FolderRow({
                 e.stopPropagation();
                 onRequestDelete();
               }}
-              className="text-muted-foreground/70 hover:text-danger inline-flex h-5 w-5 items-center justify-center rounded text-[10px]"
+              className={`text-muted-foreground/70 hover:text-danger inline-flex h-5 w-5 items-center justify-center rounded text-[10px] ${revealOnHover}`}
             >
               ✕
             </button>

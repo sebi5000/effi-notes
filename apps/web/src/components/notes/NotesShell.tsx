@@ -167,6 +167,12 @@ export function NotesShell({
     }
   }, []);
 
+  // A share granted/revoked in the dialog changes `shareCount` server-side; re-pull
+  // folders + notes so the row "shared" indicator reflects it without a reload.
+  const handleSharesChanged = useCallback(async () => {
+    await Promise.all([refreshFolders(), refreshNotes()]);
+  }, [refreshFolders, refreshNotes]);
+
   const handleCreateFolder = useCallback(
     async (name: string, parentId: string | null) => {
       await foldersApi.create({
@@ -293,6 +299,7 @@ export function NotesShell({
           onSelectFolder={selectFolder}
           onSelectNote={openNote}
           onCollapse={toggleSidebar}
+          onSharesChanged={handleSharesChanged}
           folderMutations={{
             onCreate: handleCreateFolder,
             onRename: handleRenameFolder,

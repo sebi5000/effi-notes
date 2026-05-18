@@ -426,6 +426,69 @@ describe('Sidebar — share control on note rows', () => {
     // ShareDialog should be open — it has role="dialog"
     expect(within(container).getByRole('dialog')).toBeTruthy();
   });
+
+  it('keeps the share button always visible (not hover-gated) for a shared note', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[sharedNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    const btn = within(container).getByRole('button', { name: 'Share note' });
+    expect(btn.className.split(' ')).not.toContain('opacity-0');
+  });
+
+  it('hover-gates the share button for a note with no shares', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[unsharedNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+        />,
+      ),
+    );
+    const btn = within(container).getByRole('button', { name: 'Share note' });
+    expect(btn.className.split(' ')).toContain('opacity-0');
+  });
+
+  it('closing the share dialog notifies the parent via onSharesChanged', () => {
+    const onSharesChanged = vi.fn();
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[unsharedNote]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          onSharesChanged={onSharesChanged}
+        />,
+      ),
+    );
+    fireEvent.click(within(container).getByRole('button', { name: 'Share note' }));
+    fireEvent.click(within(container).getByRole('button', { name: 'Close' }));
+    expect(onSharesChanged).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('Sidebar — note mutations', () => {
