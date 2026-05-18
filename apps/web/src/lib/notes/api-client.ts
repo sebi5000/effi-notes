@@ -198,6 +198,11 @@ export const sharesApi = {
       method: 'DELETE',
       ...(fetcher ? { fetcher } : {}),
     }),
+  markSeen: (shareId: string, fetcher?: typeof fetch): Promise<{ marked: true }> =>
+    request(`/api/shares/${shareId}/seen`, {
+      method: 'POST',
+      ...(fetcher ? { fetcher } : {}),
+    }),
 };
 
 export const usersApi = {
