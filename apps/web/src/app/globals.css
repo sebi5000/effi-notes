@@ -146,6 +146,34 @@
   text-decoration-color: var(--color-accent-soft);
   text-underline-offset: 3px;
 }
+/* Tables. `prosemirror-tables` needs fixed layout + a wrapper for horizontal
+ * overflow; it also tags a cell selection with `.selectedCell`. Column
+ * resizing is disabled, so no resize-handle styling. */
+.prose-paper .tableWrapper {
+  overflow-x: auto;
+}
+.prose-paper :where(table) {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+}
+.prose-paper :where(th, td) {
+  border: 1px solid var(--color-paper-line);
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+  text-align: left;
+  min-width: 3em;
+}
+.prose-paper :where(th) {
+  background: var(--color-muted);
+  font-weight: 600;
+}
+.prose-paper .selectedCell {
+  background: var(--color-accent-soft);
+}
+.prose-paper :where(th, td) > :where(p):last-child {
+  margin-bottom: 0;
+}
 .prose-paper :where(ul, ol) {
   padding-left: 1.5em;
 }
