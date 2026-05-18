@@ -4,10 +4,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
-import { foldersApi, notesApi, tagsApi } from '@/lib/notes/api-client.ts';
+import { foldersApi, notesApi, sharesApi, tagsApi } from '@/lib/notes/api-client.ts';
 import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
 import type { FolderIcon } from '@/lib/notes/folder-icons.ts';
 import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
+import { partitionSharedFolders } from '@/lib/notes/shared-folders.ts';
 import { tagColor } from '@/lib/notes/tag-color.ts';
 import { useSidebarCollapsed } from '@/lib/notes/use-sidebar-collapsed.ts';
 import {
@@ -102,6 +103,13 @@ export function NotesShell({
   );
   const [pending, setPending] = useState(filterActive);
 
+  const { own: ownFolders, shared: sharedFolders } = useMemo(
+    () => partitionSharedFolders(folders),
+    [folders],
+  );
+  const sharedNotes = useMemo(() => notes.filter((n) => n.sharedWithMe !== undefined), [notes]);
+  const ownNotes = useMemo(() => notes.filter((n) => n.sharedWithMe === undefined), [notes]);
+
   const notesReqRef = useRef(0);
 
   // Cancel-safe list fetch — a stale request never overwrites a newer one.
@@ -138,17 +146,44 @@ export function NotesShell({
     [router, pathname],
   );
 
+  const markShareSeen = useCallback(
+    (share: { shareId: string; seenAt: string | null } | undefined) => {
+      if (share === undefined || share.seenAt !== null) return;
+      void sharesApi.markSeen(share.shareId).catch(() => {
+        // a failed mark-seen self-heals: the next fetch still reports it unseen
+      });
+      const seenAt = new Date().toISOString();
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.sharedWithMe?.shareId === share.shareId
+            ? { ...f, sharedWithMe: { ...f.sharedWithMe, seenAt } }
+            : f,
+        ),
+      );
+      setNotes((prev) =>
+        prev.map((n) =>
+          n.sharedWithMe?.shareId === share.shareId
+            ? { ...n, sharedWithMe: { ...n.sharedWithMe, seenAt } }
+            : n,
+        ),
+      );
+    },
+    [],
+  );
+
   const selectFolder = useCallback(
     (id: string | null) => {
       if (id === null) setQuery('');
       else setQuery(`/${folderPath(folders, id)}`);
+      markShareSeen(folders.find((f) => f.id === id)?.sharedWithMe);
     },
-    [setQuery, folders],
+    [setQuery, folders, markShareSeen],
   );
 
   const openNote = useCallback(
     async (id: string) => {
       router.push(`/notes/${id}${qSuffix(query)}`);
+      markShareSeen(notes.find((n) => n.id === id)?.sharedWithMe);
       try {
         const detail = await notesApi.get(id);
         setNoteDetail(detail);
@@ -156,7 +191,7 @@ export function NotesShell({
         // ignore — the destination page re-fetches server-side
       }
     },
-    [router, query],
+    [router, query, notes, markShareSeen],
   );
 
   const refreshFolders = useCallback(async () => {
@@ -297,10 +332,12 @@ export function NotesShell({
       )}
       <div className="overflow-hidden">
         <Sidebar
-          folders={folders}
+          folders={ownFolders}
           tags={tags}
-          notes={notes}
+          notes={ownNotes}
           pending={pending}
+          sharedFolders={sharedFolders}
+          sharedNotes={sharedNotes}
           query={query}
           selectedFolderId={folderId}
           selectedNoteId={noteDetail?.id ?? null}

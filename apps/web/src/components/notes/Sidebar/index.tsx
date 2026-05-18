@@ -1,12 +1,13 @@
 'use client';
 
 import { useFormatter, useNow, useTranslations } from 'next-intl';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
 import { ShareDialog } from '../Share/ShareDialog.tsx';
 import { CommandBar } from './CommandBar.tsx';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
+import { SharedWithMe } from './SharedWithMe.tsx';
 
 type ShareTarget = { kind: 'note' | 'folder'; id: string };
 
@@ -36,6 +37,10 @@ type Props = {
   onCollapse?: () => void;
   /** Called after the share dialog closes so the parent can refresh share counts. */
   onSharesChanged?: () => void;
+  /** Folders reached via a share — rendered in the "Shared with me" section. */
+  sharedFolders?: ReadonlyArray<FolderNode>;
+  /** Directly-shared notes — rendered in the "Shared with me" section. */
+  sharedNotes?: ReadonlyArray<NoteListItem>;
 };
 
 export function Sidebar({
@@ -53,6 +58,8 @@ export function Sidebar({
   noteMutations,
   onCollapse,
   onSharesChanged,
+  sharedFolders = [],
+  sharedNotes = [],
 }: Props) {
   const t = useTranslations('notes.sidebar');
   const format = useFormatter();
@@ -67,6 +74,8 @@ export function Sidebar({
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [draggingNoteId, setDraggingNoteId] = useState<string | null>(null);
+
+  const commandBarFolders = useMemo(() => [...folders, ...sharedFolders], [folders, sharedFolders]);
 
   const submitCreate = async () => {
     if (!folderMutations) return;
@@ -110,7 +119,7 @@ export function Sidebar({
           value={query}
           onChange={onQueryChange}
           onSelect={onSelectNote}
-          folders={folders}
+          folders={commandBarFolders}
           tags={tags}
         />
 
@@ -191,6 +200,15 @@ export function Sidebar({
                 {createError}
               </div>
             ) : null}
+
+            <SharedWithMe
+              sharedFolders={sharedFolders}
+              sharedNotes={sharedNotes}
+              selectedFolderId={selectedFolderId}
+              selectedNoteId={selectedNoteId}
+              onSelectFolder={onSelectFolder}
+              onSelectNote={onSelectNote}
+            />
           </section>
 
           <section

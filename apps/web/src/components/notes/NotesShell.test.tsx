@@ -137,6 +137,15 @@ const messages = {
       expiryValue: 'Expiry duration',
       expiryUnit: 'Expiry unit',
     },
+    sharedWithMe: {
+      heading: 'Shared with me',
+      sharedBy: 'Shared by {name}',
+      accessView: 'View',
+      accessEdit: 'Can edit',
+      unseenLabel: 'Not opened yet',
+      expandFolder: 'Expand folder',
+      collapseFolder: 'Collapse folder',
+    },
   },
 } as const;
 
@@ -298,5 +307,55 @@ describe('NotesShell — pointer drag updates the column width', () => {
     expect(widthPx).toBeGreaterThan(480);
     // userSelect should be cleared
     expect(document.body.style.userSelect).toBe('');
+  });
+});
+
+describe('NotesShell — Shared with me section', () => {
+  it('surfaces a shared folder in the Shared with me section', () => {
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+
+    const ownFolder = {
+      id: 'f-own',
+      name: 'My Own Folder',
+      parentId: null,
+      icon: 'folder',
+      position: 0,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      shareCount: 0,
+    };
+    const sharedFolder = {
+      id: 'f-shared',
+      name: 'Alice Shared Folder',
+      parentId: null,
+      icon: 'folder',
+      position: 0,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      shareCount: 0,
+      sharedWithMe: {
+        shareId: 's1',
+        sharedByName: 'Alice',
+        access: 'EDIT' as const,
+        seenAt: null,
+      },
+    };
+
+    const { getByRole, getByText } = render(
+      wrap(<NotesShell {...defaultProps} folders={[ownFolder, sharedFolder]} />),
+    );
+
+    // The "Shared with me" section heading must be present
+    const sharedSection = getByRole('region', { name: 'Shared with me' });
+    expect(sharedSection).not.toBeNull();
+
+    // The shared folder's name appears inside that section
+    expect(within(sharedSection).getByText('Alice Shared Folder')).not.toBeNull();
+
+    // The own folder's name is NOT inside the Shared with me section
+    expect(within(sharedSection).queryByText('My Own Folder')).toBeNull();
+
+    // The own folder's name IS present in the document (in the normal folder tree)
+    expect(getByText('My Own Folder')).not.toBeNull();
   });
 });
