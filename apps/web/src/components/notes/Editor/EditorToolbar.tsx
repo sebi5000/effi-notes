@@ -3,6 +3,7 @@
 import type { Editor } from '@tiptap/react';
 import { useTranslations } from 'next-intl';
 import { CalloutMenu } from './CalloutMenu.tsx';
+import { TableMenu } from './TableMenu.tsx';
 
 type Props = {
   editor: Editor | null;
@@ -13,9 +14,8 @@ type Props = {
  * Mirrors the bar from the spec screenshot: heading levels, lists, common
  * inline marks, blockquote and link.
  *
- * Image / table / colour-picker are deliberately omitted in v1:
+ * Image / colour-picker are deliberately omitted in v1:
  *   - image uploads need an asset store (out of scope per Phase D)
- *   - tables ship as a separate Tiptap extension we haven't added
  *
  * The toolbar is a presentation layer — it owns no state. `editor.isActive`
  * drives the active styling, and chained commands stay focused on the
@@ -139,6 +139,7 @@ export function EditorToolbar({ editor }: Props) {
 
         <Group>
           <CalloutMenu editor={editor} />
+          <TableMenu editor={editor} />
         </Group>
       </div>
     </div>

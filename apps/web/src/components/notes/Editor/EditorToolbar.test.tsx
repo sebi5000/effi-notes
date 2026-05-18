@@ -34,6 +34,17 @@ const messages = {
       link: 'Link',
       linkPrompt: 'Link URL',
     },
+    editorTable: {
+      insertTable: 'Insert table',
+      rowAbove: 'Insert row above',
+      rowBelow: 'Insert row below',
+      deleteRow: 'Delete row',
+      columnLeft: 'Insert column left',
+      columnRight: 'Insert column right',
+      deleteColumn: 'Delete column',
+      toggleHeader: 'Toggle header row',
+      deleteTable: 'Delete table',
+    },
   },
 } as const;
 
@@ -195,5 +206,11 @@ describe('EditorToolbar', () => {
     const { editor } = makeEditor();
     const { container } = render(wrap(<EditorToolbar editor={editor} />));
     expect(within(container).getByLabelText('Insert callout')).toBeTruthy();
+  });
+
+  it('renders the table menu button', () => {
+    const { editor } = makeEditor();
+    const { container } = render(wrap(<EditorToolbar editor={editor} />));
+    expect(within(container).getByLabelText('Insert table')).toBeTruthy();
   });
 });
