@@ -105,11 +105,23 @@ export const resolveFolderAccess = async (
   return bestAccess(grants.map((g) => g.access));
 };
 
+/** Metadata about a single direct Share to the current user. */
+export type DirectShare = {
+  shareId: string;
+  /** The sharer's display name, or their email when no display name is set. */
+  sharedByName: string;
+  access: 'VIEW' | 'EDIT';
+  /** When the grantee first opened the resource, or null if not yet. */
+  seenAt: Date | null;
+};
+
 export type AccessibleScope = {
   /** Folder ids the user owns or has a share on, plus all descendants. */
   accessibleFolderIds: string[];
   /** Note ids shared directly with the user. */
   sharedNoteIds: string[];
+  /** Direct shares to the user, keyed by the shared folder/note id. */
+  directShares: Map<string, DirectShare>;
 };
 
 /**
@@ -122,11 +134,23 @@ export const listAccessibleScope = async (userId: string): Promise<AccessibleSco
     prisma.folder.findMany({ select: { id: true, parentId: true, ownerId: true } }),
     prisma.share.findMany({
       where: { granteeId: userId, folderId: { not: null }, AND: [activeShareWhere(now)] },
-      select: { folderId: true },
+      select: {
+        id: true,
+        folderId: true,
+        access: true,
+        seenAt: true,
+        createdBy: { select: { displayName: true, email: true } },
+      },
     }),
     prisma.share.findMany({
       where: { granteeId: userId, noteId: { not: null }, AND: [activeShareWhere(now)] },
-      select: { noteId: true },
+      select: {
+        id: true,
+        noteId: true,
+        access: true,
+        seenAt: true,
+        createdBy: { select: { displayName: true, email: true } },
+      },
     }),
   ]);
 
@@ -151,8 +175,31 @@ export const listAccessibleScope = async (userId: string): Promise<AccessibleSco
     for (const child of childrenOf.get(id) ?? []) queue.push(child);
   }
 
+  const directShares = new Map<string, DirectShare>();
+  for (const s of folderShares) {
+    // Narrows `folderId` to string — the query's `where` already excludes nulls.
+    if (s.folderId === null) continue;
+    directShares.set(s.folderId, {
+      shareId: s.id,
+      sharedByName: s.createdBy.displayName ?? s.createdBy.email,
+      access: s.access,
+      seenAt: s.seenAt,
+    });
+  }
+  for (const s of noteShares) {
+    // Narrows `noteId` to string — the query's `where` already excludes nulls.
+    if (s.noteId === null) continue;
+    directShares.set(s.noteId, {
+      shareId: s.id,
+      sharedByName: s.createdBy.displayName ?? s.createdBy.email,
+      access: s.access,
+      seenAt: s.seenAt,
+    });
+  }
+
   return {
     accessibleFolderIds: [...accessible],
     sharedNoteIds: noteShares.map((s) => s.noteId).filter((id): id is string => id !== null),
+    directShares,
   };
 };

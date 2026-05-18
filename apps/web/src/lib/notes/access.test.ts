@@ -162,6 +162,66 @@ describe('resolveFolderAccess', () => {
   });
 });
 
+describe('listAccessibleScope — directShares', () => {
+  it('returns share metadata for a folder shared with the user', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: owner.id });
+    const share = await makeTestShare({
+      folderId: folder.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'EDIT',
+    });
+
+    const scope = await listAccessibleScope(grantee.id);
+    const ds = scope.directShares.get(folder.id);
+    expect(ds).toBeDefined();
+    expect(ds?.shareId).toBe(share.id);
+    expect(ds?.access).toBe('EDIT');
+    expect(ds?.seenAt).toBeNull();
+    expect(ds?.sharedByName).toBe('Test User');
+  });
+
+  it('returns share metadata for a directly-shared note', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const note = await makeTestNote({ authorId: owner.id });
+    const share = await makeTestShare({
+      noteId: note.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+    });
+
+    const scope = await listAccessibleScope(grantee.id);
+    const ds = scope.directShares.get(note.id);
+    expect(ds?.shareId).toBe(share.id);
+    expect(ds?.access).toBe('VIEW');
+  });
+
+  it('has an empty directShares map for a user with no shares', async () => {
+    const { user } = await makeTestUser();
+    const scope = await listAccessibleScope(user.id);
+    expect(scope.directShares.size).toBe(0);
+  });
+
+  it('does not include an expired share in directShares', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const folder = await makeTestFolder({ ownerId: owner.id });
+    await makeTestShare({
+      folderId: folder.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    const scope = await listAccessibleScope(grantee.id);
+    expect(scope.directShares.has(folder.id)).toBe(false);
+  });
+});
+
 describe('listAccessibleScope', () => {
   it('includes owned folders and their descendants', async () => {
     const { user } = await makeTestUser();
