@@ -907,4 +907,42 @@ describe('FolderTree — folder icons', () => {
 
     await waitFor(() => expect(onSetIcon).toHaveBeenCalledWith('clients', 'rocket'));
   });
+
+  it('surfaces an icon-update failure in the alert region', async () => {
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+      onSetIcon: vi.fn().mockRejectedValue(new Error('icon boom')),
+    };
+    const { container } = render(
+      wrap(
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />,
+      ),
+    );
+
+    // Open the picker on the first folder (clients)
+    const firstIconBtn = within(container).getAllByLabelText(
+      'Change folder icon',
+    )[0] as HTMLElement;
+    fireEvent.click(firstIconBtn);
+
+    // The picker portals into document.body
+    const dialog = document.body.querySelector('[role="dialog"]') as HTMLElement;
+    expect(dialog).not.toBeNull();
+
+    // Click the rocket icon cell to trigger handlePickIcon
+    const rocketBtn = dialog.querySelector('[data-icon="rocket"]') as HTMLElement;
+    expect(rocketBtn).not.toBeNull();
+    fireEvent.click(rocketBtn);
+
+    // The rejected promise should route the error into the actionError alert region
+    await waitFor(() =>
+      expect(within(container).getByRole('alert').textContent).toContain('icon boom'),
+    );
+  });
 });
