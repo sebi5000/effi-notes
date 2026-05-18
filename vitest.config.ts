@@ -67,6 +67,8 @@ export default defineConfig({
         'apps/web/src/components/notes/Editor/EditorToolbar.tsx',
         'apps/web/src/components/notes/Editor/CalloutExtension.ts',
         'apps/web/src/components/notes/Editor/CalloutMenu.tsx',
+        'apps/web/src/components/notes/Editor/TableExtension.ts',
+        'apps/web/src/components/notes/Editor/TableMenu.tsx',
         'apps/web/src/components/notes/Editor/ImageExtension.ts',
         'apps/web/src/components/notes/Editor/ResizableImage.tsx',
         'apps/web/src/components/notes/Editor/PdfChipExtension.ts',
