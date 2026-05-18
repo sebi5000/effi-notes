@@ -78,4 +78,16 @@ describe('htmlToMarkdown', () => {
     const md = htmlToMarkdown('<a data-pdf-chip href="/api/assets/a1">report.pdf</a>');
     expect(md).toBe('[report.pdf](/api/assets/a1)');
   });
+
+  it('converts a table to a GFM Markdown table', () => {
+    const html =
+      '<table><tbody>' +
+      '<tr><th>Name</th><th>Role</th></tr>' +
+      '<tr><td>Ada</td><td>Lead</td></tr>' +
+      '</tbody></table>';
+    const md = htmlToMarkdown(html);
+    expect(md).toMatch(/\|\s*Name\s*\|\s*Role\s*\|/);
+    expect(md).toMatch(/\|\s*-+\s*\|\s*-+\s*\|/);
+    expect(md).toMatch(/\|\s*Ada\s*\|\s*Lead\s*\|/);
+  });
 });
