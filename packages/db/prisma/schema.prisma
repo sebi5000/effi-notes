@@ -201,6 +201,7 @@ model Share {
   expiresAt   DateTime?
   createdById String
   createdBy   User        @relation("share_creator", fields: [createdById], references: [id], onDelete: Cascade)
+  seenAt      DateTime?
   createdAt   DateTime    @default(now())
 
   @@unique([noteId, granteeId])
