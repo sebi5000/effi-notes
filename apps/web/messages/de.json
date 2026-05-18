@@ -170,6 +170,17 @@
       "link": "Link",
       "linkPrompt": "Link-URL (zum Entfernen leer lassen)"
     },
+    "editorTable": {
+      "insertTable": "Tabelle einfügen",
+      "rowAbove": "Zeile oberhalb einfügen",
+      "rowBelow": "Zeile unterhalb einfügen",
+      "deleteRow": "Zeile löschen",
+      "columnLeft": "Spalte links einfügen",
+      "columnRight": "Spalte rechts einfügen",
+      "deleteColumn": "Spalte löschen",
+      "toggleHeader": "Kopfzeile umschalten",
+      "deleteTable": "Tabelle löschen"
+    },
     "tagBar": {
       "addTag": "Tag",
       "removeTag": "Tag {name} entfernen",
