@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { foldersApi, notesApi, tagsApi } from '@/lib/notes/api-client.ts';
 import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
+import type { FolderIcon } from '@/lib/notes/folder-icons.ts';
 import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
 import { tagColor } from '@/lib/notes/tag-color.ts';
 import { useSidebarCollapsed } from '@/lib/notes/use-sidebar-collapsed.ts';
@@ -192,6 +193,14 @@ export function NotesShell({
     [refreshFolders],
   );
 
+  const handleSetFolderIcon = useCallback(
+    async (id: string, icon: FolderIcon) => {
+      await foldersApi.patch(id, { icon });
+      await refreshFolders();
+    },
+    [refreshFolders],
+  );
+
   const handleDeleteFolder = useCallback(
     async (id: string) => {
       await foldersApi.delete(id);
@@ -305,6 +314,7 @@ export function NotesShell({
             onRename: handleRenameFolder,
             onDelete: handleDeleteFolder,
             onReorder: handleReorderFolders,
+            onSetIcon: handleSetFolderIcon,
           }}
           noteMutations={{
             onCreate: handleCreateNote,

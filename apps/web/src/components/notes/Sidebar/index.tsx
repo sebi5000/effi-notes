@@ -178,6 +178,9 @@ export function Sidebar({
                       ...(folderMutations.onReorder
                         ? { onReorder: folderMutations.onReorder }
                         : {}),
+                      ...(folderMutations.onSetIcon
+                        ? { onSetIcon: folderMutations.onSetIcon }
+                        : {}),
                     },
                   }
                 : {})}
