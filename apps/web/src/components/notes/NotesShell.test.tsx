@@ -46,8 +46,12 @@ vi.mock('@/lib/notes/api-client.ts', () => ({
     }
   },
   collabApi: {},
+  sharesApi: {
+    markSeen: vi.fn().mockResolvedValue({ marked: true }),
+  },
 }));
 
+import { sharesApi } from '@/lib/notes/api-client.ts';
 // Import after mocks are established
 import { NotesShell } from './NotesShell.tsx';
 
@@ -64,6 +68,7 @@ beforeEach(() => {
   localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
   push.mockReset();
   replace.mockReset();
+  vi.mocked(sharesApi.markSeen).mockReset().mockResolvedValue({ marked: true });
   // stub pointer-capture APIs (not in jsdom)
   HTMLElement.prototype.setPointerCapture = vi.fn();
   HTMLElement.prototype.releasePointerCapture = vi.fn();
@@ -357,5 +362,37 @@ describe('NotesShell — Shared with me section', () => {
 
     // The own folder's name IS present in the document (in the normal folder tree)
     expect(getByText('My Own Folder')).not.toBeNull();
+  });
+
+  it('marks a shared folder seen when it is opened', () => {
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+
+    const sharedFolder = {
+      id: 'f-shared',
+      name: 'Alice Shared Folder',
+      parentId: null,
+      icon: 'folder',
+      position: 0,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      shareCount: 0,
+      sharedWithMe: {
+        shareId: 's1',
+        sharedByName: 'Alice',
+        access: 'EDIT' as const,
+        seenAt: null,
+      },
+    };
+
+    const { getByRole } = render(wrap(<NotesShell {...defaultProps} folders={[sharedFolder]} />));
+
+    const sharedSection = getByRole('region', { name: 'Shared with me' });
+    // The folder name lives inside a <button> — getByRole scopes to that button directly
+    const folderButton = within(sharedSection).getByRole('button', {
+      name: (_, el) => el.textContent?.includes('Alice Shared Folder') ?? false,
+    });
+    fireEvent.click(folderButton);
+
+    expect(vi.mocked(sharesApi.markSeen)).toHaveBeenCalledWith('s1');
   });
 });
