@@ -12,9 +12,10 @@ import {
 
 const log = createLogger({ component: 'api.folders' });
 
-const activeShareWhere = {
+// Evaluated per request so the "now" boundary is never frozen at module load.
+const activeShareWhere = () => ({
   OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-};
+});
 
 const toSharedWithMe = (ds: DirectShare): SharedWithMe => ({
   shareId: ds.shareId,
@@ -66,7 +67,7 @@ export const GET = async (): Promise<Response> => {
       icon: true,
       createdAt: true,
       updatedAt: true,
-      _count: { select: { shares: { where: activeShareWhere } } },
+      _count: { select: { shares: { where: activeShareWhere() } } },
     },
     orderBy: [{ parentId: 'asc' }, { position: 'asc' }, { name: 'asc' }],
   });
@@ -108,7 +109,7 @@ export const POST = async (req: Request): Promise<Response> => {
       icon: true,
       createdAt: true,
       updatedAt: true,
-      _count: { select: { shares: { where: activeShareWhere } } },
+      _count: { select: { shares: { where: activeShareWhere() } } },
     },
   });
   await recordAudit({

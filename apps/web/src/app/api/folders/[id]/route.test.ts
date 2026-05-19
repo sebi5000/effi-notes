@@ -65,6 +65,39 @@ describe('GET /api/folders/[id]', () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it('counts shares as expired at request time, not module-load time', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    const f = await prisma.folder.create({
+      data: { name: 'api-test-detail-expiry', ownerId: owner.id },
+    });
+    const realNow = Date.now();
+    // Share is still active "now" but expires within the hour.
+    await makeTestShare({
+      folderId: f.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'EDIT',
+      expiresAt: new Date(realNow + 60 * 60 * 1000),
+    });
+    setAuthed(owner);
+
+    // Jump two hours past the share's expiry. A stale module-level `new Date()`
+    // would still treat the share as active; a per-request `new Date()` won't.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(realNow + 2 * 60 * 60 * 1000);
+    try {
+      const res = await GET(new Request(`http://localhost/api/folders/${f.id}`), {
+        params: Promise.resolve({ id: f.id }),
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { shareCount: number };
+      expect(body.shareCount).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('PATCH /api/folders/[id]', () => {

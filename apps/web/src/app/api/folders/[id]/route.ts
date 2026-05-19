@@ -8,9 +8,10 @@ import { canEdit, canHardDelete, resolveFolderAccess } from '@/lib/notes/access.
 const log = createLogger({ component: 'api.folders.id' });
 type RouteContext = { params: Promise<{ id: string }> };
 
-const activeShareWhere = {
+// Evaluated per request so the "now" boundary is never frozen at module load.
+const activeShareWhere = () => ({
   OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-};
+});
 
 const toNode = (f: {
   id: string;
@@ -47,7 +48,7 @@ export const GET = async (_req: Request, ctx: RouteContext): Promise<Response> =
       icon: true,
       createdAt: true,
       updatedAt: true,
-      _count: { select: { shares: { where: activeShareWhere } } },
+      _count: { select: { shares: { where: activeShareWhere() } } },
     },
   });
   if (!folder) return jsonError(404, 'not found');
@@ -103,7 +104,7 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
       icon: true,
       createdAt: true,
       updatedAt: true,
-      _count: { select: { shares: { where: activeShareWhere } } },
+      _count: { select: { shares: { where: activeShareWhere() } } },
     },
   });
   log.info({ folderId: id, userId: user.id }, 'folder patched');
