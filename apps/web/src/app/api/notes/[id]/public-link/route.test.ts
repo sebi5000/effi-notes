@@ -80,12 +80,20 @@ describe('POST /api/notes/[id]/public-link', () => {
     setAuthed(user);
     const res = await POST(postReq(), ctx(note.id));
     expect(res.status).toBe(201);
-    const body = (await res.json()) as { token: string; url: string; expiresAt: string | null };
+    const body = (await res.json()) as {
+      id: string;
+      token: string;
+      url: string;
+      expiresAt: string | null;
+    };
     expect(body.token).toMatch(/^[A-Za-z0-9_-]{40,48}$/);
     expect(body.url).toBe(`/p/${body.token}`);
     expect(body.expiresAt).toBeNull();
 
-    const audits = await prisma.auditLog.findMany({ where: { action: 'publicLink.created' } });
+    // Scope by subject — auditLog is not cleaned between tests.
+    const audits = await prisma.auditLog.findMany({
+      where: { action: 'publicLink.created', subject: body.id },
+    });
     expect(audits.length).toBe(1);
   });
 
@@ -123,14 +131,17 @@ describe('DELETE /api/notes/[id]/public-link', () => {
     const { user } = await makeTestUser();
     const note = await makeTestNote({ authorId: user.id });
     setAuthed(user);
-    await POST(postReq(), ctx(note.id));
+    const created = (await (await POST(postReq(), ctx(note.id))).json()) as { id: string };
 
     const res = await DELETE(new Request('http://localhost/x'), ctx(note.id));
     expect(res.status).toBe(200);
     expect(((await res.json()) as { revoked: boolean }).revoked).toBe(true);
     expect(await prisma.publicLink.count({ where: { noteId: note.id } })).toBe(0);
 
-    const audits = await prisma.auditLog.findMany({ where: { action: 'publicLink.revoked' } });
+    // Scope by subject — auditLog is not cleaned between tests.
+    const audits = await prisma.auditLog.findMany({
+      where: { action: 'publicLink.revoked', subject: created.id },
+    });
     expect(audits.length).toBe(1);
   });
 
