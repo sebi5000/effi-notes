@@ -7,12 +7,16 @@ import { MAX_WIDTH, MIN_WIDTH } from '@/lib/notes/use-sidebar-width.ts';
 // ---------------------------------------------------------------------------
 // next/navigation stubs — NotesShell calls useRouter / usePathname / useSearchParams
 // ---------------------------------------------------------------------------
-const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
+const { push, replace, searchParamsRef } = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+  searchParamsRef: { current: new URLSearchParams('') },
+}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push, replace }),
   usePathname: () => '/notes',
-  useSearchParams: () => new URLSearchParams(''),
+  useSearchParams: () => searchParamsRef.current,
 }));
 
 // ---------------------------------------------------------------------------
@@ -51,7 +55,8 @@ vi.mock('@/lib/notes/api-client.ts', () => ({
   },
 }));
 
-import { sharesApi } from '@/lib/notes/api-client.ts';
+import type { NoteListItem } from '@/lib/api/schemas.ts';
+import { notesApi, sharesApi } from '@/lib/notes/api-client.ts';
 // Import after mocks are established
 import { NotesShell } from './NotesShell.tsx';
 
@@ -68,6 +73,8 @@ beforeEach(() => {
   localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
   push.mockReset();
   replace.mockReset();
+  searchParamsRef.current = new URLSearchParams('');
+  vi.mocked(notesApi.list).mockReset().mockResolvedValue({ notes: [] });
   vi.mocked(sharesApi.markSeen).mockReset().mockResolvedValue({ marked: true });
   // stub pointer-capture APIs (not in jsdom)
   HTMLElement.prototype.setPointerCapture = vi.fn();
@@ -394,5 +401,79 @@ describe('NotesShell — Shared with me section', () => {
     fireEvent.click(folderButton);
 
     expect(vi.mocked(sharesApi.markSeen)).toHaveBeenCalledWith('s1');
+  });
+
+  // A directly-shared note lives outside the recipient's own folders. The
+  // folder-scoped notes list (`refreshNotes`) drops it the moment a folder is
+  // selected — so the "Shared with me" section must source these notes from
+  // an unfiltered fetch, independent of the folder filter.
+  const sharedFolder = {
+    id: 'f-shared',
+    name: 'Alice Shared Folder',
+    parentId: null,
+    icon: 'folder',
+    position: 0,
+    createdAt: '2025-01-01T00:00:00.000Z',
+    updatedAt: '2025-01-01T00:00:00.000Z',
+    shareCount: 0,
+    sharedWithMe: {
+      shareId: 's-folder-1',
+      sharedByName: 'Alice',
+      access: 'EDIT' as const,
+      seenAt: null,
+    },
+  };
+  const directlySharedNote: NoteListItem = {
+    id: 'n-direct',
+    title: 'Alice Direct Note',
+    snippet: '',
+    folderId: null,
+    authorId: 'alice',
+    archivedAt: null,
+    updatedAt: '2025-01-02T00:00:00.000Z',
+    tags: [],
+    shareCount: 0,
+    sharedWithMe: {
+      shareId: 's-note-1',
+      sharedByName: 'Alice',
+      access: 'VIEW' as const,
+      seenAt: null,
+    },
+  };
+
+  /** Folder-scoped list is empty; the unfiltered list carries the shared note. */
+  const browseSharedFolder = () => {
+    searchParamsRef.current = new URLSearchParams(
+      `q=${encodeURIComponent('/Alice Shared Folder')}`,
+    );
+    vi.mocked(notesApi.list).mockImplementation(async (query) => {
+      if (query?.folderId !== undefined || query?.tagId !== undefined) {
+        return { notes: [] };
+      }
+      return { notes: [directlySharedNote] };
+    });
+  };
+
+  it('keeps a directly-shared note visible after a folder is selected', async () => {
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+    browseSharedFolder();
+
+    const { findByRole } = render(wrap(<NotesShell {...defaultProps} folders={[sharedFolder]} />));
+
+    const sharedSection = await findByRole('region', { name: 'Shared with me' });
+    expect(await within(sharedSection).findByText('Alice Direct Note')).not.toBeNull();
+  });
+
+  it('marks a directly-shared note seen when opened while a folder is selected', async () => {
+    localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
+    browseSharedFolder();
+
+    const { findByRole } = render(wrap(<NotesShell {...defaultProps} folders={[sharedFolder]} />));
+
+    const sharedSection = await findByRole('region', { name: 'Shared with me' });
+    const noteLabel = await within(sharedSection).findByText('Alice Direct Note');
+    fireEvent.click(noteLabel.closest('button') as HTMLElement);
+
+    expect(vi.mocked(sharesApi.markSeen)).toHaveBeenCalledWith('s-note-1');
   });
 });
