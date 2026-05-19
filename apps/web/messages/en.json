@@ -227,5 +227,12 @@
       "expiryValue": "Expiry duration",
       "expiryUnit": "Expiry unit"
     }
+  },
+  "public": {
+    "viewOnlyBadge": "Read-only · shared note",
+    "updatedAt": "Updated {date}",
+    "notFoundTitle": "Link unavailable",
+    "notFoundBody": "This link is invalid, has expired, or has been revoked.",
+    "rateLimited": "Too many requests. Please try again in a moment."
   }
 }

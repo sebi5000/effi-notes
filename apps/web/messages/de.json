@@ -227,5 +227,12 @@
       "expiryValue": "Ablaufdauer",
       "expiryUnit": "Ablaufeinheit"
     }
+  },
+  "public": {
+    "viewOnlyBadge": "Schreibgeschützt · geteilte Notiz",
+    "updatedAt": "Aktualisiert {date}",
+    "notFoundTitle": "Link nicht verfügbar",
+    "notFoundBody": "Dieser Link ist ungültig, abgelaufen oder wurde widerrufen.",
+    "rateLimited": "Zu viele Anfragen. Bitte versuche es gleich noch einmal."
   }
 }
