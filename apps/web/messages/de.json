@@ -65,6 +65,8 @@
       "expand": "Ausklappen",
       "collapse": "Einklappen",
       "nameInputLabel": "Ordnername",
+      "copyLink": "Link kopieren",
+      "copyLinkCopied": "Link kopiert",
       "cycle": "Ein Ordner kann nicht in einen seiner Unterordner verschoben werden."
     },
     "folderIcons": {
@@ -100,7 +102,9 @@
       "newNote": "Neue Notiz",
       "renameNote": "Notiz umbenennen",
       "duplicateNote": "Notiz duplizieren",
-      "renameNotePlaceholder": "Notiztitel"
+      "renameNotePlaceholder": "Notiztitel",
+      "copyLink": "Link kopieren",
+      "copyLinkCopied": "Link kopiert"
     },
     "commandBar": {
       "label": "Notizen durchsuchen",
@@ -228,7 +232,20 @@
       "edit": "Bearbeiten",
       "expiryForever": "Kein Ablaufdatum",
       "expiryValue": "Ablaufdauer",
-      "expiryUnit": "Ablaufeinheit"
+      "expiryUnit": "Ablaufeinheit",
+      "publicLinkHeading": "Öffentlicher Link",
+      "publicLinkDescription": "Jeder mit diesem Link kann diese Notiz ohne Konto ansehen.",
+      "publicLinkGenerate": "Öffentlichen Link erstellen",
+      "publicLinkCopy": "Kopieren",
+      "publicLinkCopied": "Kopiert",
+      "publicLinkRevoke": "Link widerrufen"
     }
+  },
+  "public": {
+    "viewOnlyBadge": "Schreibgeschützt · geteilte Notiz",
+    "updatedAt": "Aktualisiert {date}",
+    "notFoundTitle": "Link nicht verfügbar",
+    "notFoundBody": "Dieser Link ist ungültig, abgelaufen oder wurde widerrufen.",
+    "rateLimited": "Zu viele Anfragen. Bitte versuche es gleich noch einmal."
   }
 }

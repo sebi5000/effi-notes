@@ -33,6 +33,7 @@ model User {
   ownedFolders   Folder[]      @relation("folder_owner")
   sharesReceived Share[]       @relation("share_grantee")
   sharesCreated  Share[]       @relation("share_creator")
+  publicLinks    PublicLink[]  @relation("publiclink_creator")
 
   @@index([email])
 }
@@ -100,6 +101,7 @@ model Note {
   history      NoteHistory[]
   assets       Asset[]
   shares       Share[]
+  publicLink   PublicLink?
   searchVector Unsupported("tsvector")?
 
   @@index([folderId, updatedAt])
@@ -209,5 +211,23 @@ model Share {
   @@index([granteeId])
   @@index([noteId])
   @@index([folderId])
+  @@index([expiresAt])
+}
+
+/// An explicit, account-less public link to a single Note (see ADR 0028).
+/// Anyone holding `token` may VIEW the note read-only until `expiresAt` passes
+/// or the row is deleted (revoke). At most one row per note — regenerating
+/// replaces it. Public links never grant edit access and are not modelled as
+/// `Share` rows because a public link has no grantee user.
+model PublicLink {
+  id          String    @id @default(cuid())
+  token       String    @unique
+  noteId      String    @unique
+  note        Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime?
+  createdById String
+  createdBy   User      @relation("publiclink_creator", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
   @@index([expiresAt])
 }

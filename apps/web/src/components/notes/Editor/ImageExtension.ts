@@ -1,35 +1,15 @@
-import Image from '@tiptap/extension-image';
 import { ReactNodeViewRenderer } from '@tiptap/react';
+import { NoteImageNode } from './image-node.ts';
 import { ResizableImage } from './ResizableImage.tsx';
 
 /**
- * The editor's image node — `@tiptap/extension-image` extended with a
- * numeric `width` (resize) and a `caption`, both round-tripping through
- * `data-*` HTML attributes, and rendered by the `ResizableImage` NodeView.
+ * The editor's image node — the server-safe `NoteImageNode` schema base
+ * (numeric `width` + `caption`) plus the `ResizableImage` React NodeView.
+ *
+ * The schema lives in `image-node.ts` so the public-note renderer can reuse
+ * it without pulling in React; only the NodeView is added here.
  */
-export const NoteImage = Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      width: {
-        default: null,
-        parseHTML: (element) => {
-          const raw = element.getAttribute('width') ?? element.getAttribute('data-width');
-          const n = raw === null ? Number.NaN : Number.parseInt(raw, 10);
-          return Number.isFinite(n) ? n : null;
-        },
-        renderHTML: (attributes) => (attributes.width ? { width: String(attributes.width) } : {}),
-      },
-      caption: {
-        default: '',
-        parseHTML: (element) =>
-          element.getAttribute('data-caption') ?? element.getAttribute('alt') ?? '',
-        renderHTML: (attributes) =>
-          attributes.caption ? { 'data-caption': String(attributes.caption) } : {},
-      },
-    };
-  },
-
+export const NoteImage = NoteImageNode.extend({
   addNodeView() {
     return ReactNodeViewRenderer(ResizableImage);
   },

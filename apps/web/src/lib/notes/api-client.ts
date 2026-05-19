@@ -7,6 +7,8 @@ import type {
   NoteListItem,
   PatchFolderInput,
   PatchNoteInput,
+  PublicLinkCreateInput,
+  PublicLinkView,
   PutNoteBodyInput,
   SearchHit,
   ShareCreateInput,
@@ -208,6 +210,27 @@ export const sharesApi = {
 export const usersApi = {
   search: (q: string, fetcher?: typeof fetch): Promise<{ users: UserSearchHit[] }> =>
     request(`/api/users?q=${encodeURIComponent(q)}`, fetcher ? { fetcher } : {}),
+};
+
+/** Manage a note's account-less public link (ADR 0028). */
+export const publicLinkApi = {
+  get: (noteId: string, fetcher?: typeof fetch): Promise<{ link: PublicLinkView | null }> =>
+    request(`/api/notes/${noteId}/public-link`, fetcher ? { fetcher } : {}),
+  create: (
+    noteId: string,
+    input: PublicLinkCreateInput,
+    fetcher?: typeof fetch,
+  ): Promise<PublicLinkView> =>
+    request(`/api/notes/${noteId}/public-link`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  revoke: (noteId: string, fetcher?: typeof fetch): Promise<{ revoked: boolean }> =>
+    request(`/api/notes/${noteId}/public-link`, {
+      method: 'DELETE',
+      ...(fetcher ? { fetcher } : {}),
+    }),
 };
 
 export const assetsApi = {

@@ -116,6 +116,8 @@ const messages = {
       newFolderPlaceholder: 'Folder name',
       rename: 'Rename folder',
       delete: 'Delete folder',
+      copyLink: 'Copy link',
+      copyLinkCopied: 'Link copied',
       cycle: 'Cycle detected.',
     },
     noteActions: {
@@ -123,6 +125,8 @@ const messages = {
       renameNote: 'Rename note',
       duplicateNote: 'Duplicate note',
       renameNotePlaceholder: 'Note title',
+      copyLink: 'Copy link',
+      copyLinkCopied: 'Link copied',
     },
     commandBar: {
       label: 'Search notes',

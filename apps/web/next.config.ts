@@ -10,6 +10,14 @@ const config: NextConfig = {
   experimental: {
     typedRoutes: true,
   },
+  // The account-less public note viewer must never be search-indexed
+  // (ADR 0028). The baseline security headers / CSP stay with Caddy.
+  headers: async () => [
+    {
+      source: '/p/:path*',
+      headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+    },
+  ],
 };
 
 export default withNextIntl(config);

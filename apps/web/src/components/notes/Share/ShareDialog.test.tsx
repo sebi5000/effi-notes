@@ -33,6 +33,12 @@ const messages = {
       expiryForever: 'Share forever',
       expiryValue: 'Duration value',
       expiryUnit: 'Duration unit',
+      publicLinkHeading: 'Public link',
+      publicLinkDescription: 'Anyone with this link can view this note without an account.',
+      publicLinkGenerate: 'Generate public link',
+      publicLinkCopy: 'Copy',
+      publicLinkCopied: 'Copied',
+      publicLinkRevoke: 'Revoke link',
     },
   },
 } as const;
@@ -118,6 +124,13 @@ function buildFetcher({
     // GET /api/users?q=... → user search
     if (method === 'GET' && url.includes('/api/users')) {
       return new Response(JSON.stringify({ users }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }
+    // GET /api/notes/:id/public-link → no public link by default
+    if (method === 'GET' && url.includes('/public-link')) {
+      return new Response(JSON.stringify({ link: null }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       });
@@ -255,5 +268,42 @@ describe('ShareDialog', () => {
     const closeBtn = screen.getByRole('button', { name: 'Close' });
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the public-link section for a note when canManage is true', async () => {
+    const fetcher = buildFetcher({ shares: [] });
+    render(
+      wrap(<ShareDialog scope={SCOPE} canManage={true} onClose={vi.fn()} fetcher={fetcher} />),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Generate public link' })).not.toBeNull(),
+    );
+  });
+
+  it('hides the public-link section for a folder scope', async () => {
+    const fetcher = buildFetcher({ shares: [] });
+    render(
+      wrap(
+        <ShareDialog
+          scope={{ kind: 'folder', id: 'folder-x' }}
+          canManage={true}
+          onClose={vi.fn()}
+          fetcher={fetcher}
+        />,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole('textbox', { name: 'Search users' })).not.toBeNull(),
+    );
+    expect(screen.queryByRole('button', { name: 'Generate public link' })).toBeNull();
+  });
+
+  it('hides the public-link section when canManage is false', async () => {
+    const fetcher = buildFetcher({ shares: [SHARE_1] });
+    render(
+      wrap(<ShareDialog scope={SCOPE} canManage={false} onClose={vi.fn()} fetcher={fetcher} />),
+    );
+    await waitFor(() => expect(screen.queryByText('Alice Anon')).not.toBeNull());
+    expect(screen.queryByRole('button', { name: 'Generate public link' })).toBeNull();
   });
 });

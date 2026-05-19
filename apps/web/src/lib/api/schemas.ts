@@ -197,6 +197,27 @@ export type SharedWithMe = {
   seenAt: string | null;
 };
 
+/** A public-link token: 256 bits of CSPRNG entropy, base64url-encoded — see ADR 0028. */
+export const publicLinkTokenSchema = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]{40,48}$/, 'invalid public-link token');
+
+/** Body of POST /api/notes/[id]/public-link — only an optional expiry. */
+export const publicLinkCreateSchema = z.object({
+  ttl: shareTtlSchema.optional(),
+});
+export type PublicLinkCreateInput = z.infer<typeof publicLinkCreateSchema>;
+
+/** A note's public link, as returned to a user who can manage it. */
+export type PublicLinkView = {
+  id: string;
+  token: string;
+  /** Absolute viewer URL, e.g. `https://host/p/<token>`. */
+  url: string;
+  expiresAt: string | null;
+  createdAt: string;
+};
+
 export type UserSearchHit = { id: string; displayName: string | null; email: string };
 
 /** Query params for `POST /api/notes/[id]/assets` — the raw file is the body. */

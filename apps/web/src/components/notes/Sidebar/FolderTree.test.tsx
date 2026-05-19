@@ -42,6 +42,8 @@ const messages = {
       expand: 'Expand',
       collapse: 'Collapse',
       nameInputLabel: 'Folder name',
+      copyLink: 'Copy link',
+      copyLinkCopied: 'Link copied',
       cycle: "A folder can't be moved into one of its own descendants.",
     },
     folderIcons: {

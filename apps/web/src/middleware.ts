@@ -9,6 +9,8 @@ import { safeRedirect } from '@/lib/safe-redirect';
  *   /login               — sign-in page
  *   /api/auth/*          — auth.js callbacks
  *   /api/health/*        — orchestrator probes (must answer without auth)
+ *   /p/*                 — account-less public note links (ADR 0028); the
+ *                          route resolves the token and self-rate-limits
  *   /_next/*, static     — Next.js internals (excluded by matcher below)
  *
  * Anything else → redirect to /login with `from` set so we can return.
@@ -19,7 +21,7 @@ import { safeRedirect } from '@/lib/safe-redirect';
  * simple and the failure mode obvious.
  */
 const PUBLIC_PATHS = new Set(['/', '/login']);
-const PUBLIC_PREFIXES = ['/api/auth/', '/api/health/'];
+const PUBLIC_PREFIXES = ['/api/auth/', '/api/health/', '/p/'];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;

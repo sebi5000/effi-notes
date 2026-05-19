@@ -16,6 +16,8 @@ import {
   isNoopReorder,
   moveSelection,
 } from '@/lib/notes/folder-tree.ts';
+import { folderInternalUrl } from '@/lib/notes/internal-url.ts';
+import { CopyLinkButton } from './CopyLinkButton.tsx';
 import { FolderIcon } from './FolderIcon.tsx';
 import { FolderIconPicker } from './FolderIconPicker.tsx';
 
@@ -390,6 +392,7 @@ export function FolderTree({
             onZoneDrop={onZoneDrop}
             onSelect={onSelect}
             onToggle={toggle}
+            copyLinkPath={folderInternalUrl(folders, row.id)}
             onOpenShare={
               onOpenShare ? () => onOpenShare({ kind: 'folder', id: row.id }) : undefined
             }
@@ -461,6 +464,8 @@ type RowProps = {
   onOpenShare?: (() => void) | undefined;
   /** When provided, the folder icon is a button that opens the icon picker. */
   onOpenIconPicker?: ((rect: DOMRect) => void) | undefined;
+  /** In-app path to this folder, for the "Copy link" action. */
+  copyLinkPath: string;
 };
 
 /** before/after → an inset accent line at the top/bottom edge (no layout shift). */
@@ -500,6 +505,7 @@ function FolderRow({
   onRequestDelete,
   onOpenShare,
   onOpenIconPicker,
+  copyLinkPath,
 }: RowProps) {
   const t = useTranslations('notes.folderActions');
   const tShare = useTranslations('notes.share');
@@ -577,8 +583,14 @@ function FolderRow({
         <span className="font-display flex-1 truncate">{row.name}</span>
       )}
 
-      {!isRenaming && (onRequestRename || onRequestDelete || onOpenShare) ? (
+      {!isRenaming ? (
         <span className="ml-auto flex items-center gap-1">
+          <CopyLinkButton
+            path={copyLinkPath}
+            label={t('copyLink')}
+            copiedLabel={t('copyLinkCopied')}
+            className={`text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] ${revealOnHover}`}
+          />
           {onOpenShare ? (
             <button
               type="button"

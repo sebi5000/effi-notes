@@ -67,17 +67,23 @@ export const rateLimit = async ({
 };
 
 /**
- * Best-effort client identifier for unauthenticated routes. Honours
+ * Best-effort client identifier from a Headers object. Honours
  * X-Forwarded-For (set by Caddy when AUTH_TRUST_HOST=true) and falls
  * back to a constant — never undefined, so the limiter still works.
  */
-export const clientIp = (req: Request): string => {
-  const xff = req.headers.get('x-forwarded-for');
+export const clientIpFromHeaders = (headers: Headers): string => {
+  const xff = headers.get('x-forwarded-for');
   if (xff) return xff.split(',')[0]?.trim() ?? 'unknown';
-  const real = req.headers.get('x-real-ip');
+  const real = headers.get('x-real-ip');
   if (real) return real;
   return 'unknown';
 };
+
+/**
+ * Best-effort client identifier for an unauthenticated route handler. Server
+ * components without a `Request` use `clientIpFromHeaders(await headers())`.
+ */
+export const clientIp = (req: Request): string => clientIpFromHeaders(req.headers);
 
 /**
  * Convenience response with standard rate-limit headers. Returns null
