@@ -83,6 +83,23 @@
   max-width: none;
 }
 
+/* The editor rail is a size container so the A4 sheet can scale to fit it
+ * (see the `@media screen` rule below). */
+.editor-rail {
+  container-type: inline-size;
+}
+
+/* On screen, scale the A4 sheet DOWN (never up) so the whole page fits the
+ * editor rail with no horizontal scrolling. `zoom` reflows layout — unlike
+ * `transform: scale` — so the shrunk sheet leaves no phantom scrollbar and no
+ * blank strip beside it. Excluded from print: the exported PDF stays a true
+ * 210mm A4 regardless of the on-screen scale. */
+@media screen {
+  .a4-sheet {
+    zoom: min(1, 100cqw / 210mm);
+  }
+}
+
 /* Print / PDF export: the sheet becomes the page. Drop the shadow + border,
  * let the browser's @page own the physical margins so the 20/22mm padding
  * isn't doubled. */

@@ -8,9 +8,11 @@ import * as Y from 'yjs';
 import type { TagItem } from '@/lib/api/schemas.ts';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { nextAutoTitle } from '@/lib/notes/auto-title.ts';
+import { DOC_PANEL_NARROW_QUERY } from '@/lib/notes/breakpoints.ts';
 import { deriveDocItems, referencedAssetIds } from '@/lib/notes/doc-outline.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
+import { useResponsiveCollapse } from '@/lib/notes/use-responsive-collapse.ts';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
 import { DeleteNoteButton } from './DeleteNoteButton.tsx';
 import { DocumentPanel } from './DocumentPanel.tsx';
@@ -206,7 +208,13 @@ function CollaborativeEditor({
   const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
   const [uploadError, setUploadError] = useState<UploadErrorDetail | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [panelOpen, togglePanel] = useDocPanel();
+  const [persistedPanelOpen, togglePersistedPanel] = useDocPanel();
+  const { collapsed: panelCollapsed, toggle: togglePanel } = useResponsiveCollapse({
+    query: DOC_PANEL_NARROW_QUERY,
+    collapsed: !persistedPanelOpen,
+    toggle: togglePersistedPanel,
+  });
+  const panelOpen = !panelCollapsed;
   const [currentTitle, setCurrentTitle] = useState(initialTitle);
 
   const editor = useEditor(
@@ -331,9 +339,10 @@ function CollaborativeEditor({
             </button>
           </div>
         ) : null}
-        {/* The A4 sheet has a fixed 210mm width — center it and let the rail
-            scroll horizontally on narrow viewports rather than clipping. */}
-        <EditorContent editor={editor} className="flex-1 overflow-x-auto pb-24" />
+        {/* The A4 sheet scales to fit the rail on narrow viewports (the `zoom`
+            rule in globals.css). `overflow-x-auto` is a safety net for browsers
+            that do not support `zoom` in `@media screen`. */}
+        <EditorContent editor={editor} className="editor-rail flex-1 overflow-x-auto pb-24" />
         <EditorToolbar editor={editor} />
       </div>
       {panelOpen ? (
