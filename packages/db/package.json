@@ -11,6 +11,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "generate": "bunx --bun prisma generate",
+    "validate": "bunx --bun prisma validate",
     "migrate:dev": "bunx --bun prisma migrate dev",
     "migrate:deploy": "bunx --bun prisma migrate deploy",
     "migrate:reset": "bunx --bun prisma migrate reset",

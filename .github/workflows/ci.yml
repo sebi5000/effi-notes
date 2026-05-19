@@ -38,7 +38,7 @@ jobs:
       - name: Validate Prisma schema
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=public
-        run: bun --filter @app/db exec bunx --bun prisma validate
+        run: bun --filter @app/db validate
 
       - name: Typecheck
         run: bun run typecheck
