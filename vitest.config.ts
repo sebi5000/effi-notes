@@ -100,6 +100,7 @@ export default defineConfig({
         '**/.next/**',
         '**/dist/**',
         'apps/web/src/lib/api/test-session.ts',
+        'apps/web/src/test-matchmedia.ts',
         'apps/worker/src/processors/sample-pdf.fixture.ts',
       ],
       thresholds: {
