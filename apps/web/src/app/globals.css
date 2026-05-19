@@ -484,7 +484,7 @@ input[type="search"]::-webkit-search-decoration {
 .doc-panel-link-row:hover {
   background: var(--color-paper-line, #e8e3d6);
 }
-.doc-panel-outline-row[aria-current='true'] {
+.doc-panel-outline-row[aria-current="true"] {
   color: var(--color-accent);
   font-weight: 600;
 }
