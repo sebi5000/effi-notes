@@ -229,7 +229,13 @@
       "edit": "Edit",
       "expiryForever": "No expiry",
       "expiryValue": "Expiry duration",
-      "expiryUnit": "Expiry unit"
+      "expiryUnit": "Expiry unit",
+      "publicLinkHeading": "Public link",
+      "publicLinkDescription": "Anyone with this link can view this note without an account.",
+      "publicLinkGenerate": "Generate public link",
+      "publicLinkCopy": "Copy",
+      "publicLinkCopied": "Copied",
+      "publicLinkRevoke": "Revoke link"
     }
   },
   "public": {

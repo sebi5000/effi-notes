@@ -229,7 +229,13 @@
       "edit": "Bearbeiten",
       "expiryForever": "Kein Ablaufdatum",
       "expiryValue": "Ablaufdauer",
-      "expiryUnit": "Ablaufeinheit"
+      "expiryUnit": "Ablaufeinheit",
+      "publicLinkHeading": "Öffentlicher Link",
+      "publicLinkDescription": "Jeder mit diesem Link kann diese Notiz ohne Konto ansehen.",
+      "publicLinkGenerate": "Öffentlichen Link erstellen",
+      "publicLinkCopy": "Kopieren",
+      "publicLinkCopied": "Kopiert",
+      "publicLinkRevoke": "Link widerrufen"
     }
   },
   "public": {

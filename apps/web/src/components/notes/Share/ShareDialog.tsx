@@ -6,6 +6,7 @@ import type { ShareTtl, UserSearchHit } from '@/lib/api/schemas.ts';
 import { usersApi } from '@/lib/notes/api-client.ts';
 import { debounce } from '@/lib/notes/debounce.ts';
 import { ExpiryPicker } from './ExpiryPicker.tsx';
+import { PublicLinkSection } from './PublicLinkSection.tsx';
 import { useShares } from './useShares.ts';
 
 type ShareScope = { kind: 'note' | 'folder'; id: string };
@@ -233,6 +234,11 @@ export function ShareDialog({ scope, canManage, onClose, fetcher }: Props) {
                 {t('add')}
               </button>
             </section>
+          )}
+
+          {/* Public link — note-only, managers only (ADR 0028) */}
+          {canManage && scope.kind === 'note' && (
+            <PublicLinkSection noteId={scope.id} fetcher={fetcher} />
           )}
         </div>
       </div>
