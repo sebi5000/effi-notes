@@ -62,6 +62,8 @@
       "newFolderPlaceholder": "Ordnername",
       "rename": "Ordner umbenennen",
       "delete": "Ordner löschen",
+      "copyLink": "Link kopieren",
+      "copyLinkCopied": "Link kopiert",
       "cycle": "Ein Ordner kann nicht in einen seiner Unterordner verschoben werden."
     },
     "folderIcons": {
@@ -97,7 +99,9 @@
       "newNote": "Neue Notiz",
       "renameNote": "Notiz umbenennen",
       "duplicateNote": "Notiz duplizieren",
-      "renameNotePlaceholder": "Notiztitel"
+      "renameNotePlaceholder": "Notiztitel",
+      "copyLink": "Link kopieren",
+      "copyLinkCopied": "Link kopiert"
     },
     "commandBar": {
       "label": "Notizen durchsuchen",

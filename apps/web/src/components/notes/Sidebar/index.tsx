@@ -4,8 +4,10 @@ import { useFormatter, useNow, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
+import { noteInternalUrl } from '@/lib/notes/internal-url.ts';
 import { ShareDialog } from '../Share/ShareDialog.tsx';
 import { CommandBar } from './CommandBar.tsx';
+import { CopyLinkButton } from './CopyLinkButton.tsx';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
 import { SharedWithMe } from './SharedWithMe.tsx';
 
@@ -335,6 +337,12 @@ export function Sidebar({
                                 </button>
                               </>
                             ) : null}
+                            <CopyLinkButton
+                              path={noteInternalUrl(n.id)}
+                              label={tNA('copyLink')}
+                              copiedLabel={tNA('copyLinkCopied')}
+                              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
+                            />
                             <button
                               type="button"
                               aria-label={tShare('shareNoteLabel')}

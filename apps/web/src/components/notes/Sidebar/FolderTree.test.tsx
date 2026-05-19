@@ -39,6 +39,8 @@ const messages = {
       newFolderPlaceholder: 'Folder name',
       rename: 'Rename folder',
       delete: 'Delete folder',
+      copyLink: 'Copy link',
+      copyLinkCopied: 'Link copied',
       cycle: "A folder can't be moved into one of its own descendants.",
     },
     folderIcons: {
