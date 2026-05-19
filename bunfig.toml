@@ -1,0 +1,8 @@
+# Bun runtime + package-manager config.
+#
+# [test] — this repo does NOT use Bun's native test runner. The suite runs on
+# Vitest (see CLAUDE.md → Testing). The preload below makes a stray `bun test`
+# fail fast with a clear message instead of ~80 misleading runner-mismatch
+# errors. The real command is `bun run test`, which invokes Vitest directly.
+[test]
+preload = ["./scripts/bun-test-guard.ts"]
