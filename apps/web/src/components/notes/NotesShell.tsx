@@ -5,11 +5,13 @@ import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FolderNode, NoteDetail, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { foldersApi, notesApi, sharesApi, tagsApi } from '@/lib/notes/api-client.ts';
+import { SIDEBAR_NARROW_QUERY } from '@/lib/notes/breakpoints.ts';
 import { parseCommand, resolveTagId } from '@/lib/notes/command.ts';
 import type { FolderIcon } from '@/lib/notes/folder-icons.ts';
 import { folderPath, resolveFolderPath } from '@/lib/notes/folder-tree.ts';
 import { partitionSharedFolders } from '@/lib/notes/shared-folders.ts';
 import { tagColor } from '@/lib/notes/tag-color.ts';
+import { useResponsiveCollapse } from '@/lib/notes/use-responsive-collapse.ts';
 import { useSidebarCollapsed } from '@/lib/notes/use-sidebar-collapsed.ts';
 import {
   DEFAULT_WIDTH,
@@ -49,7 +51,17 @@ export function NotesShell({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const t = useTranslations('notes.shell');
-  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed();
+  const [persistedCollapsed, togglePersistedCollapsed] = useSidebarCollapsed();
+  const {
+    collapsed: sidebarCollapsed,
+    toggle: toggleSidebar,
+    collapse: collapseSidebar,
+    isNarrow,
+  } = useResponsiveCollapse({
+    query: SIDEBAR_NARROW_QUERY,
+    collapsed: persistedCollapsed,
+    toggle: togglePersistedCollapsed,
+  });
   const [sidebarWidth, setSidebarWidth] = useSidebarWidth();
   const [dragWidth, setDragWidth] = useState<number | null>(null);
 
@@ -184,6 +196,7 @@ export function NotesShell({
     async (id: string) => {
       router.push(`/notes/${id}${qSuffix(query)}`);
       markShareSeen(notes.find((n) => n.id === id)?.sharedWithMe);
+      collapseSidebar();
       try {
         const detail = await notesApi.get(id);
         setNoteDetail(detail);
@@ -191,7 +204,7 @@ export function NotesShell({
         // ignore — the destination page re-fetches server-side
       }
     },
-    [router, query, notes, markShareSeen],
+    [router, query, notes, markShareSeen, collapseSidebar],
   );
 
   const refreshFolders = useCallback(async () => {
@@ -310,10 +323,14 @@ export function NotesShell({
         dragWidth === null ? 'transition-[grid-template-columns] duration-200' : ''
       }`}
       style={{
-        gridTemplateColumns: sidebarCollapsed ? '0px 1fr' : `${effectiveWidth}px 1fr`,
+        gridTemplateColumns: sidebarCollapsed
+          ? '0px 1fr'
+          : isNarrow
+            ? `${MIN_WIDTH}px 1fr`
+            : `${effectiveWidth}px 1fr`,
       }}
     >
-      {sidebarCollapsed ? null : (
+      {sidebarCollapsed || isNarrow ? null : (
         <SidebarResizeHandle
           width={effectiveWidth}
           min={MIN_WIDTH}
@@ -361,7 +378,7 @@ export function NotesShell({
           }}
         />
       </div>
-      <main className="relative flex flex-col px-12 py-10">
+      <main className="relative flex flex-col px-6 py-6 xl:px-12 xl:py-10">
         {sidebarCollapsed ? (
           <button
             type="button"

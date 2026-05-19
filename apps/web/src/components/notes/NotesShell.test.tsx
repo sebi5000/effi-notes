@@ -2,7 +2,9 @@
 import { cleanup, fireEvent, render, within } from '@testing-library/react';
 import { NextIntlClientProvider } from 'next-intl';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { SIDEBAR_NARROW_QUERY } from '@/lib/notes/breakpoints.ts';
 import { MAX_WIDTH, MIN_WIDTH } from '@/lib/notes/use-sidebar-width.ts';
+import { installMatchMedia, type MatchMediaController } from '@/test-matchmedia.ts';
 
 // ---------------------------------------------------------------------------
 // next/navigation stubs — NotesShell calls useRouter / usePathname / useSearchParams
@@ -61,9 +63,12 @@ import { NotesShell } from './NotesShell.tsx';
 const SIDEBAR_WIDTH_KEY = 'effi-notes:sidebar-width';
 const SIDEBAR_COLLAPSED_KEY = 'effi-notes:sidebar-collapsed';
 
+let mm: MatchMediaController;
+
 afterEach(cleanup);
 
 beforeEach(() => {
+  mm = installMatchMedia();
   localStorage.removeItem(SIDEBAR_WIDTH_KEY);
   localStorage.removeItem(SIDEBAR_COLLAPSED_KEY);
   push.mockReset();
@@ -394,5 +399,84 @@ describe('NotesShell — Shared with me section', () => {
     fireEvent.click(folderButton);
 
     expect(vi.mocked(sharesApi.markSeen)).toHaveBeenCalledWith('s1');
+  });
+});
+
+describe('NotesShell — responsive sidebar (narrow viewport)', () => {
+  const firstCol = (grid: HTMLElement): string =>
+    grid.style.gridTemplateColumns.split(' ')[0] ?? '';
+
+  it('auto-collapses the sidebar below 1280px', () => {
+    mm.set(SIDEBAR_NARROW_QUERY, true);
+    const { container } = render(wrap(<NotesShell {...defaultProps} />));
+    const grid = within(container).getByTestId('notes-shell-grid');
+    expect(firstCol(grid)).toBe('0px');
+  });
+
+  it('does not render the resize handle when narrow', () => {
+    mm.set(SIDEBAR_NARROW_QUERY, true);
+    const { container } = render(wrap(<NotesShell {...defaultProps} />));
+    const grid = within(container).getByTestId('notes-shell-grid');
+    expect(grid.querySelector('[role="separator"]')).toBeNull();
+  });
+
+  it('opens the narrow sidebar to a fixed MIN_WIDTH column', () => {
+    mm.set(SIDEBAR_NARROW_QUERY, true);
+    const { container, getByRole } = render(wrap(<NotesShell {...defaultProps} />));
+    const grid = within(container).getByTestId('notes-shell-grid');
+    fireEvent.click(getByRole('button', { name: 'Expand sidebar' }));
+    expect(firstCol(grid)).toBe(`${MIN_WIDTH}px`);
+  });
+
+  it('auto-collapses the sidebar when a note is opened while narrow', () => {
+    mm.set(SIDEBAR_NARROW_QUERY, true);
+    const note = {
+      id: 'n1',
+      title: 'Quarterly Review',
+      snippet: '',
+      folderId: null,
+      authorId: 'u1',
+      archivedAt: null,
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      tags: [],
+      shareCount: 0,
+    };
+    const { container, getByRole, getByText } = render(
+      wrap(<NotesShell {...defaultProps} initialNotes={[note]} />),
+    );
+    const grid = within(container).getByTestId('notes-shell-grid');
+    fireEvent.click(getByRole('button', { name: 'Expand sidebar' }));
+    expect(firstCol(grid)).toBe(`${MIN_WIDTH}px`);
+    fireEvent.click(getByText('Quarterly Review'));
+    expect(firstCol(grid)).toBe('0px');
+  });
+
+  it('keeps the sidebar open when a folder is selected while narrow', () => {
+    mm.set(SIDEBAR_NARROW_QUERY, true);
+    const folder = {
+      id: 'f1',
+      name: 'Engineering',
+      parentId: null,
+      icon: 'folder',
+      position: 0,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+      shareCount: 0,
+    };
+    const { container, getByRole, getByText } = render(
+      wrap(<NotesShell {...defaultProps} folders={[folder]} />),
+    );
+    const grid = within(container).getByTestId('notes-shell-grid');
+    fireEvent.click(getByRole('button', { name: 'Expand sidebar' }));
+    fireEvent.click(getByText('Engineering'));
+    expect(firstCol(grid)).toBe(`${MIN_WIDTH}px`);
+  });
+
+  it('stays expanded above 1280px (wide default)', () => {
+    // installMatchMedia defaults every query to non-matching → wide viewport.
+    const { container } = render(wrap(<NotesShell {...defaultProps} />));
+    const grid = within(container).getByTestId('notes-shell-grid');
+    expect(grid.querySelector('[role="separator"]')).not.toBeNull();
+    expect(firstCol(grid)).not.toBe('0px');
   });
 });
