@@ -539,7 +539,7 @@ function FolderRow({
       {row.hasChildren ? (
         <button
           type="button"
-          aria-label={isExpanded ? 'Collapse' : 'Expand'}
+          aria-label={isExpanded ? t('collapse') : t('expand')}
           onClick={(e) => {
             e.stopPropagation();
             onToggle(row.id);
@@ -677,6 +677,7 @@ function RenameInput({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
+  const t = useTranslations('notes.folderActions');
   const [value, setValue] = useState(initial);
   return (
     <input
@@ -687,7 +688,7 @@ function RenameInput({
         }
       }}
       type="text"
-      aria-label="Folder name"
+      aria-label={t('nameInputLabel')}
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onClick={(e) => e.stopPropagation()}

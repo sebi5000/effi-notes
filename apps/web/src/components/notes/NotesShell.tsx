@@ -119,10 +119,15 @@ export function NotesShell({
     () => partitionSharedFolders(folders),
     [folders],
   );
-  const sharedNotes = useMemo(() => notes.filter((n) => n.sharedWithMe !== undefined), [notes]);
+  // Notes shared directly with the user. Kept as its own state — NOT derived
+  // from `notes` — because `notes` is folder/tag-scoped: deriving from it would
+  // make directly-shared notes vanish from the section the moment the user
+  // browses into any folder. Populated by an unfiltered fetch (see below).
+  const [sharedNotes, setSharedNotes] = useState<ReadonlyArray<NoteListItem>>([]);
   const ownNotes = useMemo(() => notes.filter((n) => n.sharedWithMe === undefined), [notes]);
 
   const notesReqRef = useRef(0);
+  const sharedNotesReqRef = useRef(0);
 
   // Cancel-safe list fetch — a stale request never overwrites a newer one.
   const refreshNotes = useCallback(async () => {
@@ -151,6 +156,27 @@ export function NotesShell({
     })();
   }, [refreshNotes]);
 
+  // Cancel-safe unfiltered fetch of the directly-shared notes. Deliberately
+  // passes no folder/tag filter so the "Shared with me" section is stable
+  // regardless of what the main list is currently scoped to.
+  const refreshSharedNotes = useCallback(async () => {
+    const reqId = ++sharedNotesReqRef.current;
+    try {
+      const list = await notesApi.list();
+      if (sharedNotesReqRef.current === reqId) {
+        setSharedNotes(byUpdatedAtDesc(list.notes).filter((n) => n.sharedWithMe !== undefined));
+      }
+    } catch {
+      // keep the previous list on error
+    }
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      await refreshSharedNotes();
+    })();
+  }, [refreshSharedNotes]);
+
   const setQuery = useCallback(
     (next: string) => {
       router.replace(`${pathname}${qSuffix(next)}`);
@@ -172,7 +198,7 @@ export function NotesShell({
             : f,
         ),
       );
-      setNotes((prev) =>
+      setSharedNotes((prev) =>
         prev.map((n) =>
           n.sharedWithMe?.shareId === share.shareId
             ? { ...n, sharedWithMe: { ...n.sharedWithMe, seenAt } }
@@ -195,7 +221,11 @@ export function NotesShell({
   const openNote = useCallback(
     async (id: string) => {
       router.push(`/notes/${id}${qSuffix(query)}`);
-      markShareSeen(notes.find((n) => n.id === id)?.sharedWithMe);
+      // A directly-shared note opened from the section is not in the
+      // folder-scoped `notes` list — fall back to `sharedNotes` so its
+      // share still gets marked seen.
+      const opened = notes.find((n) => n.id === id) ?? sharedNotes.find((n) => n.id === id);
+      markShareSeen(opened?.sharedWithMe);
       collapseSidebar();
       try {
         const detail = await notesApi.get(id);
@@ -204,7 +234,7 @@ export function NotesShell({
         // ignore — the destination page re-fetches server-side
       }
     },
-    [router, query, notes, markShareSeen, collapseSidebar],
+    [router, query, notes, sharedNotes, markShareSeen, collapseSidebar],
   );
 
   const refreshFolders = useCallback(async () => {
@@ -219,8 +249,8 @@ export function NotesShell({
   // A share granted/revoked in the dialog changes `shareCount` server-side; re-pull
   // folders + notes so the row "shared" indicator reflects it without a reload.
   const handleSharesChanged = useCallback(async () => {
-    await Promise.all([refreshFolders(), refreshNotes()]);
-  }, [refreshFolders, refreshNotes]);
+    await Promise.all([refreshFolders(), refreshNotes(), refreshSharedNotes()]);
+  }, [refreshFolders, refreshNotes, refreshSharedNotes]);
 
   const handleCreateFolder = useCallback(
     async (name: string, parentId: string | null) => {

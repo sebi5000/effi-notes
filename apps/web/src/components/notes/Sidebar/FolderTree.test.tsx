@@ -39,6 +39,9 @@ const messages = {
       newFolderPlaceholder: 'Folder name',
       rename: 'Rename folder',
       delete: 'Delete folder',
+      expand: 'Expand',
+      collapse: 'Collapse',
+      nameInputLabel: 'Folder name',
       cycle: "A folder can't be moved into one of its own descendants.",
     },
     folderIcons: {
@@ -944,5 +947,49 @@ describe('FolderTree — folder icons', () => {
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('icon boom'),
     );
+  });
+});
+
+describe('FolderTree (i18n labels)', () => {
+  it('takes the chevron and rename-input aria-labels from the message catalogue', () => {
+    // Sentinel values distinct from any English literal — a hardcoded
+    // aria-label would never surface these.
+    const intlMessages = {
+      notes: {
+        folderActions: {
+          ...messages.notes.folderActions,
+          expand: 'AUSKLAPPEN',
+          collapse: 'EINKLAPPEN',
+          nameInputLabel: 'ORDNERNAME',
+        },
+        folderIcons: messages.notes.folderIcons,
+        share: messages.notes.share,
+      },
+    };
+    const mutations: FolderMutationHandlers = {
+      onRename: vi.fn(async () => undefined),
+      onDelete: vi.fn(async () => undefined),
+    };
+    const { container } = render(
+      <NextIntlClientProvider locale="de" messages={intlMessages}>
+        <FolderTree
+          folders={fixture}
+          selectedId={null}
+          onSelect={() => undefined}
+          mutations={mutations}
+        />
+      </NextIntlClientProvider>,
+    );
+
+    // Inline rename input — labelled from the catalogue, not a literal.
+    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    fireEvent.click(within(acmeRow).getByLabelText('Rename folder'));
+    expect(within(acmeRow).getByLabelText('ORDNERNAME')).toBeTruthy();
+
+    // Chevron — 'Clients' is expanded by default, so it offers "collapse";
+    // after a click it offers "expand".
+    const clientsRow = container.querySelector('[data-id="clients"]') as HTMLElement;
+    fireEvent.click(within(clientsRow).getByLabelText('EINKLAPPEN'));
+    expect(within(clientsRow).getByLabelText('AUSKLAPPEN')).toBeTruthy();
   });
 });

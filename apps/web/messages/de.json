@@ -62,6 +62,9 @@
       "newFolderPlaceholder": "Ordnername",
       "rename": "Ordner umbenennen",
       "delete": "Ordner löschen",
+      "expand": "Ausklappen",
+      "collapse": "Einklappen",
+      "nameInputLabel": "Ordnername",
       "cycle": "Ein Ordner kann nicht in einen seiner Unterordner verschoben werden."
     },
     "folderIcons": {
