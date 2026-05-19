@@ -62,6 +62,9 @@
       "newFolderPlaceholder": "Folder name",
       "rename": "Rename folder",
       "delete": "Delete folder",
+      "expand": "Expand",
+      "collapse": "Collapse",
+      "nameInputLabel": "Folder name",
       "cycle": "A folder can't be moved into one of its own descendants."
     },
     "folderIcons": {
