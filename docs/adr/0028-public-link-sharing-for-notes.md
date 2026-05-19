@@ -85,8 +85,12 @@ images, callouts — not just plain text. The rich document lives in `Note.yjsSt
 
 Rendering decodes `yjsState` → ProseMirror JSON (`y-prosemirror`) → HTML
 (`@tiptap/html`) using a **schema-only subset** of the editor's TipTap extensions,
-shared with the editor so the two cannot drift. The HTML is sanitised before
-display. This honours ADR 0022, which keeps ProseMirror out of the *worker* — the
+shared with the editor so the two cannot drift. The schema *is* the sanitiser:
+`generateHTML` can only emit the nodes/marks that subset defines (no `<script>`,
+no event handlers, no raw HTML) and escapes every text node. The one residual
+vector — a hostile `href` / `src` — is closed by protocol-checking link and asset
+URLs on the structured JSON before rendering, so no DOM-based sanitiser is needed.
+This honours ADR 0022, which keeps ProseMirror out of the *worker* — the
 rendering happens in `apps/web`, which already depends on TipTap, and the worker is
 untouched. If `yjsState` is absent (a note never opened in the collaborative
 editor), the viewer falls back to the escaped plain-text `body`.
@@ -116,9 +120,11 @@ belonging to the publicly-linked note.
   live edit by that interval. Accepted.
 - Rendering decodes the CRDT and generates HTML per request. Cheap for a notes app
   and rate-limited; a render cache is the documented escape hatch if it matters.
-- New dependencies in `apps/web`: `@tiptap/html`, `y-prosemirror`,
-  `isomorphic-dompurify`. The editor's custom extensions must expose a server-safe
-  schema path (no browser-only import at module load) to be reused for rendering.
+- New dependency in `apps/web`: `@tiptap/html` (`y-prosemirror` was already
+  present). The editor's custom extensions must expose a server-safe schema path
+  (no browser-only import at module load) to be reused for rendering. A DOM-based
+  sanitiser (`jsdom`) was deliberately avoided — it does not bundle cleanly under
+  the Next/Bun build, and the constrained schema makes it unnecessary.
 - Public folder sharing remains a non-goal. A note with a public link still obeys
   ADR 0026 for every *authenticated* access path; the public link is an additional,
   independent read path.
