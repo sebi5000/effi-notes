@@ -44,7 +44,7 @@ export function EditorToolbar({ editor }: Props) {
       <div
         role="toolbar"
         aria-label={t('label')}
-        className="border-paper-line/80 bg-background/95 pointer-events-auto inline-flex items-center gap-0.5 rounded-full border px-2 py-1 shadow-lg backdrop-blur"
+        className="border-paper-line/80 bg-background/95 pointer-events-auto inline-flex max-w-full flex-wrap items-center justify-center gap-0.5 gap-y-1 rounded-3xl border px-2 py-1 shadow-lg backdrop-blur"
       >
         <Group>
           <Btn
