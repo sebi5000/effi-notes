@@ -25,6 +25,9 @@ coverage/
 .env
 .env.*
 !.env.example
+# Committed on purpose: non-secret dev/CI defaults the Compose `config`
+# validation and `make up-dev` / `make smoke` depend on (see the file header).
+!deploy/compose/.env.local-defaults
 
 # IDE / OS
 .DS_Store
