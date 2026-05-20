@@ -89,7 +89,10 @@ export function PublicLinkSection({ noteId, fetcher }: Props) {
         </>
       ) : (
         <>
-          <ExpiryPicker value={ttl} onChange={setTtl} />
+          <div className="flex flex-col gap-1">
+            <span className="text-foreground text-xs font-medium">{t('expiryHeading')}</span>
+            <ExpiryPicker value={ttl} onChange={setTtl} />
+          </div>
           <button
             type="button"
             disabled={busy}

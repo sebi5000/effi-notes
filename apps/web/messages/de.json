@@ -231,6 +231,8 @@
       "view": "Lesen",
       "edit": "Bearbeiten",
       "expiryForever": "Kein Ablaufdatum",
+      "expirySet": "Ablaufdatum festlegen",
+      "expiryHeading": "Läuft ab",
       "expiryValue": "Ablaufdauer",
       "expiryUnit": "Ablaufeinheit",
       "publicLinkHeading": "Öffentlicher Link",

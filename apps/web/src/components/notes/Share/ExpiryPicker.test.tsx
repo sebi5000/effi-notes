@@ -13,9 +13,12 @@ afterEach(cleanup);
 const messages = {
   notes: {
     share: {
-      expiryForever: 'Share forever',
+      expirySet: 'Set an expiry',
       expiryValue: 'Duration value',
       expiryUnit: 'Duration unit',
+      unitMinutes: 'minutes',
+      unitHours: 'hours',
+      unitDays: 'days',
     },
   },
 } as const;
@@ -27,11 +30,11 @@ const wrap = (ui: React.ReactNode) => (
 );
 
 describe('ExpiryPicker', () => {
-  it('renders a checked "forever" checkbox when value is undefined', () => {
+  it('renders an unchecked "Set an expiry" checkbox when value is undefined', () => {
     const onChange = vi.fn();
     const { container } = render(wrap(<ExpiryPicker value={undefined} onChange={onChange} />));
     const checkbox = within(container).getByRole('checkbox') as HTMLInputElement;
-    expect(checkbox.checked).toBe(true);
+    expect(checkbox.checked).toBe(false);
   });
 
   it('does not render the numeric input and select when value is undefined', () => {
@@ -41,7 +44,7 @@ describe('ExpiryPicker', () => {
     expect(within(container).queryByRole('combobox')).toBeNull();
   });
 
-  it('unchecking "forever" calls onChange with a default {value, unit}', () => {
+  it('checking "Set an expiry" calls onChange with a default {value, unit}', () => {
     const onChange = vi.fn();
     const { container } = render(wrap(<ExpiryPicker value={undefined} onChange={onChange} />));
     fireEvent.click(within(container).getByRole('checkbox'));
@@ -61,16 +64,16 @@ describe('ExpiryPicker', () => {
     expect(select.value).toBe('days');
   });
 
-  it('checkbox is unchecked when value is set', () => {
+  it('checkbox is checked when value is set', () => {
     const onChange = vi.fn();
     const { container } = render(
       wrap(<ExpiryPicker value={{ value: 1, unit: 'hours' }} onChange={onChange} />),
     );
     const checkbox = within(container).getByRole('checkbox') as HTMLInputElement;
-    expect(checkbox.checked).toBe(false);
+    expect(checkbox.checked).toBe(true);
   });
 
-  it('checking "forever" when a value is set calls onChange with undefined', () => {
+  it('unchecking "Set an expiry" when a value is set calls onChange with undefined', () => {
     const onChange = vi.fn();
     const { container } = render(
       wrap(<ExpiryPicker value={{ value: 3, unit: 'hours' }} onChange={onChange} />),

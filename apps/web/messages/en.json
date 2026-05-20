@@ -231,6 +231,8 @@
       "view": "View",
       "edit": "Edit",
       "expiryForever": "No expiry",
+      "expirySet": "Set an expiry",
+      "expiryHeading": "Expires",
       "expiryValue": "Expiry duration",
       "expiryUnit": "Expiry unit",
       "publicLinkHeading": "Public link",
