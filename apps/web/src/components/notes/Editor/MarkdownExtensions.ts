@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import FileHandler from '@tiptap/extension-file-handler';
+import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
@@ -82,6 +83,11 @@ export const buildExtensions = (input: {
     //     double undo stacks.
     StarterKit.configure({ link: false, undoRedo: false }),
     Link.configure({ openOnClick: false, autolink: true }),
+    // `multicolor: true` lets the menubar set per-mark colours (yellow,
+    // green, blue, red) via `setHighlight({ color })`. Rendered as
+    // <mark data-color="…" style="background-color: …">; the per-theme
+    // legibility tweaks live in `globals.css`.
+    Highlight.configure({ multicolor: true }),
     Typography,
     TaskList,
     TaskItem.configure({ nested: true }),

@@ -127,6 +127,14 @@
       "offline": "Offline · will retry",
       "viewing": "{count} viewing"
     },
+    "highlight": {
+      "label": "Highlight",
+      "yellow": "Yellow",
+      "green": "Green",
+      "blue": "Blue",
+      "red": "Red",
+      "clear": "Remove highlight"
+    },
     "callouts": {
       "label": "Insert callout",
       "note": "Note",
