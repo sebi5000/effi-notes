@@ -42,7 +42,11 @@ export default auth((req) => {
     return Response.redirect(loginUrl);
   }
 
-  if (isAuthed && pathname === '/login') {
+  // Bounce authed users off /login — UNLESS an `?error=` is present. Pages
+  // that detect a stale JWT (e.g. RefreshAccessTokenError) redirect *to*
+  // /login?error=… on purpose so the user can re-auth; an unconditional
+  // bounce here turns that into an infinite redirect loop.
+  if (isAuthed && pathname === '/login' && !req.nextUrl.searchParams.has('error')) {
     return Response.redirect(new URL('/dashboard', req.url));
   }
 
