@@ -209,6 +209,16 @@ export const publicLinkCreateSchema = z.object({
 });
 export type PublicLinkCreateInput = z.infer<typeof publicLinkCreateSchema>;
 
+/**
+ * Body of PATCH /api/notes/[id]/public-link — update only the expiry without
+ * regenerating the token. A `ttl` sets a new relative expiry from now;
+ * `null` clears the expiry (link becomes "forever").
+ */
+export const publicLinkUpdateSchema = z.object({
+  ttl: shareTtlSchema.nullable(),
+});
+export type PublicLinkUpdateInput = z.infer<typeof publicLinkUpdateSchema>;
+
 /** A note's public link, as returned to a user who can manage it. */
 export type PublicLinkView = {
   id: string;

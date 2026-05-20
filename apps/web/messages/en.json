@@ -240,7 +240,8 @@
       "publicLinkGenerate": "Generate public link",
       "publicLinkCopy": "Copy",
       "publicLinkCopied": "Copied",
-      "publicLinkRevoke": "Revoke link"
+      "publicLinkRevoke": "Revoke link",
+      "publicLinkSaveExpiry": "Save expiry"
     }
   },
   "public": {

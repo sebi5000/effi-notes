@@ -8,6 +8,7 @@ import type {
   PatchFolderInput,
   PatchNoteInput,
   PublicLinkCreateInput,
+  PublicLinkUpdateInput,
   PublicLinkView,
   PutNoteBodyInput,
   SearchHit,
@@ -223,6 +224,17 @@ export const publicLinkApi = {
   ): Promise<PublicLinkView> =>
     request(`/api/notes/${noteId}/public-link`, {
       method: 'POST',
+      body: JSON.stringify(input),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  /** Update only the expiry — the token is preserved, so the URL stays valid. */
+  update: (
+    noteId: string,
+    input: PublicLinkUpdateInput,
+    fetcher?: typeof fetch,
+  ): Promise<PublicLinkView> =>
+    request(`/api/notes/${noteId}/public-link`, {
+      method: 'PATCH',
       body: JSON.stringify(input),
       ...(fetcher ? { fetcher } : {}),
     }),

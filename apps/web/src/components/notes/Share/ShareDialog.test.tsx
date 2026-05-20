@@ -44,6 +44,7 @@ const messages = {
       publicLinkCopy: 'Copy',
       publicLinkCopied: 'Copied',
       publicLinkRevoke: 'Revoke link',
+      publicLinkSaveExpiry: 'Save expiry',
     },
   },
 } as const;

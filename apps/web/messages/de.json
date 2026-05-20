@@ -240,7 +240,8 @@
       "publicLinkGenerate": "Öffentlichen Link erstellen",
       "publicLinkCopy": "Kopieren",
       "publicLinkCopied": "Kopiert",
-      "publicLinkRevoke": "Link widerrufen"
+      "publicLinkRevoke": "Link widerrufen",
+      "publicLinkSaveExpiry": "Ablaufdatum speichern"
     }
   },
   "public": {

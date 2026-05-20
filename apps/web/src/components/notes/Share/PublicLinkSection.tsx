@@ -24,7 +24,7 @@ type Props = {
  */
 export function PublicLinkSection({ noteId, fetcher }: Props) {
   const t = useTranslations('notes.share');
-  const { link, error, generate, revoke } = usePublicLink(noteId, fetcher);
+  const { link, error, generate, updateExpiry, revoke } = usePublicLink(noteId, fetcher);
   const [ttl, setTtl] = useState<ShareTtl | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const { copied, copy } = useCopyToClipboard();
@@ -84,6 +84,21 @@ export function PublicLinkSection({ noteId, fetcher }: Props) {
               className="text-destructive hover:bg-destructive/10 rounded px-2 py-0.5 text-xs disabled:opacity-50"
             >
               {t('publicLinkRevoke')}
+            </button>
+          </div>
+          {/* Change the expiry without revoking — token stays the same so the
+              URL keeps working. Picker starts unchecked; the current expiry is
+              shown in the label above. */}
+          <div className="border-border flex flex-col gap-2 border-t pt-3">
+            <span className="text-foreground text-xs font-medium">{t('expiryHeading')}</span>
+            <ExpiryPicker value={ttl} onChange={setTtl} />
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void run(() => updateExpiry(ttl ?? null))}
+              className="bg-primary text-primary-foreground self-start rounded px-3 py-1 text-xs font-medium disabled:opacity-50"
+            >
+              {t('publicLinkSaveExpiry')}
             </button>
           </div>
         </>
