@@ -20,6 +20,7 @@
     "@tiptap/extension-collaboration": "3.23.4",
     "@tiptap/extension-collaboration-caret": "3.23.4",
     "@tiptap/extension-file-handler": "3.23.4",
+    "@tiptap/extension-highlight": "3.23.4",
     "@tiptap/extension-image": "3.23.4",
     "@tiptap/extension-link": "3.23.4",
     "@tiptap/extension-table": "3.23.4",

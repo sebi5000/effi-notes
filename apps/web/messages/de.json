@@ -127,6 +127,14 @@
       "offline": "Offline · wird erneut versucht",
       "viewing": "{count} aktiv"
     },
+    "highlight": {
+      "label": "Markieren",
+      "yellow": "Gelb",
+      "green": "Grün",
+      "blue": "Blau",
+      "red": "Rot",
+      "clear": "Markierung entfernen"
+    },
     "callouts": {
       "label": "Callout einfügen",
       "note": "Hinweis",

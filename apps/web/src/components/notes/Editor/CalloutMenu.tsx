@@ -54,7 +54,10 @@ export function CalloutMenu({ editor }: Props) {
           open ? 'bg-accent text-white' : 'text-foreground'
         }`}
       >
-        <span aria-hidden="true">▤</span>
+        {/* Lightbulb glyph — visually distinct from the table icon (▦) that
+            sits next to this trigger. The five callout types still pick
+            their own per-type icon in the dropdown below. */}
+        <span aria-hidden="true">💡</span>
       </button>
       {open ? (
         <div
