@@ -249,5 +249,20 @@
     "notFoundTitle": "Link unavailable",
     "notFoundBody": "This link is invalid, has expired, or has been revoked.",
     "rateLimited": "Too many requests. Please try again in a moment."
+  },
+  "userMenu": {
+    "menuLabel": "Account menu",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearanceHeading": "Appearance",
+    "appearanceDescription": "Choose your preferred theme. It syncs across your devices.",
+    "themeLabel": "Theme",
+    "themeWarmPaper": "Warm Paper",
+    "themeDark": "Dark",
+    "themeCoolSlate": "Cool Slate",
+    "themeSaveFailed": "Could not save your theme. Please try again."
   }
 }

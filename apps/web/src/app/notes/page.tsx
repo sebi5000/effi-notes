@@ -97,6 +97,7 @@ export default async function NotesIndexPage() {
           name: session.user.displayName ?? session.user.email,
           color: hashToColor(session.user.id),
         }}
+        user={{ displayName: session.user.displayName, email: session.user.email }}
         initialNote={null}
       />
     </Suspense>

@@ -67,7 +67,6 @@ export function Sidebar({
   const now = useNow();
   const tA = useTranslations('notes.folderActions');
   const tNA = useTranslations('notes.noteActions');
-  const tShare = useTranslations('notes.share');
   const [creating, setCreating] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);

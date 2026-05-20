@@ -19,6 +19,7 @@ import {
   MIN_WIDTH,
   useSidebarWidth,
 } from '@/lib/notes/use-sidebar-width.ts';
+import { UserMenu } from '../UserMenu.tsx';
 import { EditableNoteTitle } from './EditableNoteTitle.tsx';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
@@ -29,6 +30,8 @@ type Props = {
   tags: ReadonlyArray<TagItem>;
   initialNotes: ReadonlyArray<NoteListItem>;
   currentUser: { id: string; name: string; color: string };
+  /** The signed-in user, for the top-right profile menu. */
+  user: { displayName: string | null; email: string };
   initialNote: NoteDetail | null;
 };
 
@@ -46,6 +49,7 @@ export function NotesShell({
   tags: initialTags,
   initialNotes,
   currentUser,
+  user,
   initialNote,
 }: Props) {
   const router = useRouter();
@@ -421,6 +425,9 @@ export function NotesShell({
             <span aria-hidden="true">»</span>
           </button>
         ) : null}
+        <div className="absolute right-3 top-3 z-10">
+          <UserMenu user={user} />
+        </div>
         {noteDetail ? (
           <>
             <EditableNoteTitle

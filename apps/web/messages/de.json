@@ -249,5 +249,20 @@
     "notFoundTitle": "Link nicht verfügbar",
     "notFoundBody": "Dieser Link ist ungültig, abgelaufen oder wurde widerrufen.",
     "rateLimited": "Zu viele Anfragen. Bitte versuche es gleich noch einmal."
+  },
+  "userMenu": {
+    "menuLabel": "Konto-Menü",
+    "settings": "Einstellungen",
+    "signOut": "Abmelden"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "appearanceHeading": "Darstellung",
+    "appearanceDescription": "Wähle dein bevorzugtes Theme. Es wird über alle Geräte synchronisiert.",
+    "themeLabel": "Theme",
+    "themeWarmPaper": "Warm Paper",
+    "themeDark": "Dunkel",
+    "themeCoolSlate": "Cool Slate",
+    "themeSaveFailed": "Theme konnte nicht gespeichert werden. Bitte erneut versuchen."
   }
 }
