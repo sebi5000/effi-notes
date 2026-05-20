@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { folderIconSchema } from '@/lib/notes/folder-icons.ts';
+import { THEME_IDS } from '@/lib/theme/themes.ts';
 
 /**
  * Shared Zod schemas + types for the notes REST API.
@@ -219,6 +220,12 @@ export type PublicLinkView = {
 };
 
 export type UserSearchHit = { id: string; displayName: string | null; email: string };
+
+/** Body of PUT /api/users/me/theme — one of the closed theme ids (ADR 0029). */
+export const userThemeSchema = z.object({
+  theme: z.enum(THEME_IDS),
+});
+export type UserThemeInput = z.infer<typeof userThemeSchema>;
 
 /** Query params for `POST /api/notes/[id]/assets` — the raw file is the body. */
 export const assetUploadQuerySchema = z.object({
