@@ -19,6 +19,7 @@ import {
   MIN_WIDTH,
   useSidebarWidth,
 } from '@/lib/notes/use-sidebar-width.ts';
+import { EditableNoteTitle } from './EditableNoteTitle.tsx';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
 import { SidebarResizeHandle } from './SidebarResizeHandle.tsx';
@@ -422,9 +423,12 @@ export function NotesShell({
         ) : null}
         {noteDetail ? (
           <>
-            <h1 className="font-body text-foreground mb-4 text-3xl font-semibold">
-              {noteDetail.title}
-            </h1>
+            <EditableNoteTitle
+              title={noteDetail.title}
+              onCommit={(title) => {
+                void handleRenameNote(noteDetail.id, title);
+              }}
+            />
             <NoteEditor
               key={noteDetail.id}
               noteId={noteDetail.id}
