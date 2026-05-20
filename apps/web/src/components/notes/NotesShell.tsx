@@ -19,6 +19,8 @@ import {
   MIN_WIDTH,
   useSidebarWidth,
 } from '@/lib/notes/use-sidebar-width.ts';
+import { UserMenu } from '../UserMenu.tsx';
+import { EditableNoteTitle } from './EditableNoteTitle.tsx';
 import { NoteEditor } from './Editor/NoteEditor.tsx';
 import { Sidebar } from './Sidebar/index.tsx';
 import { SidebarResizeHandle } from './SidebarResizeHandle.tsx';
@@ -28,6 +30,8 @@ type Props = {
   tags: ReadonlyArray<TagItem>;
   initialNotes: ReadonlyArray<NoteListItem>;
   currentUser: { id: string; name: string; color: string };
+  /** The signed-in user, for the top-right profile menu. */
+  user: { displayName: string | null; email: string };
   initialNote: NoteDetail | null;
 };
 
@@ -45,6 +49,7 @@ export function NotesShell({
   tags: initialTags,
   initialNotes,
   currentUser,
+  user,
   initialNote,
 }: Props) {
   const router = useRouter();
@@ -148,23 +153,34 @@ export function NotesShell({
 
   // Re-fetch whenever the resolved filter changes. Keyed on folderId/tagId —
   // not raw `query` — so typing free text never triggers a list fetch.
+  //
+  // Skip the very first fetch when the URL state matches what the server
+  // already passed in `initialNotes`: the server-rendered page loaded the
+  // same query, so the immediate client refresh was redundant network +
+  // duplicated `listAccessibleScope()` work (QA review 2026-05-20, P2).
+  const initialNotesRef = useRef(filterActive === false ? initialNotes : null);
   useEffect(() => {
-    // Inside the async IIFE — not the synchronous effect body — so the
-    // react-hooks/set-state-in-effect rule does not flag a cascading render.
+    if (initialNotesRef.current !== null) {
+      // First effect run after hydration with no active filter — initialNotes
+      // already mirrors the URL; consume the marker and skip the fetch.
+      initialNotesRef.current = null;
+      setPending(false);
+      return;
+    }
     (async () => {
       await refreshNotes();
     })();
   }, [refreshNotes]);
 
-  // Cancel-safe unfiltered fetch of the directly-shared notes. Deliberately
-  // passes no folder/tag filter so the "Shared with me" section is stable
-  // regardless of what the main list is currently scoped to.
+  // Cancel-safe fetch of the directly-shared notes. Uses the API's
+  // `section=shared` mode so the server returns just those rows — we no
+  // longer load every note and filter client-side (QA review 2026-05-20, P2).
   const refreshSharedNotes = useCallback(async () => {
     const reqId = ++sharedNotesReqRef.current;
     try {
-      const list = await notesApi.list();
+      const list = await notesApi.list({ section: 'shared' });
       if (sharedNotesReqRef.current === reqId) {
-        setSharedNotes(byUpdatedAtDesc(list.notes).filter((n) => n.sharedWithMe !== undefined));
+        setSharedNotes(byUpdatedAtDesc(list.notes));
       }
     } catch {
       // keep the previous list on error
@@ -330,6 +346,18 @@ export function NotesShell({
     [notes, refreshNotes],
   );
 
+  const handleDeleteNote = useCallback(
+    async (id: string) => {
+      // Hard delete — mirrors the editor's DeleteNoteButton semantics. The
+      // sidebar already showed the confirm; here we just commit + refresh and
+      // bounce off the note if it was the one being viewed.
+      await notesApi.delete(id);
+      await refreshNotes();
+      if (noteDetail?.id === id) router.push(`/notes${qSuffix(query)}`);
+    },
+    [refreshNotes, noteDetail?.id, router, query],
+  );
+
   const handleSetNoteTags = useCallback(
     async (tagIds: string[]) => {
       if (!noteDetail) return;
@@ -405,6 +433,7 @@ export function NotesShell({
             onRename: handleRenameNote,
             onDuplicate: handleDuplicateNote,
             onMove: handleMoveNote,
+            onDelete: handleDeleteNote,
           }}
         />
       </div>
@@ -420,17 +449,23 @@ export function NotesShell({
             <span aria-hidden="true">»</span>
           </button>
         ) : null}
+        <div className="absolute right-3 top-3 z-10">
+          <UserMenu user={user} />
+        </div>
         {noteDetail ? (
           <>
-            <h1 className="font-body text-foreground mb-4 text-3xl font-semibold">
-              {noteDetail.title}
-            </h1>
+            <EditableNoteTitle
+              title={noteDetail.title}
+              onCommit={(title) => {
+                void handleRenameNote(noteDetail.id, title);
+              }}
+            />
             <NoteEditor
               key={noteDetail.id}
               noteId={noteDetail.id}
               initialTitle={noteDetail.title}
               initialBody={noteDetail.body}
-              initialUpdatedAt={noteDetail.updatedAt}
+              initialBodyVersion={noteDetail.bodyVersion}
               titleManuallySet={noteDetail.titleManuallySet}
               currentUser={currentUser}
               onTitleChange={(title) => {

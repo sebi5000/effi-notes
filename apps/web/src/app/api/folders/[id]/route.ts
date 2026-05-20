@@ -4,6 +4,8 @@ import { createLogger } from '@app/observability/logger';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { type FolderNode, patchFolderSchema } from '@/lib/api/schemas.ts';
 import { canEdit, canHardDelete, resolveFolderAccess } from '@/lib/notes/access.ts';
+import { DEFAULT_FOLDER_ICON } from '@/lib/notes/folder-icons.ts';
+import { isDescendant } from '@/lib/notes/folder-tree.ts';
 
 const log = createLogger({ component: 'api.folders.id' });
 type RouteContext = { params: Promise<{ id: string }> };
@@ -86,6 +88,24 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
   if (parsed.data.parentId !== undefined && parsed.data.parentId !== null) {
     const parentAccess = await resolveFolderAccess(user.id, parsed.data.parentId);
     if (!canEdit(parentAccess)) return jsonError(403, 'forbidden: parent folder');
+
+    // Descendant-cycle guard — mirrors `PATCH /api/folders/reorder`. Without
+    // this a client could move a folder under one of its own descendants via
+    // the direct PATCH route and corrupt the tree (QA review 2026-05-20, P1).
+    const all = await prisma.folder.findMany({ select: { id: true, parentId: true } });
+    const treeish = all.map((f) => ({
+      id: f.id,
+      parentId: f.parentId,
+      name: '',
+      position: 0,
+      icon: DEFAULT_FOLDER_ICON,
+      createdAt: '',
+      updatedAt: '',
+      shareCount: 0,
+    }));
+    if (isDescendant(treeish, id, parsed.data.parentId)) {
+      return jsonError(409, 'cannot move a folder into its own subtree');
+    }
   }
 
   const updated = await prisma.folder.update({

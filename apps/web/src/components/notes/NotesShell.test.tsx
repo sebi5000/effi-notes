@@ -21,6 +21,12 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => searchParamsRef.current,
 }));
 
+// Stub the UserMenu's signOut server action so the test bundle does not pull
+// next-auth (the user menu now mounts inside NotesShell's main area).
+vi.mock('@/components/user-menu-actions.ts', () => ({
+  signOutAction: vi.fn(async () => undefined),
+}));
+
 // ---------------------------------------------------------------------------
 // API client stubs — avoid real network calls from useEffect-driven refreshNotes
 // ---------------------------------------------------------------------------
@@ -180,12 +186,14 @@ const wrap = (ui: React.ReactNode) => (
 // Minimal props fixture
 // ---------------------------------------------------------------------------
 const CURRENT_USER = { id: 'u1', name: 'Test User', color: '#C26A20' };
+const TEST_USER = { displayName: 'Test User', email: 'test@example.com' } as const;
 
 const defaultProps = {
   folders: [] as const,
   tags: [] as const,
   initialNotes: [] as const,
   currentUser: CURRENT_USER,
+  user: TEST_USER,
   initialNote: null,
 } as const;
 

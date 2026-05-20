@@ -68,7 +68,7 @@ export const deriveDocItems = (doc: PMNode, origin: string): DocItems => {
     if (node.isText) {
       const mark = node.marks.find((m) => m.type.name === 'link');
       if (mark) {
-        const href = String(mark.attrs['href'] ?? '');
+        const href = String(mark.attrs.href ?? '');
         if (openLink && openLink.href === href) {
           openLink.text += node.text ?? '';
         } else {
@@ -91,27 +91,27 @@ export const deriveDocItems = (doc: PMNode, origin: string): DocItems => {
 
     if (node.type.name === 'heading') {
       headings.push({
-        level: Number(node.attrs['level']) || 1,
+        level: Number(node.attrs.level) || 1,
         text: node.textContent,
         pos,
       });
     } else if (node.type.name === 'image') {
-      const src = String(node.attrs['src'] ?? '');
+      const src = String(node.attrs.src ?? '');
       images.push({
         kind: 'image',
         src,
         previewSrc: src,
-        label: String(node.attrs['caption'] ?? ''),
+        label: String(node.attrs.caption ?? ''),
         pos,
       });
     } else if (node.type.name === 'pdfChip') {
-      const src = String(node.attrs['src'] ?? '');
-      const assetId = String(node.attrs['assetId'] ?? '');
+      const src = String(node.attrs.src ?? '');
+      const assetId = String(node.attrs.assetId ?? '');
       pdfs.push({
         kind: 'pdf',
         src,
         previewSrc: assetId ? `/api/assets/${assetId}/preview` : '',
-        label: String(node.attrs['filename'] ?? ''),
+        label: String(node.attrs.filename ?? ''),
         pos,
       });
     }
@@ -136,10 +136,10 @@ export const referencedAssetIds = (doc: PMNode): string[] => {
   const ids = new Set<string>();
   doc.descendants((node) => {
     if (node.type.name === 'image') {
-      const id = assetIdFromSrc(String(node.attrs['src'] ?? ''));
+      const id = assetIdFromSrc(String(node.attrs.src ?? ''));
       if (id !== '') ids.add(id);
     } else if (node.type.name === 'pdfChip') {
-      const id = String(node.attrs['assetId'] ?? '');
+      const id = String(node.attrs.assetId ?? '');
       if (id !== '') ids.add(id);
     }
     return true;

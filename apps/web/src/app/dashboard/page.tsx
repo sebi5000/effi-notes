@@ -3,7 +3,8 @@ import { getDemoQueueCounts } from '@app/jobs';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { auth, signOut } from '@/auth';
+import { auth } from '@/auth';
+import { UserMenu } from '@/components/UserMenu.tsx';
 import { triggerDemoJob } from './actions.ts';
 
 export default async function DashboardPage() {
@@ -26,19 +27,7 @@ export default async function DashboardPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 p-8">
       <header className="flex items-baseline justify-between">
         <h1 className="text-3xl font-semibold">{t('title')}</h1>
-        <form
-          action={async () => {
-            'use server';
-            await signOut({ redirectTo: '/' });
-          }}
-        >
-          <button
-            type="submit"
-            className="rounded border border-current px-3 py-1 text-sm hover:bg-muted"
-          >
-            {t('signOut')}
-          </button>
-        </form>
+        <UserMenu user={{ displayName: session.user.displayName, email: session.user.email }} />
       </header>
 
       <section className="rounded-md border border-current/10 p-4">

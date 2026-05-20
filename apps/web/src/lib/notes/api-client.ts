@@ -8,6 +8,7 @@ import type {
   PatchFolderInput,
   PatchNoteInput,
   PublicLinkCreateInput,
+  PublicLinkUpdateInput,
   PublicLinkView,
   PutNoteBodyInput,
   SearchHit,
@@ -64,7 +65,14 @@ const request = async <T>(
 
 export const notesApi = {
   list: (
-    query: { folderId?: string; tagId?: string; q?: string; includeArchived?: boolean } = {},
+    query: {
+      folderId?: string;
+      tagId?: string;
+      q?: string;
+      includeArchived?: boolean;
+      /** `shared` → only notes shared directly with the caller. */
+      section?: 'shared';
+    } = {},
     fetcher?: typeof fetch,
   ): Promise<{ notes: NoteListItem[] }> => {
     const sp = new URLSearchParams();
@@ -98,7 +106,7 @@ export const notesApi = {
     id: string,
     input: PutNoteBodyInput,
     fetcher?: typeof fetch,
-  ): Promise<{ id: string; updatedAt: string }> =>
+  ): Promise<{ id: string; updatedAt: string; bodyVersion: number }> =>
     request(`/api/notes/${id}/body`, {
       method: 'PUT',
       body: JSON.stringify(input),
@@ -223,6 +231,17 @@ export const publicLinkApi = {
   ): Promise<PublicLinkView> =>
     request(`/api/notes/${noteId}/public-link`, {
       method: 'POST',
+      body: JSON.stringify(input),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  /** Update only the expiry — the token is preserved, so the URL stays valid. */
+  update: (
+    noteId: string,
+    input: PublicLinkUpdateInput,
+    fetcher?: typeof fetch,
+  ): Promise<PublicLinkView> =>
+    request(`/api/notes/${noteId}/public-link`, {
+      method: 'PATCH',
       body: JSON.stringify(input),
       ...(fetcher ? { fetcher } : {}),
     }),

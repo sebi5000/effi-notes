@@ -37,7 +37,11 @@ export const reduceSaveState = (current: SaveState, event: SaveEvent): SaveState
       if (current === 'idle' || current === 'saved') return current;
       return 'saving';
     case 'save-ok':
-      return 'saved';
+      // Only acknowledge a save when we're still in `saving`. If an edit
+      // arrived during the in-flight request the reducer already moved us
+      // back to `dirty`, and the older response must not overwrite that.
+      // (See QA review 2026-05-20, P1 finding.)
+      return current === 'saving' ? 'saved' : current;
     case 'save-conflict':
       return 'conflict';
     case 'save-network-error':

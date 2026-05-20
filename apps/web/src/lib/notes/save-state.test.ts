@@ -23,6 +23,18 @@ describe('reduceSaveState', () => {
     expect(reduceSaveState('saving', { kind: 'save-ok' })).toBe('saved');
   });
 
+  it('save-ok from dirty is ignored (edit arrived during in-flight save)', () => {
+    // A stale save response must not overwrite a newer edit's dirty state,
+    // otherwise the interval stops firing until the user types again.
+    expect(reduceSaveState('dirty', { kind: 'save-ok' })).toBe('dirty');
+  });
+
+  it('save-ok from conflict / offline / idle is also a no-op', () => {
+    expect(reduceSaveState('conflict', { kind: 'save-ok' })).toBe('conflict');
+    expect(reduceSaveState('offline', { kind: 'save-ok' })).toBe('offline');
+    expect(reduceSaveState('idle', { kind: 'save-ok' })).toBe('idle');
+  });
+
   it('save-conflict moves to conflict from any state', () => {
     expect(reduceSaveState('saving', { kind: 'save-conflict' })).toBe('conflict');
     expect(reduceSaveState('dirty', { kind: 'save-conflict' })).toBe('conflict');

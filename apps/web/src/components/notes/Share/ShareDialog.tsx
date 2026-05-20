@@ -1,8 +1,8 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ShareTtl, UserSearchHit } from '@/lib/api/schemas.ts';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ShareTtl, ShareView, UserSearchHit } from '@/lib/api/schemas.ts';
 import { usersApi } from '@/lib/notes/api-client.ts';
 import { debounce } from '@/lib/notes/debounce.ts';
 import { ExpiryPicker } from './ExpiryPicker.tsx';
@@ -76,13 +76,6 @@ export function ShareDialog({ scope, canManage, onClose, fetcher }: Props) {
     }
   }, [picked, access, ttl, create]);
 
-  // ── Expiry label helper ────────────────────────────────────────────────
-  const expiryLabel = (expiresAt: string | null): string => {
-    if (expiresAt === null) return t('forever');
-    const d = new Date(expiresAt);
-    return `${t('expiresAt')}: ${d.toLocaleDateString()}`;
-  };
-
   // ── Render ─────────────────────────────────────────────────────────────
   return (
     <>
@@ -123,53 +116,10 @@ export function ShareDialog({ scope, canManage, onClose, fetcher }: Props) {
           {/* Loading state */}
           {loading && <p className="text-sm text-muted-foreground">{t('loading')}</p>}
 
-          {/* Current access list */}
-          {!loading && (
-            <section aria-label={t('currentAccess')}>
-              {shares.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('noShares')}</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {shares.map((share) => {
-                    const name = share.grantee.displayName ?? share.grantee.email;
-                    return (
-                      <li
-                        key={share.id}
-                        className="flex items-center justify-between rounded border border-border px-3 py-2 text-sm"
-                      >
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-foreground">{name}</span>
-                          {share.grantee.displayName && (
-                            <span className="text-xs text-muted-foreground">
-                              {share.grantee.email}
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {expiryLabel(share.expiresAt)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="rounded bg-muted px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            {share.access}
-                          </span>
-                          {canManage && (
-                            <button
-                              type="button"
-                              aria-label={`${t('revoke')} ${name}`}
-                              onClick={() => void revoke(share.id)}
-                              className="rounded px-2 py-0.5 text-xs text-destructive hover:bg-destructive/10"
-                            >
-                              {t('revoke')}
-                            </button>
-                          )}
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          )}
+          {/* Current access list — active grants grouped first, expired
+              underneath so managers can see / revoke history without
+              mistaking it for live access (QA review 2026-05-20, P2). */}
+          {!loading && <ShareList shares={shares} canManage={canManage} revoke={revoke} />}
 
           {/* Add people — only when canManage */}
           {canManage && (
@@ -243,5 +193,129 @@ export function ShareDialog({ scope, canManage, onClose, fetcher }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+/**
+ * Render the current-access section: active grants on top, expired grants
+ * underneath their own heading (and visually dimmed) so a manager can tell
+ * at a glance which grants are still live. Expired rows are still
+ * revocable — the API surfaces them precisely so the user can clean them
+ * up. (QA review 2026-05-20, P2.)
+ */
+function ShareList({
+  shares,
+  canManage,
+  revoke,
+}: {
+  shares: ReadonlyArray<ShareView>;
+  canManage: boolean;
+  revoke: (id: string) => Promise<void>;
+}) {
+  const t = useTranslations('notes.share');
+  const { active, expired } = useMemo(() => {
+    const a: ShareView[] = [];
+    const e: ShareView[] = [];
+    for (const s of shares) (s.status === 'expired' ? e : a).push(s);
+    return { active: a, expired: e };
+  }, [shares]);
+
+  const expiryLabel = (expiresAt: string | null): string => {
+    if (expiresAt === null) return t('forever');
+    return `${t('expiresAt')}: ${new Date(expiresAt).toLocaleDateString()}`;
+  };
+
+  return (
+    <section aria-label={t('currentAccess')} className="flex flex-col gap-4">
+      {active.length === 0 && expired.length === 0 ? (
+        <p className="text-muted-foreground text-sm">{t('noShares')}</p>
+      ) : null}
+
+      {active.length > 0 ? (
+        <ul className="flex flex-col gap-2">
+          {active.map((share) => {
+            const name = share.grantee.displayName ?? share.grantee.email;
+            return (
+              <li
+                key={share.id}
+                className="border-border flex items-center justify-between rounded border px-3 py-2 text-sm"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-foreground font-medium">{name}</span>
+                  {share.grantee.displayName ? (
+                    <span className="text-muted-foreground text-xs">{share.grantee.email}</span>
+                  ) : null}
+                  <span className="text-muted-foreground text-xs">
+                    {expiryLabel(share.expiresAt)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-muted text-muted-foreground rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide">
+                    {share.access}
+                  </span>
+                  {canManage ? (
+                    <button
+                      type="button"
+                      aria-label={`${t('revoke')} ${name}`}
+                      onClick={() => void revoke(share.id)}
+                      className="text-destructive hover:bg-destructive/10 rounded px-2 py-0.5 text-xs"
+                    >
+                      {t('revoke')}
+                    </button>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+
+      {expired.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <h4 className="text-muted-foreground/80 text-xs font-semibold uppercase tracking-wide">
+            {t('expiredHeading')}
+          </h4>
+          <ul className="flex flex-col gap-2">
+            {expired.map((share) => {
+              const name = share.grantee.displayName ?? share.grantee.email;
+              return (
+                <li
+                  key={share.id}
+                  data-status="expired"
+                  className="border-border/60 flex items-center justify-between rounded border px-3 py-2 text-sm opacity-70"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-foreground font-medium">{name}</span>
+                    {share.grantee.displayName ? (
+                      <span className="text-muted-foreground text-xs">{share.grantee.email}</span>
+                    ) : null}
+                    <span className="text-muted-foreground text-xs">
+                      {t('expiredOn', {
+                        date: share.expiresAt ? new Date(share.expiresAt).toLocaleDateString() : '',
+                      })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-muted/60 text-muted-foreground rounded px-2 py-0.5 text-xs font-semibold uppercase tracking-wide">
+                      {t('expiredBadge')}
+                    </span>
+                    {canManage ? (
+                      <button
+                        type="button"
+                        aria-label={`${t('revoke')} ${name}`}
+                        onClick={() => void revoke(share.id)}
+                        className="text-destructive hover:bg-destructive/10 rounded px-2 py-0.5 text-xs"
+                      >
+                        {t('revoke')}
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </section>
   );
 }

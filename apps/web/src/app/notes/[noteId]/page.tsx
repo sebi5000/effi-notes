@@ -76,6 +76,7 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
         id: true,
         title: true,
         body: true,
+        bodyVersion: true,
         folderId: true,
         authorId: true,
         lastEditorId: true,
@@ -120,11 +121,13 @@ export default async function NoteDetailPage({ params }: { params: Promise<{ not
           name: session.user.displayName ?? session.user.email,
           color: hashToColor(session.user.id),
         }}
+        user={{ displayName: session.user.displayName, email: session.user.email }}
         initialNote={{
           id: note.id,
           title: note.title,
           snippet: toSnippet(note.body),
           body: note.body,
+          bodyVersion: note.bodyVersion,
           folderId: note.folderId,
           authorId: note.authorId,
           lastEditorId: note.lastEditorId,

@@ -115,6 +115,47 @@ describe('GET /api/notes', () => {
     expect(res.status).toBe(400);
   });
 
+  it('section=shared returns only direct shares (excludes own notes and folder shares)', async () => {
+    const { user: owner } = await makeTestUser();
+    const { user: grantee } = await makeTestUser();
+    // Three notes:
+    //   directShare → returned: the grantee has a direct grant on it
+    //   inSharedFolder → NOT returned: only the folder is shared
+    //   own → NOT returned: it belongs to the grantee themselves
+    const directShare = await prisma.note.create({
+      data: { title: 'api-test-section-direct', body: '', authorId: owner.id },
+    });
+    const folder = await prisma.folder.create({
+      data: { name: 'api-test-section-folder', ownerId: owner.id },
+    });
+    await prisma.note.create({
+      data: { title: 'api-test-section-folder-note', authorId: owner.id, folderId: folder.id },
+    });
+    await prisma.note.create({
+      data: { title: 'api-test-section-own', authorId: grantee.id },
+    });
+    await makeTestShare({
+      noteId: directShare.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+    });
+    await makeTestShare({
+      folderId: folder.id,
+      granteeId: grantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+    });
+    setAuthed(grantee);
+    const res = await GET(new Request('http://localhost/api/notes?section=shared'));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { notes: Array<{ id: string; title: string }> };
+    const ids = body.notes.map((n) => n.id);
+    expect(ids).toContain(directShare.id);
+    expect(body.notes.map((n) => n.title)).not.toContain('api-test-section-folder-note');
+    expect(body.notes.map((n) => n.title)).not.toContain('api-test-section-own');
+  });
+
   it('tags a directly-shared note with sharedWithMe', async () => {
     const { user: owner } = await makeTestUser();
     const { user: grantee } = await makeTestUser();
@@ -230,6 +271,22 @@ describe('POST /api/notes', () => {
       where: { action: 'notes.created', subject: body.id },
     });
     expect(audits.length).toBe(1);
+  });
+
+  it('returns 400 with an unknown-tag error when tagIds reference a nonexistent tag', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const res = await POST(
+      new Request('http://localhost/api/notes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'api-test-bad-tag', tagIds: ['this-tag-does-not-exist'] }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    const payload = (await res.json()) as { error: string; details: { unknown: string[] } };
+    expect(payload.error).toBe('unknown tag');
+    expect(payload.details.unknown).toContain('this-tag-does-not-exist');
   });
 
   it('returns 400 on malformed body (Zod)', async () => {

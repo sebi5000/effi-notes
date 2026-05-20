@@ -17,7 +17,7 @@ import {
   makeTestUser,
   unauthed,
 } from '@/lib/api/test-session.ts';
-import { DELETE, GET, POST } from './route.ts';
+import { DELETE, GET, PATCH, POST } from './route.ts';
 
 const mockedAuth = vi.mocked(auth);
 const setAuthed = (u: Parameters<typeof authedAs>[1]) => authedAs(mockedAuth, u);
@@ -123,6 +123,66 @@ describe('POST /api/notes/[id]/public-link', () => {
     setAuthed(other);
     const res = await POST(postReq(), ctx(note.id));
     expect(res.status).toBe(403);
+  });
+});
+
+describe('PATCH /api/notes/[id]/public-link', () => {
+  const patchReq = (body: unknown) =>
+    new Request('http://localhost/api/notes/x/public-link', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  it('401 when unauthenticated', async () => {
+    setUnauthed();
+    const res = await PATCH(patchReq({ ttl: null }), ctx('x'));
+    expect(res.status).toBe(401);
+  });
+
+  it('404 when no public link exists', async () => {
+    const { user } = await makeTestUser();
+    const note = await makeTestNote({ authorId: user.id });
+    setAuthed(user);
+    const res = await PATCH(patchReq({ ttl: null }), ctx(note.id));
+    expect(res.status).toBe(404);
+  });
+
+  it('400 on missing ttl field', async () => {
+    const { user } = await makeTestUser();
+    const note = await makeTestNote({ authorId: user.id });
+    setAuthed(user);
+    await POST(postReq(), ctx(note.id));
+    const res = await PATCH(patchReq({}), ctx(note.id));
+    expect(res.status).toBe(400);
+  });
+
+  it('extends the expiry without changing the token', async () => {
+    const { user } = await makeTestUser();
+    const note = await makeTestNote({ authorId: user.id });
+    setAuthed(user);
+    const created = (await (await POST(postReq(), ctx(note.id))).json()) as {
+      token: string;
+      expiresAt: string | null;
+    };
+    expect(created.expiresAt).toBeNull();
+
+    const res = await PATCH(patchReq({ ttl: { value: 1, unit: 'hours' } }), ctx(note.id));
+    expect(res.status).toBe(200);
+    const updated = (await res.json()) as { token: string; expiresAt: string | null };
+    expect(updated.token).toBe(created.token); // token preserved
+    expect(updated.expiresAt).not.toBeNull();
+  });
+
+  it('clears the expiry when ttl is null', async () => {
+    const { user } = await makeTestUser();
+    const note = await makeTestNote({ authorId: user.id });
+    setAuthed(user);
+    await POST(postReq({ ttl: { value: 2, unit: 'hours' } }), ctx(note.id));
+
+    const res = await PATCH(patchReq({ ttl: null }), ctx(note.id));
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { expiresAt: string | null }).expiresAt).toBeNull();
   });
 });
 

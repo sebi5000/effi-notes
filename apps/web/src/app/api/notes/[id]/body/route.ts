@@ -17,9 +17,12 @@ type RouteContext = { params: Promise<{ id: string }> };
  * presence check), this endpoint rejects with 409 — the CRDT is the source
  * of truth while a session is active.
  *
- * Optimistic concurrency: the client sends `baseUpdatedAt` from the last
- * GET; mismatch → 409 with the current value so the client can re-render
- * and ask the user to merge.
+ * Optimistic concurrency: the client sends `baseBodyVersion` from the last
+ * GET / previous PUT. Mismatch → 409 with the current value so the client
+ * can re-render and ask the user to merge. The body-specific counter (not
+ * the note's global `updatedAt`) means title-only patches and worker Yjs
+ * snapshots can run without bumping the token and causing false 409s
+ * (QA review 2026-05-20, P1).
  */
 export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> => {
   const user = await requireSession();
@@ -35,8 +38,7 @@ export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> =>
   const parsed = putNoteBodySchema.safeParse(payload);
   if (!parsed.success) return jsonError(400, 'invalid body', parsed.error.issues);
 
-  const { body, baseUpdatedAt } = parsed.data;
-  const baseDate = new Date(baseUpdatedAt);
+  const { body, baseBodyVersion } = parsed.data;
 
   return withSpan(
     'notes.body.put',
@@ -44,27 +46,32 @@ export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> =>
     async () => {
       const existing = await prisma.note.findUnique({
         where: { id },
-        select: { id: true, updatedAt: true },
+        select: { id: true, bodyVersion: true },
       });
       if (!existing) return jsonError(404, 'not found');
 
       const access = await resolveNoteAccess(user.id, id);
       if (!canEdit(access)) return jsonError(403, 'forbidden');
 
-      if (existing.updatedAt.getTime() !== baseDate.getTime()) {
+      if (existing.bodyVersion !== baseBodyVersion) {
         log.warn(
-          { noteId: id, userId: user.id, baseUpdatedAt, actualUpdatedAt: existing.updatedAt },
+          {
+            noteId: id,
+            userId: user.id,
+            baseBodyVersion,
+            actualBodyVersion: existing.bodyVersion,
+          },
           'note body PUT conflict',
         );
         return jsonError(409, 'conflict', {
-          currentUpdatedAt: existing.updatedAt.toISOString(),
+          currentBodyVersion: existing.bodyVersion,
         });
       }
 
       const updated = await prisma.note.update({
         where: { id },
-        data: { body, lastEditorId: user.id },
-        select: { id: true, updatedAt: true },
+        data: { body, lastEditorId: user.id, bodyVersion: { increment: 1 } },
+        select: { id: true, updatedAt: true, bodyVersion: true },
       });
 
       // Asset cleanup reconcile (sub-project D): stamp/un-stamp this note's
@@ -84,7 +91,11 @@ export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> =>
         ]);
       }
 
-      return jsonOk({ id: updated.id, updatedAt: updated.updatedAt.toISOString() });
+      return jsonOk({
+        id: updated.id,
+        updatedAt: updated.updatedAt.toISOString(),
+        bodyVersion: updated.bodyVersion,
+      });
     },
   );
 };

@@ -63,6 +63,22 @@ describe('folderChain', () => {
     expect(await folderChain(null)).toEqual([]);
     expect(await folderChain('does-not-exist')).toEqual([]);
   });
+
+  it('walks a deep chain in a single query (recursive CTE, ADR 0030)', async () => {
+    // Twelve-level deep tree — the previous implementation would have done
+    // 12 sequential round-trips; the CTE does it in one.
+    const { user } = await makeTestUser();
+    const ids: string[] = [];
+    let parentId: string | null = null;
+    for (let i = 0; i < 12; i++) {
+      const f = await makeTestFolder({ ownerId: user.id, ...(parentId ? { parentId } : {}) });
+      ids.push(f.id);
+      parentId = f.id;
+    }
+    const chain = await folderChain(ids[ids.length - 1] as string);
+    // Nearest-first order — leaf, then up to the root.
+    expect(chain.map((f) => f.id)).toEqual([...ids].reverse());
+  });
 });
 
 describe('resolveNoteAccess', () => {

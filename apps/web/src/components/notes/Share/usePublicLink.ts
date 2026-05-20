@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useReducer } from 'react';
-import type { PublicLinkCreateInput, PublicLinkView } from '@/lib/api/schemas.ts';
+import type { PublicLinkCreateInput, PublicLinkView, ShareTtl } from '@/lib/api/schemas.ts';
 import { ApiError, publicLinkApi } from '@/lib/notes/api-client.ts';
 
 type UsePublicLinkResult = {
@@ -10,6 +10,8 @@ type UsePublicLinkResult = {
   error: string | null;
   /** (Re)generate the link — regenerating replaces the previous token. */
   generate: (input?: PublicLinkCreateInput) => Promise<void>;
+  /** Update just the expiry of an existing link without changing the token. */
+  updateExpiry: (ttl: ShareTtl | null) => Promise<void>;
   /** Revoke the link, if any. */
   revoke: () => Promise<void>;
 };
@@ -75,6 +77,19 @@ export function usePublicLink(noteId: string, fetcher?: typeof fetch): UsePublic
     [noteId, fetcher],
   );
 
+  const updateExpiry = useCallback(
+    async (ttl: ShareTtl | null) => {
+      dispatch({ type: 'START' });
+      try {
+        const link = await publicLinkApi.update(noteId, { ttl }, fetcher);
+        dispatch({ type: 'SUCCESS', link });
+      } catch (err) {
+        dispatch({ type: 'ERROR', error: errorMessage(err) });
+      }
+    },
+    [noteId, fetcher],
+  );
+
   const revoke = useCallback(async () => {
     dispatch({ type: 'START' });
     try {
@@ -85,5 +100,12 @@ export function usePublicLink(noteId: string, fetcher?: typeof fetch): UsePublic
     }
   }, [noteId, fetcher]);
 
-  return { link: state.link, loading: state.loading, error: state.error, generate, revoke };
+  return {
+    link: state.link,
+    loading: state.loading,
+    error: state.error,
+    generate,
+    updateExpiry,
+    revoke,
+  };
 }

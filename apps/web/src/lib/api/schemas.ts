@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { folderIconSchema } from '@/lib/notes/folder-icons.ts';
+import { THEME_IDS } from '@/lib/theme/themes.ts';
 
 /**
  * Shared Zod schemas + types for the notes REST API.
@@ -42,9 +43,13 @@ export type PatchNoteInput = z.infer<typeof patchNoteSchema>;
 
 export const putNoteBodySchema = z.object({
   body: z.string().max(BODY_MAX),
-  // Optimistic-concurrency token from the last GET. Server rejects with 409
-  // if the note has changed since.
-  baseUpdatedAt: z.iso.datetime(),
+  // Optimistic-concurrency token: the `Note.bodyVersion` the client last saw
+  // (from a GET or a previous PUT). The server rejects with 409 if the note's
+  // current `bodyVersion` is higher. Using a body-specific counter — not the
+  // note's global `updatedAt` — means title-only patches and worker Yjs
+  // snapshots can run without invalidating an in-flight editor save
+  // (QA review 2026-05-20, P1).
+  baseBodyVersion: z.number().int().nonnegative(),
   // The asset ids the editor's current document references. Optional — when
   // omitted (e.g. import/automation callers), the body route skips the
   // asset-cleanup reconcile entirely rather than treating the note as
@@ -58,6 +63,10 @@ export const listNotesQuerySchema = z.object({
   tagId: cuidSchema.optional(),
   q: z.string().max(SEARCH_QUERY_MAX).optional(),
   includeArchived: z.coerce.boolean().optional(),
+  // Narrow the result set to "directly shared with me". Skips the
+  // load-all-then-filter pass the sidebar used to do for the
+  // Shared-with-me panel (QA review 2026-05-20, P2).
+  section: z.enum(['shared']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
@@ -126,6 +135,8 @@ export type NoteListItem = {
 
 export type NoteDetail = NoteListItem & {
   body: string;
+  /** Monotonic body-only revision counter — see `putNoteBodySchema`. */
+  bodyVersion: number;
   createdAt: string;
   lastEditorId: string | null;
   titleManuallySet: boolean;
@@ -184,6 +195,14 @@ export type ShareView = {
   grantee: { id: string; displayName: string | null; email: string };
   access: 'VIEW' | 'EDIT';
   expiresAt: string | null;
+  /**
+   * Lifecycle state derived from `expiresAt` and the request time. The list
+   * endpoint surfaces expired rows to managers so they can see / revoke
+   * previously-granted access — access checks themselves still filter on
+   * `active` so an expired share doesn't grant anything (ADR 0026 +
+   * QA review 2026-05-20, P2).
+   */
+  status: 'active' | 'expired';
   createdById: string;
   createdAt: string;
 };
@@ -208,6 +227,16 @@ export const publicLinkCreateSchema = z.object({
 });
 export type PublicLinkCreateInput = z.infer<typeof publicLinkCreateSchema>;
 
+/**
+ * Body of PATCH /api/notes/[id]/public-link — update only the expiry without
+ * regenerating the token. A `ttl` sets a new relative expiry from now;
+ * `null` clears the expiry (link becomes "forever").
+ */
+export const publicLinkUpdateSchema = z.object({
+  ttl: shareTtlSchema.nullable(),
+});
+export type PublicLinkUpdateInput = z.infer<typeof publicLinkUpdateSchema>;
+
 /** A note's public link, as returned to a user who can manage it. */
 export type PublicLinkView = {
   id: string;
@@ -219,6 +248,12 @@ export type PublicLinkView = {
 };
 
 export type UserSearchHit = { id: string; displayName: string | null; email: string };
+
+/** Body of PUT /api/users/me/theme — one of the closed theme ids (ADR 0029). */
+export const userThemeSchema = z.object({
+  theme: z.enum(THEME_IDS),
+});
+export type UserThemeInput = z.infer<typeof userThemeSchema>;
 
 /** Query params for `POST /api/notes/[id]/assets` — the raw file is the body. */
 export const assetUploadQuerySchema = z.object({

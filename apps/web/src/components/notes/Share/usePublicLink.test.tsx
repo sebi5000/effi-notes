@@ -20,6 +20,11 @@ const buildFetcher = (initialLink: PublicLinkView | null): typeof fetch =>
   vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method?.toUpperCase() ?? 'GET';
     if (method === 'POST') return json(LINK, 201);
+    if (method === 'PATCH') {
+      const body = JSON.parse((init?.body as string) ?? '{}') as { ttl: unknown };
+      const expiresAt = body.ttl === null ? null : new Date(Date.now() + 60_000).toISOString();
+      return json({ ...LINK, expiresAt });
+    }
     if (method === 'DELETE') return json({ revoked: true });
     return json({ link: initialLink });
   }) as unknown as typeof fetch;
@@ -44,6 +49,33 @@ describe('usePublicLink', () => {
       await result.current.generate();
     });
     expect(result.current.link?.url).toBe('/p/tok');
+  });
+
+  it('updateExpiry() PATCHes and refreshes the link without changing the token', async () => {
+    const fetcher = buildFetcher(LINK);
+    const { result } = renderHook(() => usePublicLink('note-1', fetcher));
+    await waitFor(() => expect(result.current.link?.expiresAt).toBeNull());
+
+    await act(async () => {
+      await result.current.updateExpiry({ value: 1, unit: 'hours' });
+    });
+    expect(result.current.link?.token).toBe('tok'); // token preserved
+    expect(result.current.link?.expiresAt).not.toBeNull();
+  });
+
+  it('updateExpiry(null) clears the expiry', async () => {
+    const linkWithExpiry: PublicLinkView = {
+      ...LINK,
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    };
+    const fetcher = buildFetcher(linkWithExpiry);
+    const { result } = renderHook(() => usePublicLink('note-1', fetcher));
+    await waitFor(() => expect(result.current.link?.expiresAt).not.toBeNull());
+
+    await act(async () => {
+      await result.current.updateExpiry(null);
+    });
+    expect(result.current.link?.expiresAt).toBeNull();
   });
 
   it('revoke() clears the link', async () => {

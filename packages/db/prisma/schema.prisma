@@ -22,6 +22,7 @@ model User {
   email          String        @unique
   displayName    String?
   locale         String        @default("de")
+  theme          String        @default("warm-paper")
   roles          String[]      @default([])
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -77,15 +78,26 @@ model Folder {
   @@index([ownerId])
 }
 
-/// A markdown-first note. `body` is the canonical markdown source. `yjsState`
-/// is the most recent CRDT snapshot (written by the worker's snapshot
-/// processor; see ADR 0022). `searchVector` is a generated tsvector column
-/// added in the migration's raw SQL block — Prisma sees it as Unsupported but
-/// it is queryable via $queryRaw.
+/// A collaboratively-edited note. `yjsState` is the canonical document — the
+/// CRDT snapshot the editor renders and the worker's snapshot processor keeps
+/// up to date (see ADR 0022). `body` is a plain-text mirror of the doc kept
+/// in sync by `PUT /api/notes/[id]/body` (the editor sends `editor.getText()`
+/// every ~5 s); it powers full-text search, snippets, and read-only HTML
+/// rendering for public links. It is NOT canonical markdown today —
+/// re-renaming to e.g. `bodyText` or switching to true markdown would be a
+/// breaking change deferred to its own ADR (QA review 2026-05-20, P2).
+/// `searchVector` is a generated tsvector column added in the migration's raw
+/// SQL block — Prisma sees it as Unsupported but it is queryable via
+/// $queryRaw.
 model Note {
   id           String                   @id @default(cuid())
   title        String
   body         String                   @default("")
+  // Content-specific concurrency counter used by `PUT /api/notes/[id]/body`.
+  // Incremented only when `body` is written through that route; title-only
+  // PATCHes and worker Yjs snapshots leave it alone so they don't invalidate
+  // an in-flight editor save (QA review 2026-05-20, P1).
+  bodyVersion  Int                      @default(0)
   yjsState     Bytes?
   folderId     String?
   folder       Folder?                  @relation(fields: [folderId], references: [id], onDelete: SetNull)

@@ -11,6 +11,7 @@ import {
   resolveNoteAccess,
 } from '@/lib/notes/access.ts';
 import { toSnippet } from '@/lib/notes/snippet.ts';
+import { resolveTagIds } from '@/lib/notes/tag-ids.ts';
 
 const log = createLogger({ component: 'api.notes.id' });
 
@@ -20,6 +21,7 @@ const noteSelect = {
   id: true,
   title: true,
   body: true,
+  bodyVersion: true,
   folderId: true,
   authorId: true,
   lastEditorId: true,
@@ -34,6 +36,7 @@ const toDetail = (n: {
   id: string;
   title: string;
   body: string;
+  bodyVersion: number;
   folderId: string | null;
   authorId: string;
   lastEditorId: string | null;
@@ -48,6 +51,7 @@ const toDetail = (n: {
   title: n.title,
   snippet: toSnippet(n.body),
   body: n.body,
+  bodyVersion: n.bodyVersion,
   folderId: n.folderId,
   authorId: n.authorId,
   lastEditorId: n.lastEditorId,
@@ -94,8 +98,18 @@ export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> 
     if (!canEdit(folderAccess)) return jsonError(403, 'forbidden: target folder');
   }
 
+  // Pre-validate any provided tag ids so a bad id is a clean 400 instead of
+  // a Prisma FK error from the nested write below (QA review 2026-05-20, P3).
+  let resolvedTagIds: string[] | undefined;
+  if (parsed.data.tagIds !== undefined) {
+    const r = await resolveTagIds(parsed.data.tagIds);
+    if (!r.ok) return jsonError(400, 'unknown tag', { unknown: r.unknown });
+    resolvedTagIds = r.tagIds;
+  }
+
   return withSpan('notes.patch', { 'notes.id': id }, async () => {
-    const { title, folderId, tagIds, archivedAt, titleManuallySet } = parsed.data;
+    const { title, folderId, archivedAt, titleManuallySet } = parsed.data;
+    const tagIds = resolvedTagIds;
     const updated = await prisma.note.update({
       where: { id },
       data: {

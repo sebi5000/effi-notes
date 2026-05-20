@@ -67,6 +67,7 @@
       "nameInputLabel": "Folder name",
       "copyLink": "Copy link",
       "copyLinkCopied": "Link copied",
+      "moreActions": "More actions",
       "cycle": "A folder can't be moved into one of its own descendants."
     },
     "folderIcons": {
@@ -104,7 +105,10 @@
       "duplicateNote": "Duplicate note",
       "renameNotePlaceholder": "Note title",
       "copyLink": "Copy link",
-      "copyLinkCopied": "Link copied"
+      "copyLinkCopied": "Link copied",
+      "moreActions": "More actions",
+      "deleteNote": "Delete note",
+      "confirmDelete": "Delete note \"{title}\"?"
     },
     "commandBar": {
       "label": "Search notes",
@@ -231,6 +235,8 @@
       "view": "View",
       "edit": "Edit",
       "expiryForever": "No expiry",
+      "expirySet": "Set an expiry",
+      "expiryHeading": "Expires",
       "expiryValue": "Expiry duration",
       "expiryUnit": "Expiry unit",
       "publicLinkHeading": "Public link",
@@ -238,7 +244,11 @@
       "publicLinkGenerate": "Generate public link",
       "publicLinkCopy": "Copy",
       "publicLinkCopied": "Copied",
-      "publicLinkRevoke": "Revoke link"
+      "publicLinkRevoke": "Revoke link",
+      "publicLinkSaveExpiry": "Save expiry",
+      "expiredHeading": "Expired",
+      "expiredBadge": "Expired",
+      "expiredOn": "Expired on {date}"
     }
   },
   "public": {
@@ -247,5 +257,20 @@
     "notFoundTitle": "Link unavailable",
     "notFoundBody": "This link is invalid, has expired, or has been revoked.",
     "rateLimited": "Too many requests. Please try again in a moment."
+  },
+  "userMenu": {
+    "menuLabel": "Account menu",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  },
+  "settings": {
+    "title": "Settings",
+    "appearanceHeading": "Appearance",
+    "appearanceDescription": "Choose your preferred theme. It syncs across your devices.",
+    "themeLabel": "Theme",
+    "themeWarmPaper": "Warm Paper",
+    "themeDark": "Dark",
+    "themeCoolSlate": "Cool Slate",
+    "themeSaveFailed": "Could not save your theme. Please try again."
   }
 }

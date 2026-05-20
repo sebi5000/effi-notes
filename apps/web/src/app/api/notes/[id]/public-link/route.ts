@@ -2,7 +2,11 @@ import { prisma } from '@app/db';
 import { recordAudit } from '@app/db/audit';
 import { createLogger } from '@app/observability/logger';
 import { jsonCreated, jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
-import { type PublicLinkView, publicLinkCreateSchema } from '@/lib/api/schemas.ts';
+import {
+  type PublicLinkView,
+  publicLinkCreateSchema,
+  publicLinkUpdateSchema,
+} from '@/lib/api/schemas.ts';
 import { canManageShares, resolveNoteAccess } from '@/lib/notes/access.ts';
 import { generatePublicToken } from '@/lib/notes/public-link-token.ts';
 import { ttlToExpiresAt } from '@/lib/notes/share-ttl.ts';
@@ -86,6 +90,44 @@ export const POST = async (req: Request, ctx: RouteContext): Promise<Response> =
   });
   log.info({ publicLinkId: link.id, noteId: id, userId: g.userId }, 'public link created');
   return jsonCreated(toPublicLinkView(link));
+};
+
+export const PATCH = async (req: Request, ctx: RouteContext): Promise<Response> => {
+  const { id } = await ctx.params;
+  const g = await guard(id);
+  if ('error' in g) return g.error;
+
+  let payload: unknown;
+  try {
+    payload = await req.json();
+  } catch {
+    return jsonError(400, 'invalid json');
+  }
+  const parsed = publicLinkUpdateSchema.safeParse(payload);
+  if (!parsed.success) return jsonError(400, 'invalid body', parsed.error.issues);
+
+  const existing = await prisma.publicLink.findUnique({
+    where: { noteId: id },
+    select: { id: true },
+  });
+  if (existing === null) return jsonError(404, 'no public link to update');
+
+  // ttl === null clears the expiry; a ShareTtl computes a new absolute date
+  // from "now" so existing links can be extended without changing the token.
+  const expiresAt = parsed.data.ttl === null ? null : ttlToExpiresAt(parsed.data.ttl);
+  const link = await prisma.publicLink.update({
+    where: { noteId: id },
+    data: { expiresAt },
+    select: linkSelect,
+  });
+  await recordAudit({
+    action: 'publicLink.expiryUpdated',
+    actorId: g.userId,
+    subject: link.id,
+    metadata: { noteId: id, expiresAt: expiresAt?.toISOString() ?? null },
+  });
+  log.info({ publicLinkId: link.id, noteId: id, userId: g.userId }, 'public link expiry updated');
+  return jsonOk(toPublicLinkView(link));
 };
 
 export const DELETE = async (_req: Request, ctx: RouteContext): Promise<Response> => {

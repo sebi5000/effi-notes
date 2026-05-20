@@ -16,3 +16,7 @@ const adapter = new PrismaPg({
 export const prisma = new PrismaClient({ adapter });
 
 export type { PrismaClient } from '../generated/client.ts';
+// Re-export the Prisma namespace so callers can use `Prisma.sql` /
+// `Prisma.join` for tagged-template `$queryRaw` without reaching into the
+// generated client directly.
+export { Prisma } from '../generated/client.ts';

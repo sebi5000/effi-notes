@@ -120,6 +120,30 @@ describe('PATCH /api/folders/[id]', () => {
     expect(reloaded?.name).toBe('api-test-rename-new');
   });
 
+  it('rejects moving a folder under one of its own descendants (409)', async () => {
+    // Tree: parent → child. Try to reparent `parent` under `child` → cycle.
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const parent = await prisma.folder.create({
+      data: { name: 'api-test-cycle-parent', ownerId: user.id },
+    });
+    const child = await prisma.folder.create({
+      data: { name: 'api-test-cycle-child', ownerId: user.id, parentId: parent.id },
+    });
+    const res = await PATCH(
+      new Request(`http://localhost/api/folders/${parent.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ parentId: child.id }),
+      }),
+      { params: Promise.resolve({ id: parent.id }) },
+    );
+    expect(res.status).toBe(409);
+    // Tree must be unchanged on rejection.
+    const reloaded = await prisma.folder.findUnique({ where: { id: parent.id } });
+    expect(reloaded?.parentId).toBeNull();
+  });
+
   it('rejects self-parent', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
