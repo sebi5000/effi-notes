@@ -32,6 +32,14 @@ const fireDrag = (
   fireEvent(el, ev);
 };
 
+/**
+ * Folder row actions live inside a "More actions" dropdown — open it before
+ * querying for items like "Rename folder" / "Delete folder" / "Share folder".
+ */
+const openRowMenu = (row: HTMLElement) => {
+  fireEvent.click(within(row).getByLabelText('More actions'));
+};
+
 const messages = {
   notes: {
     folderActions: {
@@ -44,6 +52,7 @@ const messages = {
       nameInputLabel: 'Folder name',
       copyLink: 'Copy link',
       copyLinkCopied: 'Link copied',
+      moreActions: 'More actions',
       cycle: "A folder can't be moved into one of its own descendants.",
     },
     folderIcons: {
@@ -221,6 +230,9 @@ describe('FolderTree (read-only)', () => {
     const { container } = render(
       wrap(<FolderTree folders={fixture} selectedId={null} onSelect={() => undefined} />),
     );
+    // Without mutations there are no destructive items, and (since the menu
+    // also omits share/copy unless onOpenShare is passed) the trigger may not
+    // render at all — but the actions themselves must be absent regardless.
     expect(within(container).queryByLabelText('Rename folder')).toBeNull();
     expect(within(container).queryByLabelText('Delete folder')).toBeNull();
   });
@@ -235,7 +247,7 @@ describe('FolderTree (mutations)', () => {
     };
   });
 
-  it('reveals per-row rename and delete buttons when mutations are provided', () => {
+  it('every row gets a More-actions menu trigger when mutations are provided', () => {
     const { container } = render(
       wrap(
         <FolderTree
@@ -246,9 +258,14 @@ describe('FolderTree (mutations)', () => {
         />,
       ),
     );
-    // Each row gets its own rename + delete button.
-    expect(within(container).getAllByLabelText('Rename folder').length).toBe(fixture.length);
-    expect(within(container).getAllByLabelText('Delete folder').length).toBe(fixture.length);
+    // The actions are now consolidated into one dropdown per row; the trigger
+    // is the at-a-glance signal that actions are available.
+    expect(within(container).getAllByLabelText('More actions').length).toBe(fixture.length);
+    // Opening one row's menu reveals the rename + delete items.
+    const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
+    expect(within(acmeRow).queryByLabelText('Rename folder')).not.toBeNull();
+    expect(within(acmeRow).queryByLabelText('Delete folder')).not.toBeNull();
   });
 
   it('clicking the rename button starts an inline edit and Enter commits via onRename', async () => {
@@ -263,6 +280,7 @@ describe('FolderTree (mutations)', () => {
       ),
     );
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     const renameBtn = within(acmeRow).getByLabelText('Rename folder');
     fireEvent.click(renameBtn);
 
@@ -285,6 +303,7 @@ describe('FolderTree (mutations)', () => {
       ),
     );
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     fireEvent.click(within(acmeRow).getByLabelText('Rename folder'));
     const input = within(acmeRow).getByLabelText('Folder name') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'nope' } });
@@ -304,6 +323,7 @@ describe('FolderTree (mutations)', () => {
       ),
     );
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     fireEvent.click(within(acmeRow).getByLabelText('Rename folder'));
     const input = within(acmeRow).getByLabelText('Folder name') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '   ' } });
@@ -324,6 +344,7 @@ describe('FolderTree (mutations)', () => {
       ),
     );
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     fireEvent.click(within(acmeRow).getByLabelText('Delete folder'));
     expect(confirmSpy).toHaveBeenCalled();
     await waitFor(() => expect(mutations.onDelete).toHaveBeenCalledWith('acme'));
@@ -343,6 +364,7 @@ describe('FolderTree (mutations)', () => {
       ),
     );
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     fireEvent.click(within(acmeRow).getByLabelText('Delete folder'));
     expect(mutations.onDelete).not.toHaveBeenCalled();
     confirmSpy.mockRestore();
@@ -367,6 +389,7 @@ describe('FolderTree (mutations)', () => {
       ),
     );
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     fireEvent.click(within(acmeRow).getByLabelText('Delete folder'));
     await waitFor(() =>
       expect(within(container).getByRole('alert').textContent).toContain('folder not empty'),
@@ -733,7 +756,7 @@ describe('FolderTree (note drop)', () => {
 });
 
 describe('FolderTree (share control)', () => {
-  it('renders a share button on every folder row when onOpenShare is provided', () => {
+  it('every folder row exposes a Share menuitem when onOpenShare is provided', () => {
     const { container } = render(
       wrap(
         <FolderTree
@@ -744,11 +767,16 @@ describe('FolderTree (share control)', () => {
         />,
       ),
     );
-    // The control is share-state-independent: one per visible folder row.
-    expect(within(container).getAllByLabelText('Share folder').length).toBe(fixture.length);
+    // Open every row's menu and verify the Share item is present.
+    const rows = container.querySelectorAll('[role="treeitem"]');
+    expect(rows.length).toBe(fixture.length);
+    rows.forEach((row) => {
+      openRowMenu(row as HTMLElement);
+      expect(within(row as HTMLElement).queryByLabelText('Share folder')).not.toBeNull();
+    });
   });
 
-  it('renders the share button for a folder that has never been shared (shareCount === 0)', () => {
+  it('shows the Share menuitem for a folder that has never been shared (shareCount === 0)', () => {
     const unshared = f('f1', 'Not shared');
     expect(unshared.shareCount).toBe(0);
     const { container } = render(
@@ -761,17 +789,26 @@ describe('FolderTree (share control)', () => {
         />,
       ),
     );
-    expect(within(container).getByRole('button', { name: 'Share folder' })).toBeTruthy();
+    const row = container.querySelector('[data-id="f1"]') as HTMLElement;
+    openRowMenu(row);
+    expect(within(row).getByRole('menuitem', { name: 'Share folder' })).toBeTruthy();
   });
 
-  it('does not render a share button when onOpenShare is omitted', () => {
+  it('does not render a Share menuitem when onOpenShare is omitted', () => {
     const { container } = render(
       wrap(<FolderTree folders={fixture} selectedId={null} onSelect={() => undefined} />),
     );
-    expect(within(container).queryByLabelText('Share folder')).toBeNull();
+    // The trigger may still render (Copy link is always available), so the
+    // assertion is "no Share menuitem regardless of menu state."
+    const rows = container.querySelectorAll('[role="treeitem"]');
+    rows.forEach((row) => {
+      const trigger = within(row as HTMLElement).queryByLabelText('More actions');
+      if (trigger !== null) fireEvent.click(trigger);
+      expect(within(row as HTMLElement).queryByLabelText('Share folder')).toBeNull();
+    });
   });
 
-  it('clicking the share button calls onOpenShare with the folder scope', () => {
+  it('clicking the Share menuitem calls onOpenShare with the folder scope', () => {
     const onOpenShare = vi.fn();
     const { container } = render(
       wrap(
@@ -783,11 +820,13 @@ describe('FolderTree (share control)', () => {
         />,
       ),
     );
-    fireEvent.click(within(container).getByRole('button', { name: 'Share folder' }));
+    const row = container.querySelector('[data-id="f1"]') as HTMLElement;
+    openRowMenu(row);
+    fireEvent.click(within(row).getByLabelText('Share folder'));
     expect(onOpenShare).toHaveBeenCalledWith({ kind: 'folder', id: 'f1' });
   });
 
-  it('keeps the share button always visible (not hover-gated) for a shared folder', () => {
+  it('marks the More-actions trigger with a badge for an already-shared folder', () => {
     const sharedFolder = { ...f('s1', 'Shared'), shareCount: 2 };
     const { container } = render(
       wrap(
@@ -799,11 +838,14 @@ describe('FolderTree (share control)', () => {
         />,
       ),
     );
-    const btn = within(container).getByRole('button', { name: 'Share folder' });
-    expect(btn.className.split(' ')).not.toContain('opacity-0');
+    const row = container.querySelector('[data-id="s1"]') as HTMLElement;
+    const trigger = within(row).getByLabelText('More actions');
+    // The badge is the small <span class="bg-accent ..."> dot rendered inside
+    // the trigger button when `shareCount > 0`.
+    expect(trigger.querySelector('.bg-accent')).not.toBeNull();
   });
 
-  it('hover-gates the share button for a folder with no shares', () => {
+  it('does not mark the trigger with a badge for a folder with no shares', () => {
     const { container } = render(
       wrap(
         <FolderTree
@@ -814,8 +856,9 @@ describe('FolderTree (share control)', () => {
         />,
       ),
     );
-    const btn = within(container).getByRole('button', { name: 'Share folder' });
-    expect(btn.className.split(' ')).toContain('opacity-0');
+    const row = container.querySelector('[data-id="f1"]') as HTMLElement;
+    const trigger = within(row).getByLabelText('More actions');
+    expect(trigger.querySelector('.bg-accent')).toBeNull();
   });
 });
 
@@ -985,6 +1028,7 @@ describe('FolderTree (i18n labels)', () => {
 
     // Inline rename input — labelled from the catalogue, not a literal.
     const acmeRow = container.querySelector('[data-id="acme"]') as HTMLElement;
+    openRowMenu(acmeRow);
     fireEvent.click(within(acmeRow).getByLabelText('Rename folder'));
     expect(within(acmeRow).getByLabelText('ORDNERNAME')).toBeTruthy();
 

@@ -2,32 +2,25 @@
 
 import { useTranslations } from 'next-intl';
 import { noteInternalUrl } from '@/lib/notes/internal-url.ts';
-import { CopyLinkButton } from './CopyLinkButton.tsx';
+import { useCopyToClipboard } from '@/lib/notes/use-copy-to-clipboard.ts';
+import { RowActionsMenu, type RowMenuItem } from './RowActionsMenu.tsx';
 
 type Props = {
   noteId: string;
-  /** Drives the share-button visibility (always-on when > 0 — same cue as folder rows). */
+  /** Drives the trigger's "shared" badge (always-on cue when > 0). */
   shareCount: number;
-  /** Open inline rename in the parent row. Undefined hides the rename button. */
+  /** Open inline rename in the parent row. Undefined hides the rename item. */
   onRequestRename?: (() => void) | undefined;
-  /** Duplicate the note. Undefined hides the duplicate button. */
+  /** Duplicate the note. Undefined hides the duplicate item. */
   onDuplicate?: (() => void) | undefined;
   /** Open the share dialog for this note. */
   onShare: () => void;
 };
 
-const ICON_BASE =
-  'text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px]';
-const REVEAL_ON_HOVER = 'opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100';
-
 /**
- * In-flow action strip for a sidebar note row.
- *
- * Lives as a flex sibling of the row's clickable label so the buttons never
- * overlap a long title (the previous `absolute right-1 top-1` group did). The
- * layout mirrors `FolderTree.tsx`'s folder-row actions: `shrink-0` strip,
- * `mt-1` to align with the title's first line, hover-reveal opacity. The
- * share icon stays visible when `shareCount > 0` as an at-a-glance cue.
+ * Collapses every per-row action into a single ▾ dropdown so the sidebar can
+ * show more title + snippet. The menu items keep their original accessible
+ * labels (rename, duplicate, copy link, share) — only the trigger changes.
  */
 export function NoteRowActions({
   noteId,
@@ -38,46 +31,44 @@ export function NoteRowActions({
 }: Props) {
   const tNA = useTranslations('notes.noteActions');
   const tShare = useTranslations('notes.share');
+  const { copy } = useCopyToClipboard();
+
+  const items: RowMenuItem[] = [];
+  if (onRequestRename) {
+    items.push({
+      key: 'rename',
+      icon: '✎',
+      label: tNA('renameNote'),
+      onSelect: onRequestRename,
+    });
+  }
+  if (onDuplicate) {
+    items.push({
+      key: 'duplicate',
+      icon: '⎘',
+      label: tNA('duplicateNote'),
+      onSelect: onDuplicate,
+    });
+  }
+  items.push({
+    key: 'copy',
+    icon: '🔗',
+    label: tNA('copyLink'),
+    onSelect: () => {
+      // Absolute URL composed at click time so the component is safe to SSR.
+      void copy(`${window.location.origin}${noteInternalUrl(noteId)}`);
+    },
+  });
+  items.push({
+    key: 'share',
+    icon: '👁',
+    label: tShare('shareNoteLabel'),
+    onSelect: onShare,
+  });
 
   return (
-    <div className="mt-1 flex shrink-0 items-center gap-0.5 pr-1">
-      {onRequestRename ? (
-        <button
-          type="button"
-          aria-label={tNA('renameNote')}
-          title={tNA('renameNote')}
-          onClick={onRequestRename}
-          className={`${ICON_BASE} ${REVEAL_ON_HOVER}`}
-        >
-          <span aria-hidden="true">✎</span>
-        </button>
-      ) : null}
-      {onDuplicate ? (
-        <button
-          type="button"
-          aria-label={tNA('duplicateNote')}
-          title={tNA('duplicateNote')}
-          onClick={onDuplicate}
-          className={`${ICON_BASE} ${REVEAL_ON_HOVER}`}
-        >
-          <span aria-hidden="true">⎘</span>
-        </button>
-      ) : null}
-      <CopyLinkButton
-        path={noteInternalUrl(noteId)}
-        label={tNA('copyLink')}
-        copiedLabel={tNA('copyLinkCopied')}
-        className={`${ICON_BASE} ${REVEAL_ON_HOVER}`}
-      />
-      <button
-        type="button"
-        aria-label={tShare('shareNoteLabel')}
-        title={tShare('shareNoteLabel')}
-        onClick={onShare}
-        className={`${ICON_BASE} transition-colors ${shareCount > 0 ? '' : REVEAL_ON_HOVER}`}
-      >
-        <span aria-hidden="true">👁</span>
-      </button>
+    <div className="mt-1 flex shrink-0 items-center pr-1">
+      <RowActionsMenu triggerLabel={tNA('moreActions')} items={items} badge={shareCount > 0} />
     </div>
   );
 }

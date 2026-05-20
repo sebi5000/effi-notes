@@ -20,6 +20,18 @@ const fireDrag = (
   fireEvent(el, ev);
 };
 
+/**
+ * Note + folder row actions live inside a "More actions" dropdown. Open the
+ * dropdown for the unique note row in the current render before querying for
+ * items like "Rename note" / "Share note". When the test fixture has folders
+ * AND notes, several "More actions" triggers exist — this helper picks the
+ * one inside the Notes region.
+ */
+const openNoteRowMenu = (container: HTMLElement) => {
+  const notesSection = within(container).getByRole('region', { name: 'Notes' });
+  fireEvent.click(within(notesSection).getByLabelText('More actions'));
+};
+
 /** Minimal DataTransfer stand-in — jsdom doesn't implement the real one. */
 const makeDataTransfer = (): DataTransfer => {
   const store = new Map<string, string>();
@@ -50,6 +62,7 @@ const messages = {
       delete: 'Delete folder',
       copyLink: 'Copy link',
       copyLinkCopied: 'Link copied',
+      moreActions: 'More actions',
     },
     noteActions: {
       newNote: 'New note',
@@ -58,6 +71,7 @@ const messages = {
       renameNotePlaceholder: 'Note title',
       copyLink: 'Copy link',
       copyLinkCopied: 'Link copied',
+      moreActions: 'More actions',
     },
     commandBar: {
       label: 'Search',
@@ -372,7 +386,7 @@ describe('Sidebar — share control on note rows', () => {
     shareCount: 0,
   };
 
-  it('renders a share button on an already-shared note row', () => {
+  it('exposes a Share menuitem on an already-shared note row', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -388,10 +402,11 @@ describe('Sidebar — share control on note rows', () => {
         />,
       ),
     );
-    expect(within(container).getByRole('button', { name: 'Share note' })).toBeTruthy();
+    openNoteRowMenu(container);
+    expect(within(container).getByRole('menuitem', { name: 'Share note' })).toBeTruthy();
   });
 
-  it('renders the share button for a note that has never been shared (shareCount === 0)', () => {
+  it('exposes a Share menuitem for a note that has never been shared (shareCount === 0)', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -407,10 +422,11 @@ describe('Sidebar — share control on note rows', () => {
         />,
       ),
     );
-    expect(within(container).getByRole('button', { name: 'Share note' })).toBeTruthy();
+    openNoteRowMenu(container);
+    expect(within(container).getByRole('menuitem', { name: 'Share note' })).toBeTruthy();
   });
 
-  it('clicking the share button on an unshared note row opens the share dialog', () => {
+  it('clicking the Share menuitem on an unshared note opens the share dialog', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -426,12 +442,13 @@ describe('Sidebar — share control on note rows', () => {
         />,
       ),
     );
-    fireEvent.click(within(container).getByRole('button', { name: 'Share note' }));
+    openNoteRowMenu(container);
+    fireEvent.click(within(container).getByRole('menuitem', { name: 'Share note' }));
     // ShareDialog should be open — it has role="dialog"
     expect(within(container).getByRole('dialog')).toBeTruthy();
   });
 
-  it('keeps the share button always visible (not hover-gated) for a shared note', () => {
+  it('marks the trigger with a badge for an already-shared note', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -447,11 +464,12 @@ describe('Sidebar — share control on note rows', () => {
         />,
       ),
     );
-    const btn = within(container).getByRole('button', { name: 'Share note' });
-    expect(btn.className.split(' ')).not.toContain('opacity-0');
+    const notesSection = within(container).getByRole('region', { name: 'Notes' });
+    const trigger = within(notesSection).getByLabelText('More actions');
+    expect(trigger.querySelector('.bg-accent')).not.toBeNull();
   });
 
-  it('hover-gates the share button for a note with no shares', () => {
+  it('does not mark the trigger with a badge for a note with no shares', () => {
     const { container } = render(
       wrap(
         <Sidebar
@@ -467,8 +485,9 @@ describe('Sidebar — share control on note rows', () => {
         />,
       ),
     );
-    const btn = within(container).getByRole('button', { name: 'Share note' });
-    expect(btn.className.split(' ')).toContain('opacity-0');
+    const notesSection = within(container).getByRole('region', { name: 'Notes' });
+    const trigger = within(notesSection).getByLabelText('More actions');
+    expect(trigger.querySelector('.bg-accent')).toBeNull();
   });
 
   it('closing the share dialog notifies the parent via onSharesChanged', () => {
@@ -489,7 +508,8 @@ describe('Sidebar — share control on note rows', () => {
         />,
       ),
     );
-    fireEvent.click(within(container).getByRole('button', { name: 'Share note' }));
+    openNoteRowMenu(container);
+    fireEvent.click(within(container).getByRole('menuitem', { name: 'Share note' }));
     fireEvent.click(within(container).getByRole('button', { name: 'Close' }));
     expect(onSharesChanged).toHaveBeenCalledTimes(1);
   });
@@ -559,7 +579,8 @@ describe('Sidebar — note mutations', () => {
       ),
     );
 
-    fireEvent.click(within(container).getByLabelText('Rename note'));
+    openNoteRowMenu(container);
+    fireEvent.click(within(container).getByRole('menuitem', { name: 'Rename note' }));
     const input = within(container).getByLabelText('Rename note') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'Renamed title' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -593,7 +614,8 @@ describe('Sidebar — note mutations', () => {
       ),
     );
 
-    fireEvent.click(within(container).getByLabelText('Duplicate note'));
+    openNoteRowMenu(container);
+    fireEvent.click(within(container).getByRole('menuitem', { name: 'Duplicate note' }));
 
     await waitFor(() => expect(onDuplicate).toHaveBeenCalledWith('note-mutations-target'));
   });

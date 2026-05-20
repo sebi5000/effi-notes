@@ -17,9 +17,10 @@ import {
   moveSelection,
 } from '@/lib/notes/folder-tree.ts';
 import { folderInternalUrl } from '@/lib/notes/internal-url.ts';
-import { CopyLinkButton } from './CopyLinkButton.tsx';
+import { useCopyToClipboard } from '@/lib/notes/use-copy-to-clipboard.ts';
 import { FolderIcon } from './FolderIcon.tsx';
 import { FolderIconPicker } from './FolderIconPicker.tsx';
+import { RowActionsMenu, type RowMenuItem } from './RowActionsMenu.tsx';
 
 type ShareScope = { kind: 'note' | 'folder'; id: string };
 
@@ -475,12 +476,6 @@ const dropShadow: Record<DropMode, string | undefined> = {
   inside: undefined,
 };
 
-/**
- * Row action buttons reveal on hover/focus — except the share button on an
- * already-shared folder, which stays visible as an at-a-glance "shared" cue.
- */
-const revealOnHover = 'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100';
-
 function FolderRow({
   row,
   isExpanded,
@@ -510,6 +505,44 @@ function FolderRow({
   const t = useTranslations('notes.folderActions');
   const tShare = useTranslations('notes.share');
   const tIcons = useTranslations('notes.folderIcons');
+  const { copy } = useCopyToClipboard();
+
+  // The menu items mirror the original button strip 1:1 — keep this list in
+  // the same order so muscle memory survives the redesign.
+  const menuItems: RowMenuItem[] = [];
+  if (onOpenShare) {
+    menuItems.push({
+      key: 'share',
+      icon: '👁',
+      label: tShare('shareFolderLabel'),
+      onSelect: onOpenShare,
+    });
+  }
+  menuItems.push({
+    key: 'copy',
+    icon: '🔗',
+    label: t('copyLink'),
+    onSelect: () => {
+      void copy(`${window.location.origin}${copyLinkPath}`);
+    },
+  });
+  if (onRequestRename) {
+    menuItems.push({
+      key: 'rename',
+      icon: '✎',
+      label: t('rename'),
+      onSelect: onRequestRename,
+    });
+  }
+  if (onRequestDelete) {
+    menuItems.push({
+      key: 'delete',
+      icon: '✕',
+      label: t('delete'),
+      onSelect: onRequestDelete,
+      destructive: true,
+    });
+  }
   return (
     <div
       role="treeitem"
@@ -584,57 +617,12 @@ function FolderRow({
       )}
 
       {!isRenaming ? (
-        <span className="ml-auto flex items-center gap-1">
-          <CopyLinkButton
-            path={copyLinkPath}
-            label={t('copyLink')}
-            copiedLabel={t('copyLinkCopied')}
-            className={`text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] ${revealOnHover}`}
+        <span className="ml-auto flex items-center">
+          <RowActionsMenu
+            triggerLabel={t('moreActions')}
+            items={menuItems}
+            badge={onOpenShare !== undefined && row.shareCount > 0}
           />
-          {onOpenShare ? (
-            <button
-              type="button"
-              aria-label={tShare('shareFolderLabel')}
-              title={tShare('shareFolderLabel')}
-              onClick={(e) => {
-                e.stopPropagation();
-                onOpenShare();
-              }}
-              className={`text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] transition-colors${
-                row.shareCount > 0 ? '' : ` ${revealOnHover}`
-              }`}
-            >
-              <span aria-hidden="true">👁</span>
-            </button>
-          ) : null}
-          {onRequestRename ? (
-            <button
-              type="button"
-              aria-label={t('rename')}
-              title={t('rename')}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRequestRename();
-              }}
-              className={`text-muted-foreground/70 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] ${revealOnHover}`}
-            >
-              ✎
-            </button>
-          ) : null}
-          {onRequestDelete ? (
-            <button
-              type="button"
-              aria-label={t('delete')}
-              title={t('delete')}
-              onClick={(e) => {
-                e.stopPropagation();
-                onRequestDelete();
-              }}
-              className={`text-muted-foreground/70 hover:text-danger inline-flex h-5 w-5 items-center justify-center rounded text-[10px] ${revealOnHover}`}
-            >
-              ✕
-            </button>
-          ) : null}
         </span>
       ) : null}
 

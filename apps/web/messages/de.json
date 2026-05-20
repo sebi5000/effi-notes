@@ -67,6 +67,7 @@
       "nameInputLabel": "Ordnername",
       "copyLink": "Link kopieren",
       "copyLinkCopied": "Link kopiert",
+      "moreActions": "Weitere Aktionen",
       "cycle": "Ein Ordner kann nicht in einen seiner Unterordner verschoben werden."
     },
     "folderIcons": {
@@ -104,7 +105,8 @@
       "duplicateNote": "Notiz duplizieren",
       "renameNotePlaceholder": "Notiztitel",
       "copyLink": "Link kopieren",
-      "copyLinkCopied": "Link kopiert"
+      "copyLinkCopied": "Link kopiert",
+      "moreActions": "Weitere Aktionen"
     },
     "commandBar": {
       "label": "Notizen durchsuchen",

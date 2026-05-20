@@ -67,6 +67,7 @@
       "nameInputLabel": "Folder name",
       "copyLink": "Copy link",
       "copyLinkCopied": "Link copied",
+      "moreActions": "More actions",
       "cycle": "A folder can't be moved into one of its own descendants."
     },
     "folderIcons": {
@@ -104,7 +105,8 @@
       "duplicateNote": "Duplicate note",
       "renameNotePlaceholder": "Note title",
       "copyLink": "Copy link",
-      "copyLinkCopied": "Link copied"
+      "copyLinkCopied": "Link copied",
+      "moreActions": "More actions"
     },
     "commandBar": {
       "label": "Search notes",
