@@ -15,6 +15,8 @@ type Props = {
   onDuplicate?: (() => void) | undefined;
   /** Open the share dialog for this note. */
   onShare: () => void;
+  /** Hard-delete the note (host shows the confirm). Undefined hides the item. */
+  onDelete?: (() => void) | undefined;
 };
 
 /**
@@ -28,11 +30,13 @@ export function NoteRowActions({
   onRequestRename,
   onDuplicate,
   onShare,
+  onDelete,
 }: Props) {
   const tNA = useTranslations('notes.noteActions');
   const tShare = useTranslations('notes.share');
   const { copy } = useCopyToClipboard();
 
+  // Order matches the folder menu: rename → duplicate → copy → share → delete.
   const items: RowMenuItem[] = [];
   if (onRequestRename) {
     items.push({
@@ -65,6 +69,15 @@ export function NoteRowActions({
     label: tShare('shareNoteLabel'),
     onSelect: onShare,
   });
+  if (onDelete) {
+    items.push({
+      key: 'delete',
+      icon: '✕',
+      label: tNA('deleteNote'),
+      onSelect: onDelete,
+      destructive: true,
+    });
+  }
 
   return (
     <div className="mt-1 flex shrink-0 items-center pr-1">

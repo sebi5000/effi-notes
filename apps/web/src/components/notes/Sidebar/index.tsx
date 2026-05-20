@@ -33,6 +33,11 @@ type Props = {
     onRename: (id: string, title: string) => Promise<void>;
     onDuplicate: (id: string) => Promise<void>;
     onMove: (noteId: string, folderId: string | null) => Promise<void>;
+    /**
+     * Hard-delete the note. The sidebar shows a confirm before invoking it.
+     * Undefined → the Delete item is hidden.
+     */
+    onDelete?: (id: string) => Promise<void>;
   };
   /** When provided, a collapse button is shown in the sidebar header. */
   onCollapse?: () => void;
@@ -324,6 +329,17 @@ export function Sidebar({
                               noteMutations ? () => void noteMutations.onDuplicate(n.id) : undefined
                             }
                             onShare={() => setShareTarget({ kind: 'note', id: n.id })}
+                            onDelete={
+                              noteMutations?.onDelete
+                                ? () => {
+                                    const del = noteMutations.onDelete;
+                                    if (!del) return;
+                                    if (!window.confirm(tNA('confirmDelete', { title: n.title })))
+                                      return;
+                                    void del(n.id);
+                                  }
+                                : undefined
+                            }
                           />
                         </>
                       )}

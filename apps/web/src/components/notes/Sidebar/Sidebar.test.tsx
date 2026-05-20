@@ -72,6 +72,8 @@ const messages = {
       copyLink: 'Copy link',
       copyLinkCopied: 'Link copied',
       moreActions: 'More actions',
+      deleteNote: 'Delete note',
+      confirmDelete: 'Delete note "{title}"?',
     },
     commandBar: {
       label: 'Search',
@@ -618,6 +620,98 @@ describe('Sidebar — note mutations', () => {
     fireEvent.click(within(container).getByRole('menuitem', { name: 'Duplicate note' }));
 
     await waitFor(() => expect(onDuplicate).toHaveBeenCalledWith('note-mutations-target'));
+  });
+
+  it('selecting Delete confirms then calls noteMutations.onDelete', async () => {
+    const onDelete = vi.fn(async () => undefined);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate: vi.fn(async () => undefined),
+            onRename: vi.fn(async () => undefined),
+            onDuplicate: vi.fn(async () => undefined),
+            onMove: vi.fn(async () => undefined),
+            onDelete,
+          }}
+        />,
+      ),
+    );
+
+    openNoteRowMenu(container);
+    fireEvent.click(within(container).getByRole('menuitem', { name: 'Delete note' }));
+    expect(confirmSpy).toHaveBeenCalled();
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith('note-mutations-target'));
+    confirmSpy.mockRestore();
+  });
+
+  it('cancelling the confirm dialog skips noteMutations.onDelete', () => {
+    const onDelete = vi.fn(async () => undefined);
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate: vi.fn(async () => undefined),
+            onRename: vi.fn(async () => undefined),
+            onDuplicate: vi.fn(async () => undefined),
+            onMove: vi.fn(async () => undefined),
+            onDelete,
+          }}
+        />,
+      ),
+    );
+
+    openNoteRowMenu(container);
+    fireEvent.click(within(container).getByRole('menuitem', { name: 'Delete note' }));
+    expect(onDelete).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('omits the Delete item when noteMutations.onDelete is not provided', () => {
+    const { container } = render(
+      wrap(
+        <Sidebar
+          folders={folders}
+          tags={tags}
+          notes={[noteWithMutations]}
+          selectedFolderId={null}
+          selectedNoteId={null}
+          query=""
+          onQueryChange={() => undefined}
+          onSelectFolder={() => undefined}
+          onSelectNote={() => undefined}
+          noteMutations={{
+            onCreate: vi.fn(async () => undefined),
+            onRename: vi.fn(async () => undefined),
+            onDuplicate: vi.fn(async () => undefined),
+            onMove: vi.fn(async () => undefined),
+          }}
+        />,
+      ),
+    );
+
+    openNoteRowMenu(container);
+    expect(within(container).queryByRole('menuitem', { name: 'Delete note' })).toBeNull();
   });
 
   it('note rows are draggable when noteMutations is provided and dragStart sets NOTE_DND_MIME', () => {

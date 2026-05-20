@@ -335,6 +335,18 @@ export function NotesShell({
     [notes, refreshNotes],
   );
 
+  const handleDeleteNote = useCallback(
+    async (id: string) => {
+      // Hard delete — mirrors the editor's DeleteNoteButton semantics. The
+      // sidebar already showed the confirm; here we just commit + refresh and
+      // bounce off the note if it was the one being viewed.
+      await notesApi.delete(id);
+      await refreshNotes();
+      if (noteDetail?.id === id) router.push(`/notes${qSuffix(query)}`);
+    },
+    [refreshNotes, noteDetail?.id, router, query],
+  );
+
   const handleSetNoteTags = useCallback(
     async (tagIds: string[]) => {
       if (!noteDetail) return;
@@ -410,6 +422,7 @@ export function NotesShell({
             onRename: handleRenameNote,
             onDuplicate: handleDuplicateNote,
             onMove: handleMoveNote,
+            onDelete: handleDeleteNote,
           }}
         />
       </div>

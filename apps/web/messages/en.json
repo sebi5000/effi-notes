@@ -106,7 +106,9 @@
       "renameNotePlaceholder": "Note title",
       "copyLink": "Copy link",
       "copyLinkCopied": "Link copied",
-      "moreActions": "More actions"
+      "moreActions": "More actions",
+      "deleteNote": "Delete note",
+      "confirmDelete": "Delete note \"{title}\"?"
     },
     "commandBar": {
       "label": "Search notes",

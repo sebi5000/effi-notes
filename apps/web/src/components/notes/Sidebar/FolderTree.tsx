@@ -507,15 +507,15 @@ function FolderRow({
   const tIcons = useTranslations('notes.folderIcons');
   const { copy } = useCopyToClipboard();
 
-  // The menu items mirror the original button strip 1:1 — keep this list in
-  // the same order so muscle memory survives the redesign.
+  // Order matches the note menu: rename → copy → share → delete. (Folders
+  // have no "duplicate" action; the rest line up 1:1 for muscle memory.)
   const menuItems: RowMenuItem[] = [];
-  if (onOpenShare) {
+  if (onRequestRename) {
     menuItems.push({
-      key: 'share',
-      icon: '👁',
-      label: tShare('shareFolderLabel'),
-      onSelect: onOpenShare,
+      key: 'rename',
+      icon: '✎',
+      label: t('rename'),
+      onSelect: onRequestRename,
     });
   }
   menuItems.push({
@@ -526,12 +526,12 @@ function FolderRow({
       void copy(`${window.location.origin}${copyLinkPath}`);
     },
   });
-  if (onRequestRename) {
+  if (onOpenShare) {
     menuItems.push({
-      key: 'rename',
-      icon: '✎',
-      label: t('rename'),
-      onSelect: onRequestRename,
+      key: 'share',
+      icon: '👁',
+      label: tShare('shareFolderLabel'),
+      onSelect: onOpenShare,
     });
   }
   if (onRequestDelete) {

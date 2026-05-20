@@ -106,7 +106,9 @@
       "renameNotePlaceholder": "Notiztitel",
       "copyLink": "Link kopieren",
       "copyLinkCopied": "Link kopiert",
-      "moreActions": "Weitere Aktionen"
+      "moreActions": "Weitere Aktionen",
+      "deleteNote": "Notiz löschen",
+      "confirmDelete": "Notiz \"{title}\" löschen?"
     },
     "commandBar": {
       "label": "Notizen durchsuchen",
