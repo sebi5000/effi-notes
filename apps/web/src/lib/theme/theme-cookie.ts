@@ -15,9 +15,18 @@ const MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 /** Read the cookie, falling back to DEFAULT_THEME on missing/unknown values. */
 export const readThemeCookie = async (): Promise<ThemeId> => {
+  return (await peekThemeCookie()) ?? DEFAULT_THEME;
+};
+
+/**
+ * Read the cookie without a fallback — returns `null` when absent or set to
+ * an unknown value, so callers can distinguish "no cookie yet" from
+ * "explicitly chose DEFAULT_THEME".
+ */
+export const peekThemeCookie = async (): Promise<ThemeId | null> => {
   const store = await cookies();
   const value = store.get(THEME_COOKIE)?.value;
-  return isThemeId(value) ? value : DEFAULT_THEME;
+  return isThemeId(value) ? value : null;
 };
 
 /** Write the cookie. Use from a route handler or server action. */
