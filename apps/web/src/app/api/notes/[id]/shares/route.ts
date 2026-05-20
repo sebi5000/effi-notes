@@ -9,18 +9,22 @@ import { ttlToExpiresAt } from '@/lib/notes/share-ttl.ts';
 const log = createLogger({ component: 'api.notes.shares' });
 type RouteContext = { params: Promise<{ id: string }> };
 
-const toShareView = (s: {
-  id: string;
-  access: 'VIEW' | 'EDIT';
-  expiresAt: Date | null;
-  createdById: string;
-  createdAt: Date;
-  grantee: { id: string; displayName: string | null; email: string };
-}): ShareView => ({
+const toShareView = (
+  s: {
+    id: string;
+    access: 'VIEW' | 'EDIT';
+    expiresAt: Date | null;
+    createdById: string;
+    createdAt: Date;
+    grantee: { id: string; displayName: string | null; email: string };
+  },
+  now: Date,
+): ShareView => ({
   id: s.id,
   grantee: s.grantee,
   access: s.access,
   expiresAt: s.expiresAt ? s.expiresAt.toISOString() : null,
+  status: s.expiresAt !== null && s.expiresAt.getTime() <= now.getTime() ? 'expired' : 'active',
   createdById: s.createdById,
   createdAt: s.createdAt.toISOString(),
 });
@@ -39,15 +43,16 @@ export const GET = async (_req: Request, ctx: RouteContext): Promise<Response> =
   const access = await resolveNoteAccess(user.id, id);
   if (!canManageShares(access)) return jsonError(403, 'forbidden');
 
+  // Surface expired shares too — managers should see and be able to revoke
+  // grants that have lapsed. Access checks still filter on `active`, so an
+  // expired row never grants anything (QA review 2026-05-20, P2).
+  const now = new Date();
   const shares = await prisma.share.findMany({
-    where: {
-      noteId: id,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
-    },
+    where: { noteId: id },
     include: shareInclude,
     orderBy: { createdAt: 'asc' },
   });
-  return jsonOk({ shares: shares.map(toShareView) });
+  return jsonOk({ shares: shares.map((s) => toShareView(s, now)) });
 };
 
 export const POST = async (req: Request, ctx: RouteContext): Promise<Response> => {
@@ -88,5 +93,5 @@ export const POST = async (req: Request, ctx: RouteContext): Promise<Response> =
     metadata: { noteId: id, granteeId, access: level },
   });
   log.info({ shareId: share.id, noteId: id, granteeId }, 'note share granted');
-  return jsonCreated(toShareView(share));
+  return jsonCreated(toShareView(share, new Date()));
 };

@@ -245,7 +245,10 @@
       "publicLinkCopy": "Copy",
       "publicLinkCopied": "Copied",
       "publicLinkRevoke": "Revoke link",
-      "publicLinkSaveExpiry": "Save expiry"
+      "publicLinkSaveExpiry": "Save expiry",
+      "expiredHeading": "Expired",
+      "expiredBadge": "Expired",
+      "expiredOn": "Expired on {date}"
     }
   },
   "public": {

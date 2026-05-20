@@ -14,6 +14,7 @@ const makeShare = (id: string): ShareView => ({
   grantee: { id: 'u1', displayName: 'Alice', email: 'alice@example.com' },
   access: 'VIEW',
   expiresAt: null,
+  status: 'active',
   createdById: 'u0',
   createdAt: '2026-05-16T00:00:00.000Z',
 });

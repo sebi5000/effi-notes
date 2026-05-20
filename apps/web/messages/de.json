@@ -245,7 +245,10 @@
       "publicLinkCopy": "Kopieren",
       "publicLinkCopied": "Kopiert",
       "publicLinkRevoke": "Link widerrufen",
-      "publicLinkSaveExpiry": "Ablaufdatum speichern"
+      "publicLinkSaveExpiry": "Ablaufdatum speichern",
+      "expiredHeading": "Abgelaufen",
+      "expiredBadge": "Abgelaufen",
+      "expiredOn": "Abgelaufen am {date}"
     }
   },
   "public": {

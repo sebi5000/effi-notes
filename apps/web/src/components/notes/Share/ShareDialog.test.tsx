@@ -45,6 +45,9 @@ const messages = {
       publicLinkCopied: 'Copied',
       publicLinkRevoke: 'Revoke link',
       publicLinkSaveExpiry: 'Save expiry',
+      expiredHeading: 'Expired',
+      expiredBadge: 'Expired',
+      expiredOn: 'Expired on {date}',
     },
   },
 } as const;
@@ -63,6 +66,7 @@ const SHARE_1: ShareView = {
   grantee: { id: 'user-1', displayName: 'Alice Anon', email: 'alice@example.com' },
   access: 'VIEW',
   expiresAt: null,
+  status: 'active',
   createdById: 'owner-id',
   createdAt: '2026-01-01T00:00:00Z',
 };
@@ -72,8 +76,19 @@ const SHARE_2: ShareView = {
   grantee: { id: 'user-2', displayName: null, email: 'bob@example.com' },
   access: 'EDIT',
   expiresAt: '2026-12-31T23:59:59Z',
+  status: 'active',
   createdById: 'owner-id',
   createdAt: '2026-01-01T00:00:00Z',
+};
+
+const SHARE_EXPIRED: ShareView = {
+  id: 'share-3',
+  grantee: { id: 'user-3', displayName: 'Dani Done', email: 'dani@example.com' },
+  access: 'VIEW',
+  expiresAt: '2025-01-01T00:00:00.000Z',
+  status: 'expired',
+  createdById: 'owner-id',
+  createdAt: '2024-12-01T00:00:00Z',
 };
 
 const USER_HIT: UserSearchHit = {
@@ -112,6 +127,7 @@ function buildFetcher({
         grantee: USER_HIT,
         access: 'VIEW',
         expiresAt: null,
+        status: 'active',
         createdById: 'owner-id',
         createdAt: new Date().toISOString(),
       };
@@ -179,6 +195,22 @@ describe('ShareDialog', () => {
     // SHARE_2 — no displayName, fall back to email, EDIT, has expiry
     expect(screen.queryByText('bob@example.com')).not.toBeNull();
     expect(screen.queryByText('EDIT')).not.toBeNull();
+  });
+
+  it('groups expired shares under their own heading and still allows revoke', async () => {
+    const fetcher = buildFetcher({ shares: [SHARE_1, SHARE_EXPIRED] });
+    render(
+      wrap(<ShareDialog scope={SCOPE} canManage={true} onClose={vi.fn()} fetcher={fetcher} />),
+    );
+
+    // Active share renders normally.
+    await waitFor(() => expect(screen.queryByText('Alice Anon')).not.toBeNull());
+    // Expired heading + per-row badge both render "Expired" — at least 2.
+    expect(screen.queryAllByText('Expired').length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/Expired on/)).not.toBeNull();
+    // Revoke is still wired for the expired row (clean-up affordance).
+    const revoke = screen.getByRole('button', { name: /revoke Dani Done/i });
+    expect(revoke).toBeTruthy();
   });
 
   it('hides the "add people" section and revoke buttons when canManage is false', async () => {

@@ -216,6 +216,44 @@ describe('GET /api/notes/[id]/shares', () => {
     expect(body.shares).toHaveLength(1);
   });
 
+  it('returns expired grants with status="expired" alongside active ones', async () => {
+    // Managers should see lapsed grants so they can revoke them — but the
+    // active access checks elsewhere must still ignore them
+    // (ADR 0026 + QA review 2026-05-20, P2).
+    const { user: owner } = await makeTestUser();
+    const { user: liveGrantee } = await makeTestUser();
+    const { user: expiredGrantee } = await makeTestUser();
+    const note = await makeTestNote({ authorId: owner.id });
+    await makeTestShare({
+      noteId: note.id,
+      granteeId: liveGrantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+    });
+    await makeTestShare({
+      noteId: note.id,
+      granteeId: expiredGrantee.id,
+      createdById: owner.id,
+      access: 'VIEW',
+      expiresAt: new Date(Date.now() - 1000),
+    });
+    setAuthed(owner);
+
+    const res = await GET(new Request(`http://localhost/api/notes/${note.id}/shares`), {
+      params: Promise.resolve({ id: note.id }),
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      shares: Array<{ id: string; status: 'active' | 'expired'; grantee: { id: string } }>;
+    };
+    expect(body.shares).toHaveLength(2);
+    const live = body.shares.find((s) => s.grantee.id === liveGrantee.id);
+    const expired = body.shares.find((s) => s.grantee.id === expiredGrantee.id);
+    expect(live?.status).toBe('active');
+    expect(expired?.status).toBe('expired');
+  });
+
   it('non-manager GET → 403', async () => {
     const { user: owner } = await makeTestUser();
     const { user: viewer } = await makeTestUser();

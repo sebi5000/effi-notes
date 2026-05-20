@@ -195,6 +195,14 @@ export type ShareView = {
   grantee: { id: string; displayName: string | null; email: string };
   access: 'VIEW' | 'EDIT';
   expiresAt: string | null;
+  /**
+   * Lifecycle state derived from `expiresAt` and the request time. The list
+   * endpoint surfaces expired rows to managers so they can see / revoke
+   * previously-granted access — access checks themselves still filter on
+   * `active` so an expired share doesn't grant anything (ADR 0026 +
+   * QA review 2026-05-20, P2).
+   */
+  status: 'active' | 'expired';
   createdById: string;
   createdAt: string;
 };
