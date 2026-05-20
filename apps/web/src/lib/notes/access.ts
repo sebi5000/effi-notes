@@ -1,4 +1,4 @@
-import { prisma } from '@app/db';
+import { Prisma, prisma } from '@app/db';
 
 /**
  * Permission-resolution engine — the single source of authorization truth
@@ -27,25 +27,32 @@ const MAX_FOLDER_DEPTH = 64;
 export type FolderLink = { id: string; ownerId: string };
 
 /**
- * The folder and every ancestor, nearest-first. Cycle-safe (a `visited`
- * set + depth cap) so a corrupt parent chain cannot loop forever. Returns
- * `[]` for a null id or a missing folder.
+ * The folder and every ancestor, nearest-first. Cycle-safe — a recursive
+ * Postgres CTE walks the parent chain in a single query (depth-capped at
+ * `MAX_FOLDER_DEPTH`); a parent that would re-enter an earlier row in the
+ * same chain can't be reached because the recursive step joins on the
+ * previous row's `parentId`, not a global set. Returns `[]` for a null id
+ * or a missing folder. See ADR 0030 (Step 1) for the upgrade rationale.
  */
 export const folderChain = async (folderId: string | null): Promise<FolderLink[]> => {
-  const chain: FolderLink[] = [];
-  const visited = new Set<string>();
-  let current = folderId;
-  while (current !== null && !visited.has(current) && chain.length < MAX_FOLDER_DEPTH) {
-    visited.add(current);
-    const folder = await prisma.folder.findUnique({
-      where: { id: current },
-      select: { id: true, ownerId: true, parentId: true },
-    });
-    if (!folder) break;
-    chain.push({ id: folder.id, ownerId: folder.ownerId });
-    current = folder.parentId;
-  }
-  return chain;
+  if (folderId === null) return [];
+  // `Prisma.sql` tagged template — values can only enter through `${…}`
+  // interpolation; the SQL shape is static so a future edit can't drift a
+  // value into the SQL string (QA review 2026-05-20, P3 + ADR 0030).
+  const rows = await prisma.$queryRaw<Array<{ id: string; ownerId: string }>>(Prisma.sql`
+    WITH RECURSIVE chain AS (
+      SELECT id, "ownerId", "parentId", 0 AS depth
+        FROM "Folder"
+       WHERE id = ${folderId}
+      UNION ALL
+      SELECT f.id, f."ownerId", f."parentId", c.depth + 1
+        FROM "Folder" f
+        JOIN chain c ON f.id = c."parentId"
+       WHERE c.depth < ${MAX_FOLDER_DEPTH - 1}
+    )
+    SELECT id, "ownerId" FROM chain ORDER BY depth ASC
+  `);
+  return rows.map((r) => ({ id: r.id, ownerId: r.ownerId }));
 };
 
 /** Prisma `where` fragment matching shares that have not expired. */
