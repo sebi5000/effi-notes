@@ -40,6 +40,42 @@
   }
 }
 
+/* Theme overrides (ADR 0029). The `@theme` block above sets the Warm Paper
+ * defaults; the selectors below repoint the same --color-* custom properties
+ * when `data-theme` on <html> matches. Tailwind utilities (bg-paper,
+ * text-foreground, …) re-theme automatically because they all resolve to
+ * var(--color-*). The A4 sheet (.a4-sheet) deliberately stays paper-white in
+ * every theme — it maps 1:1 to the PDF export.
+ */
+[data-theme="dark"] {
+  --color-background: #15171f;
+  --color-foreground: #e9e5d8;
+  --color-muted: #1f2230;
+  --color-muted-foreground: #a1a4b3;
+  --color-paper-line: #2c303a;
+  --color-accent: #e8b884;
+  --color-accent-soft: #c26a20;
+  --color-accent-ink: #fadcb0;
+  --color-danger: #f08070;
+  --color-border: #2c303a;
+}
+/* The paper-grain SVG is tuned for a light surface; suppress it under dark. */
+[data-theme="dark"] .bg-paper {
+  background-image: none;
+}
+[data-theme="cool-slate"] {
+  --color-background: #f3f5fa;
+  --color-foreground: #1a2236;
+  --color-muted: #e4eaf3;
+  --color-muted-foreground: #4d566a;
+  --color-paper-line: #d6dde9;
+  --color-accent: #2d6cb8;
+  --color-accent-soft: #b8d2f1;
+  --color-accent-ink: #194676;
+  --color-danger: #b5392b;
+  --color-border: #c8d2e0;
+}
+
 .font-display {
   font-family: var(--font-display);
   letter-spacing: -0.01em;
@@ -310,6 +346,28 @@ input[type="search"]::-webkit-search-decoration {
   --callout-color: #d2691e;
   --callout-bg: #fcf5ef;
   --callout-icon: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2h8l6 6v8l-6 6H8l-6-6V8z'/><line x1='12' y1='8' x2='12' y2='12'/><line x1='12' y1='15.5' x2='12' y2='15.5'/></svg>");
+}
+
+/* Dark-theme callout tints (the base palette above is for light surfaces). */
+[data-theme="dark"] [data-callout="note"] {
+  --callout-color: #7aaad8;
+  --callout-bg: #1d2532;
+}
+[data-theme="dark"] [data-callout="tip"] {
+  --callout-color: #6dc06f;
+  --callout-bg: #1c2820;
+}
+[data-theme="dark"] [data-callout="important"] {
+  --callout-color: #b079d8;
+  --callout-bg: #271a2c;
+}
+[data-theme="dark"] [data-callout="warning"] {
+  --callout-color: #d4a857;
+  --callout-bg: #2b251a;
+}
+[data-theme="dark"] [data-callout="caution"] {
+  --callout-color: #d97f5a;
+  --callout-bg: #2c1f1a;
 }
 
 .prose-paper .callout {
