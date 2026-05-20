@@ -454,7 +454,7 @@ export function NotesShell({
               noteId={noteDetail.id}
               initialTitle={noteDetail.title}
               initialBody={noteDetail.body}
-              initialUpdatedAt={noteDetail.updatedAt}
+              initialBodyVersion={noteDetail.bodyVersion}
               titleManuallySet={noteDetail.titleManuallySet}
               currentUser={currentUser}
               onTitleChange={(title) => {

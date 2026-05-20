@@ -232,6 +232,22 @@ describe('POST /api/notes', () => {
     expect(audits.length).toBe(1);
   });
 
+  it('returns 400 with an unknown-tag error when tagIds reference a nonexistent tag', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const res = await POST(
+      new Request('http://localhost/api/notes', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ title: 'api-test-bad-tag', tagIds: ['this-tag-does-not-exist'] }),
+      }),
+    );
+    expect(res.status).toBe(400);
+    const payload = (await res.json()) as { error: string; details: { unknown: string[] } };
+    expect(payload.error).toBe('unknown tag');
+    expect(payload.details.unknown).toContain('this-tag-does-not-exist');
+  });
+
   it('returns 400 on malformed body (Zod)', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);

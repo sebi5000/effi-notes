@@ -16,6 +16,7 @@ import {
   resolveFolderAccess,
 } from '@/lib/notes/access.ts';
 import { toSnippet } from '@/lib/notes/snippet.ts';
+import { resolveTagIds } from '@/lib/notes/tag-ids.ts';
 
 const log = createLogger({ component: 'api.notes' });
 
@@ -139,6 +140,13 @@ export const POST = async (req: Request): Promise<Response> => {
     if (!canEdit(folderAccess)) return jsonError(403, 'forbidden: target folder');
   }
 
+  // Pre-validate tag ids so an obviously-bad id surfaces as a clean 400,
+  // not a Prisma FK violation (QA review 2026-05-20, P3).
+  const resolvedTags = await resolveTagIds(tagIds ?? []);
+  if (!resolvedTags.ok) {
+    return jsonError(400, 'unknown tag', { unknown: resolvedTags.unknown });
+  }
+
   return withSpan('notes.create', { 'notes.title_len': title.length }, async () => {
     const created = await prisma.note.create({
       data: {
@@ -146,8 +154,8 @@ export const POST = async (req: Request): Promise<Response> => {
         body: body ?? '',
         authorId: user.id,
         ...(folderId === undefined || folderId === null ? {} : { folderId }),
-        ...(tagIds && tagIds.length > 0
-          ? { tags: { create: tagIds.map((id) => ({ tagId: id })) } }
+        ...(resolvedTags.tagIds.length > 0
+          ? { tags: { create: resolvedTags.tagIds.map((id) => ({ tagId: id })) } }
           : {}),
       },
       select: {

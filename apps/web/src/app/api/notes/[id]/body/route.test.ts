@@ -45,7 +45,7 @@ const callPut = (id: string, body: unknown) =>
 describe('PUT /api/notes/[id]/body', () => {
   it('returns 401 when unauthenticated', async () => {
     setUnauthed();
-    const res = await callPut('x', { body: 'new', baseUpdatedAt: new Date().toISOString() });
+    const res = await callPut('x', { body: 'new', baseBodyVersion: 0 });
     expect(res.status).toBe(401);
   });
 
@@ -59,7 +59,7 @@ describe('PUT /api/notes/[id]/body', () => {
   it('returns 400 on invalid body shape', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
-    const res = await callPut('x', { body: 'new' }); // missing baseUpdatedAt
+    const res = await callPut('x', { body: 'new' }); // missing baseBodyVersion
     expect(res.status).toBe(400);
   });
 
@@ -68,46 +68,65 @@ describe('PUT /api/notes/[id]/body', () => {
     setAuthed(user);
     const res = await callPut('missing', {
       body: 'new',
-      baseUpdatedAt: new Date().toISOString(),
+      baseBodyVersion: 0,
     });
     expect(res.status).toBe(404);
   });
 
-  it('saves the body and returns the new updatedAt when baseUpdatedAt matches', async () => {
+  it('saves the body, increments bodyVersion, and returns it', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
     const note = await prisma.note.create({
       data: { title: 'api-test-body', body: 'old', authorId: user.id },
     });
+    expect(note.bodyVersion).toBe(0);
     const res = await callPut(note.id, {
       body: '# new body',
-      baseUpdatedAt: note.updatedAt.toISOString(),
+      baseBodyVersion: 0,
     });
     expect(res.status).toBe(200);
+    const payload = (await res.json()) as { bodyVersion: number };
+    expect(payload.bodyVersion).toBe(1);
     const reloaded = await prisma.note.findUnique({ where: { id: note.id } });
     expect(reloaded?.body).toBe('# new body');
     expect(reloaded?.lastEditorId).toBe(user.id);
+    expect(reloaded?.bodyVersion).toBe(1);
   });
 
-  it('returns 409 when baseUpdatedAt is stale', async () => {
+  it('returns 409 when baseBodyVersion is stale', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);
     const note = await prisma.note.create({
-      data: { title: 'api-test-conflict', body: 'middle', authorId: user.id },
+      data: { title: 'api-test-conflict', body: 'middle', authorId: user.id, bodyVersion: 3 },
     });
-    // Use a deliberately stale base — 1 hour before the actual updatedAt.
-    const stale = new Date(note.updatedAt.getTime() - 3_600_000);
+    // Client thinks it's at version 2, but the server has version 3.
     const res = await callPut(note.id, {
       body: '# attempt',
-      baseUpdatedAt: stale.toISOString(),
+      baseBodyVersion: 2,
     });
     expect(res.status).toBe(409);
-    const payload = (await res.json()) as { error: string; details: { currentUpdatedAt: string } };
+    const payload = (await res.json()) as {
+      error: string;
+      details: { currentBodyVersion: number };
+    };
     expect(payload.error).toBe('conflict');
-    expect(typeof payload.details.currentUpdatedAt).toBe('string');
+    expect(payload.details.currentBodyVersion).toBe(3);
     // Body must NOT have been overwritten.
     const reloaded = await prisma.note.findUnique({ where: { id: note.id } });
     expect(reloaded?.body).toBe('middle');
+    expect(reloaded?.bodyVersion).toBe(3);
+  });
+
+  it('title-only PATCH does NOT bump bodyVersion (would have produced false 409s)', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await prisma.note.create({
+      data: { title: 'api-test-title-doesnt-bump', body: 'b', authorId: user.id },
+    });
+    // Simulate a title-only patch happening between two body saves.
+    await prisma.note.update({ where: { id: note.id }, data: { title: 'renamed' } });
+    const res = await callPut(note.id, { body: 'b2', baseBodyVersion: 0 });
+    expect(res.status).toBe(200);
   });
 
   it('marks an asset the save no longer references', async () => {
@@ -127,7 +146,7 @@ describe('PUT /api/notes/[id]/body', () => {
     });
     const res = await callPut(note.id, {
       body: 'text',
-      baseUpdatedAt: note.updatedAt.toISOString(),
+      baseBodyVersion: 0,
       assetIds: [],
     });
     expect(res.status).toBe(200);
@@ -153,7 +172,7 @@ describe('PUT /api/notes/[id]/body', () => {
     });
     const res = await callPut(note.id, {
       body: 't',
-      baseUpdatedAt: note.updatedAt.toISOString(),
+      baseBodyVersion: 0,
       assetIds: [asset.id],
     });
     expect(res.status).toBe(200);
@@ -180,7 +199,7 @@ describe('PUT /api/notes/[id]/body', () => {
     });
     await callPut(note.id, {
       body: 't',
-      baseUpdatedAt: note.updatedAt.toISOString(),
+      baseBodyVersion: 0,
       assetIds: [],
     });
     const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
@@ -204,7 +223,7 @@ describe('PUT /api/notes/[id]/body', () => {
     });
     await callPut(note.id, {
       body: 't',
-      baseUpdatedAt: note.updatedAt.toISOString(),
+      baseBodyVersion: 0,
     });
     const reloaded = await prisma.asset.findUniqueOrThrow({ where: { id: asset.id } });
     expect(reloaded.unreferencedSince).toBeNull();
@@ -219,7 +238,7 @@ describe('PUT /api/notes/[id]/body', () => {
       new Request(`http://localhost/api/notes/${note.id}/body`, {
         method: 'PUT',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ body: 'x', baseUpdatedAt: new Date().toISOString() }),
+        body: JSON.stringify({ body: 'x', baseBodyVersion: 0 }),
       }),
       { params: Promise.resolve({ id: note.id }) },
     );

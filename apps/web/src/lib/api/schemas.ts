@@ -43,9 +43,13 @@ export type PatchNoteInput = z.infer<typeof patchNoteSchema>;
 
 export const putNoteBodySchema = z.object({
   body: z.string().max(BODY_MAX),
-  // Optimistic-concurrency token from the last GET. Server rejects with 409
-  // if the note has changed since.
-  baseUpdatedAt: z.iso.datetime(),
+  // Optimistic-concurrency token: the `Note.bodyVersion` the client last saw
+  // (from a GET or a previous PUT). The server rejects with 409 if the note's
+  // current `bodyVersion` is higher. Using a body-specific counter — not the
+  // note's global `updatedAt` — means title-only patches and worker Yjs
+  // snapshots can run without invalidating an in-flight editor save
+  // (QA review 2026-05-20, P1).
+  baseBodyVersion: z.number().int().nonnegative(),
   // The asset ids the editor's current document references. Optional — when
   // omitted (e.g. import/automation callers), the body route skips the
   // asset-cleanup reconcile entirely rather than treating the note as
@@ -127,6 +131,8 @@ export type NoteListItem = {
 
 export type NoteDetail = NoteListItem & {
   body: string;
+  /** Monotonic body-only revision counter — see `putNoteBodySchema`. */
+  bodyVersion: number;
   createdAt: string;
   lastEditorId: string | null;
   titleManuallySet: boolean;

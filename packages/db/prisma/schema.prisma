@@ -87,6 +87,11 @@ model Note {
   id           String                   @id @default(cuid())
   title        String
   body         String                   @default("")
+  // Content-specific concurrency counter used by `PUT /api/notes/[id]/body`.
+  // Incremented only when `body` is written through that route; title-only
+  // PATCHes and worker Yjs snapshots leave it alone so they don't invalidate
+  // an in-flight editor save (QA review 2026-05-20, P1).
+  bodyVersion  Int                      @default(0)
   yjsState     Bytes?
   folderId     String?
   folder       Folder?                  @relation(fields: [folderId], references: [id], onDelete: SetNull)

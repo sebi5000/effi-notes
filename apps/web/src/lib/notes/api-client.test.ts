@@ -73,8 +73,8 @@ describe('notesApi', () => {
   });
 
   it('putBody PUTs the markdown', async () => {
-    const fetcher = fakeOk({ id: 'n1', updatedAt: '2026-05-14T00:00:00.000Z' });
-    await notesApi.putBody('n1', { body: '#', baseUpdatedAt: '2026-05-14T00:00:00.000Z' }, fetcher);
+    const fetcher = fakeOk({ id: 'n1', updatedAt: '2026-05-14T00:00:00.000Z', bodyVersion: 1 });
+    await notesApi.putBody('n1', { body: '#', baseBodyVersion: 0 }, fetcher);
     const init = (fetcher as unknown as ReturnType<typeof vi.fn>).mock.calls[0]?.[1];
     expect(init?.method).toBe('PUT');
   });

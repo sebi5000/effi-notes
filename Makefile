@@ -34,6 +34,12 @@ build: ## Build all packages
 test: ## Run all tests
 	bun run test
 
+preflight: ## Probe Postgres + Redis the tests need
+	bun run scripts/check-services.ts
+
+test-integration: preflight ## Preflight services, then run the full Vitest suite
+	bun run test
+
 typecheck: ## Type-check all packages
 	bun run typecheck
 

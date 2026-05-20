@@ -99,7 +99,7 @@ export const notesApi = {
     id: string,
     input: PutNoteBodyInput,
     fetcher?: typeof fetch,
-  ): Promise<{ id: string; updatedAt: string }> =>
+  ): Promise<{ id: string; updatedAt: string; bodyVersion: number }> =>
     request(`/api/notes/${id}/body`, {
       method: 'PUT',
       body: JSON.stringify(input),

@@ -26,7 +26,7 @@ type Props = {
   noteId: string;
   initialTitle: string;
   initialBody: string;
-  initialUpdatedAt: string;
+  initialBodyVersion: number;
   titleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
   onTitleChange: (title: string) => void;
@@ -68,7 +68,7 @@ export function NoteEditor({
   noteId,
   initialTitle,
   initialBody,
-  initialUpdatedAt,
+  initialBodyVersion,
   titleManuallySet,
   currentUser,
   onTitleChange,
@@ -141,7 +141,7 @@ export function NoteEditor({
       presence={presence}
       initialTitle={initialTitle}
       initialBody={initialBody}
-      initialUpdatedAt={initialUpdatedAt}
+      initialBodyVersion={initialBodyVersion}
       titleManuallySet={titleManuallySet}
       currentUser={currentUser}
       onTitleChange={onTitleChange}
@@ -177,7 +177,7 @@ function CollaborativeEditor({
   presence,
   initialTitle,
   initialBody,
-  initialUpdatedAt,
+  initialBodyVersion,
   titleManuallySet,
   currentUser,
   onTitleChange,
@@ -192,7 +192,7 @@ function CollaborativeEditor({
   presence: ReadonlyArray<PresenceUser>;
   initialTitle: string;
   initialBody: string;
-  initialUpdatedAt: string;
+  initialBodyVersion: number;
   titleManuallySet: boolean;
   currentUser: { id: string; name: string; color: string };
   onTitleChange: (title: string) => void;
@@ -205,7 +205,7 @@ function CollaborativeEditor({
   const tPanel = useTranslations('notes.docPanel');
   const tActions = useTranslations('notes.editorActions');
   const [saveState, dispatch] = useReducer(reduceSaveState, initialSaveState);
-  const [baseUpdatedAt, setBaseUpdatedAt] = useState(initialUpdatedAt);
+  const [baseBodyVersion, setBaseBodyVersion] = useState(initialBodyVersion);
   const [uploadError, setUploadError] = useState<UploadErrorDetail | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [persistedPanelOpen, togglePersistedPanel] = useDocPanel();
@@ -251,8 +251,8 @@ function CollaborativeEditor({
         dispatch({ kind: 'save-start' });
         const text = editor.getText();
         const assetIds = referencedAssetIds(editor.state.doc);
-        const res = await notesApi.putBody(noteId, { body: text, baseUpdatedAt, assetIds });
-        setBaseUpdatedAt(res.updatedAt);
+        const res = await notesApi.putBody(noteId, { body: text, baseBodyVersion, assetIds });
+        setBaseBodyVersion(res.bodyVersion);
         dispatch({ kind: 'save-ok' });
       } catch (err) {
         if (err instanceof ApiError && err.status === 409) {
@@ -263,7 +263,7 @@ function CollaborativeEditor({
       }
     }, 5000);
     return () => window.clearInterval(interval);
-  }, [editor, noteId, saveState, baseUpdatedAt]);
+  }, [editor, noteId, saveState, baseBodyVersion]);
 
   // Auto-title: every 2 s, derive the first heading from the doc and sync the
   // note title when it differs and the title is not manually pinned.

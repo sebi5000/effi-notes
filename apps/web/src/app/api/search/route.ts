@@ -1,4 +1,4 @@
-import { prisma } from '@app/db';
+import { Prisma, prisma } from '@app/db';
 import { withSpan } from '@app/observability/tracing';
 import { jsonError, jsonOk, requireSession } from '@/lib/api/responses.ts';
 import { type SearchHit, searchQuerySchema } from '@/lib/api/schemas.ts';
@@ -54,32 +54,34 @@ export const GET = async (req: Request): Promise<Response> => {
       const useTs = tsquery.length > 0;
       // Direct note hits and asset-driven hits are independent queries —
       // run them concurrently to keep the search hot path fast.
+      //
+      // Tagged templates (Prisma.sql) replaced the earlier $queryRawUnsafe so
+      // values can never accidentally drift into the SQL string — the SQL
+      // shape is the static, named-parameter form; callers can only inject
+      // values via `${…}` interpolation (QA review 2026-05-20, P3).
       const [noteRows, assetRows]: [Row[], Row[]] = useTs
         ? await Promise.all([
-            prisma.$queryRawUnsafe<Row[]>(
-              `SELECT n.id,
+            prisma.$queryRaw<Row[]>(Prisma.sql`
+              SELECT n.id,
                   n.title,
                   n."folderId" as "folderId",
                   n."updatedAt",
-                  ts_headline('simple', n.body, to_tsquery('simple', $1),
+                  ts_headline('simple', n.body, to_tsquery('simple', ${tsquery}),
                               'StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=15, MinWords=5') AS snippet
              FROM "Note" n
             WHERE n."archivedAt" IS NULL
-              AND n."searchVector" @@ to_tsquery('simple', $1)
-              AND (n."authorId" = $3 OR n."folderId" = ANY($4::text[]) OR n.id = ANY($5::text[]))
-            ORDER BY ts_rank(n."searchVector", to_tsquery('simple', $1)) DESC,
+              AND n."searchVector" @@ to_tsquery('simple', ${tsquery})
+              AND (n."authorId" = ${user.id}
+                   OR n."folderId" = ANY(${scope.accessibleFolderIds}::text[])
+                   OR n.id = ANY(${scope.sharedNoteIds}::text[]))
+            ORDER BY ts_rank(n."searchVector", to_tsquery('simple', ${tsquery})) DESC,
                      n."updatedAt" DESC
-            LIMIT $2`,
-              tsquery,
-              limit,
-              user.id,
-              scope.accessibleFolderIds,
-              scope.sharedNoteIds,
-            ),
+            LIMIT ${limit}
+            `),
             // A note also matches when one of its embedded assets matches by
             // filename / caption / extracted text. Surfaced as the owning note.
-            prisma.$queryRawUnsafe<Row[]>(
-              `SELECT DISTINCT n.id,
+            prisma.$queryRaw<Row[]>(Prisma.sql`
+              SELECT DISTINCT n.id,
                   n.title,
                   n."folderId" as "folderId",
                   n."updatedAt",
@@ -87,16 +89,13 @@ export const GET = async (req: Request): Promise<Response> => {
              FROM "Asset" a
              JOIN "Note" n ON n.id = a."noteId"
             WHERE n."archivedAt" IS NULL
-              AND a."searchVector" @@ to_tsquery('simple', $1)
-              AND (n."authorId" = $3 OR n."folderId" = ANY($4::text[]) OR n.id = ANY($5::text[]))
+              AND a."searchVector" @@ to_tsquery('simple', ${tsquery})
+              AND (n."authorId" = ${user.id}
+                   OR n."folderId" = ANY(${scope.accessibleFolderIds}::text[])
+                   OR n.id = ANY(${scope.sharedNoteIds}::text[]))
             ORDER BY n."updatedAt" DESC
-            LIMIT $2`,
-              tsquery,
-              limit,
-              user.id,
-              scope.accessibleFolderIds,
-              scope.sharedNoteIds,
-            ),
+            LIMIT ${limit}
+            `),
           ])
         : [[], []];
 
@@ -110,21 +109,18 @@ export const GET = async (req: Request): Promise<Response> => {
       let final = rows;
       if (final.length === 0) {
         // Trigram fallback for typos / unusual punctuation.
-        final = await prisma.$queryRawUnsafe<Row[]>(
-          `SELECT n.id, n.title, n."folderId" as "folderId", n."updatedAt",
+        final = await prisma.$queryRaw<Row[]>(Prisma.sql`
+          SELECT n.id, n.title, n."folderId" as "folderId", n."updatedAt",
                 left(n.body, 200) AS snippet
            FROM "Note" n
           WHERE n."archivedAt" IS NULL
-            AND (n.title ILIKE '%' || $1 || '%' OR n.title % $1)
-            AND (n."authorId" = $3 OR n."folderId" = ANY($4::text[]) OR n.id = ANY($5::text[]))
-          ORDER BY similarity(n.title, $1) DESC, n."updatedAt" DESC
-          LIMIT $2`,
-          q,
-          limit,
-          user.id,
-          scope.accessibleFolderIds,
-          scope.sharedNoteIds,
-        );
+            AND (n.title ILIKE '%' || ${q} || '%' OR n.title % ${q})
+            AND (n."authorId" = ${user.id}
+                 OR n."folderId" = ANY(${scope.accessibleFolderIds}::text[])
+                 OR n.id = ANY(${scope.sharedNoteIds}::text[]))
+          ORDER BY similarity(n.title, ${q}) DESC, n."updatedAt" DESC
+          LIMIT ${limit}
+        `);
       }
 
       const hits: SearchHit[] = final.map((r) => ({
