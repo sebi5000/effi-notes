@@ -4,11 +4,10 @@ import { useFormatter, useNow, useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 import type { FolderNode, NoteListItem, TagItem } from '@/lib/api/schemas.ts';
 import { NOTE_DND_MIME } from '@/lib/notes/dnd.ts';
-import { noteInternalUrl } from '@/lib/notes/internal-url.ts';
 import { ShareDialog } from '../Share/ShareDialog.tsx';
 import { CommandBar } from './CommandBar.tsx';
-import { CopyLinkButton } from './CopyLinkButton.tsx';
 import { type FolderMutationHandlers, FolderTree } from './FolderTree.tsx';
+import { NoteRowActions } from './NoteRowActions.tsx';
 import { SharedWithMe } from './SharedWithMe.tsx';
 
 type ShareTarget = { kind: 'note' | 'folder'; id: string };
@@ -249,7 +248,7 @@ export function Sidebar({
                   return (
                     <li
                       key={n.id}
-                      className={`group relative flex items-center ${draggingNoteId === n.id ? 'opacity-50' : ''}`}
+                      className={`group flex items-start gap-1 ${draggingNoteId === n.id ? 'opacity-50' : ''}`}
                       draggable={noteMutations !== undefined && !isRenaming}
                       onDragStart={(e) => {
                         if (!noteMutations) return;
@@ -290,7 +289,7 @@ export function Sidebar({
                             type="button"
                             onClick={() => onSelectNote(n.id)}
                             aria-current={isSel ? 'true' : undefined}
-                            className={`hover:bg-muted/60 flex-1 rounded px-2 py-1 text-left text-sm ${
+                            className={`hover:bg-muted/60 min-w-0 flex-1 rounded px-2 py-1 text-left text-sm ${
                               isSel ? 'bg-muted text-foreground' : 'text-muted-foreground'
                             }`}
                           >
@@ -311,52 +310,22 @@ export function Sidebar({
                               </div>
                             </div>
                           </button>
-                          <div className="absolute right-1 top-1 flex items-center gap-0.5">
-                            {noteMutations ? (
-                              <>
-                                <button
-                                  type="button"
-                                  aria-label={tNA('renameNote')}
-                                  title={tNA('renameNote')}
-                                  onClick={() => {
+                          <NoteRowActions
+                            noteId={n.id}
+                            shareCount={n.shareCount}
+                            onRequestRename={
+                              noteMutations
+                                ? () => {
                                     setRenameValue(n.title);
                                     setRenamingNoteId(n.id);
-                                  }}
-                                  className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
-                                >
-                                  <span aria-hidden="true">✎</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  aria-label={tNA('duplicateNote')}
-                                  title={tNA('duplicateNote')}
-                                  onClick={() => void noteMutations.onDuplicate(n.id)}
-                                  className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
-                                >
-                                  <span aria-hidden="true">⎘</span>
-                                </button>
-                              </>
-                            ) : null}
-                            <CopyLinkButton
-                              path={noteInternalUrl(n.id)}
-                              label={tNA('copyLink')}
-                              copiedLabel={tNA('copyLinkCopied')}
-                              className="text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] opacity-0 transition-colors group-hover:opacity-100 focus:opacity-100"
-                            />
-                            <button
-                              type="button"
-                              aria-label={tShare('shareNoteLabel')}
-                              title={tShare('shareNoteLabel')}
-                              onClick={() => setShareTarget({ kind: 'note', id: n.id })}
-                              className={`text-muted-foreground/50 hover:text-foreground inline-flex h-5 w-5 items-center justify-center rounded text-[10px] transition-colors ${
-                                n.shareCount > 0
-                                  ? ''
-                                  : 'opacity-0 group-hover:opacity-100 focus:opacity-100'
-                              }`}
-                            >
-                              <span aria-hidden="true">👁</span>
-                            </button>
-                          </div>
+                                  }
+                                : undefined
+                            }
+                            onDuplicate={
+                              noteMutations ? () => void noteMutations.onDuplicate(n.id) : undefined
+                            }
+                            onShare={() => setShareTarget({ kind: 'note', id: n.id })}
+                          />
                         </>
                       )}
                     </li>
