@@ -6,7 +6,7 @@ import { withSpan } from '@app/observability/tracing';
 import { jsonCreated, jsonError, requireSession } from '@/lib/api/responses.ts';
 import { assetUploadQuerySchema } from '@/lib/api/schemas.ts';
 import { canEdit, resolveNoteAccess } from '@/lib/notes/access.ts';
-import { maxBytesForKind, sniffAssetType } from '@/lib/notes/asset-mime.ts';
+import { MAX_PDF_BYTES, maxBytesForKind, sniffAssetType } from '@/lib/notes/asset-mime.ts';
 
 const log = createLogger({ component: 'api.assets.upload' });
 
@@ -36,6 +36,15 @@ export const POST = async (
 
   const access = await resolveNoteAccess(user.id, noteId);
   if (!canEdit(access)) return jsonError(403, 'forbidden');
+
+  // Coarse pre-check from Content-Length: reject grossly oversized uploads
+  // before buffering the request body into memory. The kind-specific limit
+  // still applies after sniffing the actual bytes below (QA review
+  // 2026-05-20, P3 — asset IO buffered).
+  const contentLength = Number(req.headers.get('content-length'));
+  if (Number.isFinite(contentLength) && contentLength > MAX_PDF_BYTES) {
+    return jsonError(413, 'file too large');
+  }
 
   const buffer = Buffer.from(await req.arrayBuffer());
   if (buffer.byteLength === 0) return jsonError(400, 'empty body');

@@ -16,9 +16,11 @@ const log = createLogger({ component: 'worker' });
 const startedAt = new Date().toISOString();
 
 // ── Workers ────────────────────────────────────────────────────────────────
-// One Worker per queue. Each carries its own connection (BullMQ recommends
-// not sharing across workers). Adding a queue: register it in @app/jobs,
-// import its processor here, instantiate a Worker.
+// One Worker per queue. We hand each one the shared `getRedis()` singleton;
+// BullMQ internally duplicates the connection it uses for blocking commands,
+// so passing the singleton is safe and matches the producer-side connection.
+// Adding a queue: register it in @app/jobs, import its processor here,
+// instantiate a Worker.
 const demoWorker = new Worker(QUEUES.demo, processDemoJob, {
   connection: getRedis(),
   concurrency: env.WORKER_CONCURRENCY,
