@@ -64,28 +64,37 @@ export const GET = async (req: Request): Promise<Response> => {
   const parsed = listNotesQuerySchema.safeParse(Object.fromEntries(url.searchParams));
   if (!parsed.success) return jsonError(400, 'invalid query', parsed.error.issues);
 
-  const { folderId, tagId, q, includeArchived, limit, offset } = parsed.data;
+  const { folderId, tagId, q, includeArchived, section, limit, offset } = parsed.data;
 
   const scope = await listAccessibleScope(user.id);
+
+  // `section=shared` narrows to notes the caller doesn't author but holds a
+  // direct share for — answers the sidebar's "Shared with me" panel in one
+  // round-trip instead of loading every note and filtering client-side.
+  const accessFilter =
+    section === 'shared'
+      ? { AND: [{ id: { in: scope.sharedNoteIds } }, { authorId: { not: user.id } }] }
+      : {
+          OR: [
+            { authorId: user.id },
+            { folderId: { in: scope.accessibleFolderIds } },
+            { id: { in: scope.sharedNoteIds } },
+          ],
+        };
 
   return withSpan(
     'notes.list',
     {
       ...(folderId === undefined ? {} : { 'notes.folder_id': folderId }),
       ...(tagId === undefined ? {} : { 'notes.tag_id': tagId }),
+      'notes.section': section ?? 'all',
       'notes.has_q': !!q,
     },
     async () => {
       const notes = await prisma.note.findMany({
         where: {
           AND: [
-            {
-              OR: [
-                { authorId: user.id },
-                { folderId: { in: scope.accessibleFolderIds } },
-                { id: { in: scope.sharedNoteIds } },
-              ],
-            },
+            accessFilter,
             {
               ...(folderId === undefined ? {} : { folderId }),
               ...(tagId === undefined ? {} : { tags: { some: { tagId } } }),

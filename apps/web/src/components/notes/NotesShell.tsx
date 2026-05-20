@@ -153,23 +153,34 @@ export function NotesShell({
 
   // Re-fetch whenever the resolved filter changes. Keyed on folderId/tagId —
   // not raw `query` — so typing free text never triggers a list fetch.
+  //
+  // Skip the very first fetch when the URL state matches what the server
+  // already passed in `initialNotes`: the server-rendered page loaded the
+  // same query, so the immediate client refresh was redundant network +
+  // duplicated `listAccessibleScope()` work (QA review 2026-05-20, P2).
+  const initialNotesRef = useRef(filterActive === false ? initialNotes : null);
   useEffect(() => {
-    // Inside the async IIFE — not the synchronous effect body — so the
-    // react-hooks/set-state-in-effect rule does not flag a cascading render.
+    if (initialNotesRef.current !== null) {
+      // First effect run after hydration with no active filter — initialNotes
+      // already mirrors the URL; consume the marker and skip the fetch.
+      initialNotesRef.current = null;
+      setPending(false);
+      return;
+    }
     (async () => {
       await refreshNotes();
     })();
   }, [refreshNotes]);
 
-  // Cancel-safe unfiltered fetch of the directly-shared notes. Deliberately
-  // passes no folder/tag filter so the "Shared with me" section is stable
-  // regardless of what the main list is currently scoped to.
+  // Cancel-safe fetch of the directly-shared notes. Uses the API's
+  // `section=shared` mode so the server returns just those rows — we no
+  // longer load every note and filter client-side (QA review 2026-05-20, P2).
   const refreshSharedNotes = useCallback(async () => {
     const reqId = ++sharedNotesReqRef.current;
     try {
-      const list = await notesApi.list();
+      const list = await notesApi.list({ section: 'shared' });
       if (sharedNotesReqRef.current === reqId) {
-        setSharedNotes(byUpdatedAtDesc(list.notes).filter((n) => n.sharedWithMe !== undefined));
+        setSharedNotes(byUpdatedAtDesc(list.notes));
       }
     } catch {
       // keep the previous list on error

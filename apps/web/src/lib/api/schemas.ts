@@ -63,6 +63,10 @@ export const listNotesQuerySchema = z.object({
   tagId: cuidSchema.optional(),
   q: z.string().max(SEARCH_QUERY_MAX).optional(),
   includeArchived: z.coerce.boolean().optional(),
+  // Narrow the result set to "directly shared with me". Skips the
+  // load-all-then-filter pass the sidebar used to do for the
+  // Shared-with-me panel (QA review 2026-05-20, P2).
+  section: z.enum(['shared']).optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });

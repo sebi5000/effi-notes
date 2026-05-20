@@ -65,7 +65,14 @@ const request = async <T>(
 
 export const notesApi = {
   list: (
-    query: { folderId?: string; tagId?: string; q?: string; includeArchived?: boolean } = {},
+    query: {
+      folderId?: string;
+      tagId?: string;
+      q?: string;
+      includeArchived?: boolean;
+      /** `shared` → only notes shared directly with the caller. */
+      section?: 'shared';
+    } = {},
     fetcher?: typeof fetch,
   ): Promise<{ notes: NoteListItem[] }> => {
     const sp = new URLSearchParams();
