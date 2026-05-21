@@ -71,6 +71,35 @@ describe('GET /api/search', () => {
     expect(titles).toContain('api-test-strategy-note');
   });
 
+  it('finds notes via a linked appointment subject and tags the hit with matchedVia (ADR 0031)', async () => {
+    const { user } = await makeTestUser();
+    setAuthed(user);
+    const note = await makeTestNote({
+      authorId: user.id,
+      title: 'api-test-appointment-linked-note',
+    });
+    await prisma.appointmentLink.create({
+      data: {
+        noteId: note.id,
+        eventId: 'evt-q4-1',
+        subject: 'Q4 Strategy Review',
+        linkedById: user.id,
+      },
+    });
+    const res = await call('Q4 Strategy');
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      hits: Array<{
+        id: string;
+        title: string;
+        matchedVia?: { kind: 'appointment'; subject: string };
+      }>;
+    };
+    const hit = body.hits.find((h) => h.id === note.id);
+    expect(hit?.title).toBe('api-test-appointment-linked-note');
+    expect(hit?.matchedVia).toEqual({ kind: 'appointment', subject: 'Q4 Strategy Review' });
+  });
+
   it('hides archived notes from search', async () => {
     const { user } = await makeTestUser();
     setAuthed(user);

@@ -9,10 +9,15 @@ import type { TagItem } from '@/lib/api/schemas.ts';
 import { ApiError, collabApi, notesApi } from '@/lib/notes/api-client.ts';
 import { nextAutoTitle } from '@/lib/notes/auto-title.ts';
 import { DOC_PANEL_NARROW_QUERY } from '@/lib/notes/breakpoints.ts';
-import { deriveDocItems, referencedAssetIds } from '@/lib/notes/doc-outline.ts';
+import {
+  deriveDocItems,
+  referencedAppointmentIds,
+  referencedAssetIds,
+} from '@/lib/notes/doc-outline.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
 import { useResponsiveCollapse } from '@/lib/notes/use-responsive-collapse.ts';
+import { AppointmentOverlay } from './AppointmentOverlay.tsx';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
 import { DeleteNoteButton } from './DeleteNoteButton.tsx';
 import { DocumentPanel } from './DocumentPanel.tsx';
@@ -251,7 +256,13 @@ function CollaborativeEditor({
         dispatch({ kind: 'save-start' });
         const text = editor.getText();
         const assetIds = referencedAssetIds(editor.state.doc);
-        const res = await notesApi.putBody(noteId, { body: text, baseBodyVersion, assetIds });
+        const appointmentIds = referencedAppointmentIds(editor.state.doc);
+        const res = await notesApi.putBody(noteId, {
+          body: text,
+          baseBodyVersion,
+          assetIds,
+          appointmentIds,
+        });
         setBaseBodyVersion(res.bodyVersion);
         dispatch({ kind: 'save-ok' });
       } catch (err) {
@@ -344,9 +355,17 @@ function CollaborativeEditor({
             that do not support `zoom` in `@media screen`. */}
         <EditorContent editor={editor} className="editor-rail flex-1 overflow-x-auto pb-24" />
         <EditorToolbar editor={editor} />
+        {/* `$$` appointment-picker overlay (ADR 0031). Pure consumer of the
+            suggestion store; renders nothing when closed. */}
+        <AppointmentOverlay />
       </div>
       {panelOpen ? (
-        <DocumentPanel editor={editor} onCollapse={togglePanel} />
+        <DocumentPanel
+          editor={editor}
+          onCollapse={togglePanel}
+          noteId={noteId}
+          appointmentsRefreshKey={baseBodyVersion}
+        />
       ) : (
         <button
           type="button"

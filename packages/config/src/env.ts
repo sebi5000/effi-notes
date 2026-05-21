@@ -63,6 +63,15 @@ export const EnvSchema = z.object({
   COLLAB_PUBLIC_URL: z.string().min(1).default('ws://localhost:3101'),
   /** Debounce window for the snapshot processor (ms). Higher = fewer DB writes. */
   NOTES_SNAPSHOT_DEBOUNCE_MS: z.coerce.number().int().positive().default(30_000),
+
+  // Microsoft 365 (Outlook calendar linking — ADR 0031) ------------------
+  // All three are OPTIONAL. The whole feature degrades to "not configured"
+  // (Settings card shows a notice; the editor's `$$` trigger does nothing)
+  // when any one is missing. Customers who don't want the integration just
+  // leave them unset.
+  MICROSOFT_TENANT_ID: z.string().min(1).optional(),
+  MICROSOFT_CLIENT_ID: z.string().min(1).optional(),
+  MICROSOFT_CLIENT_SECRET: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

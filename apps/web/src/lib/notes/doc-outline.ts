@@ -146,3 +146,21 @@ export const referencedAssetIds = (doc: PMNode): string[] => {
   });
   return [...ids];
 };
+
+/**
+ * The distinct Microsoft Graph event ids the document references — from
+ * `appointmentLink` inline nodes. Mirrors `referencedAssetIds` so the body
+ * route can reconcile the `AppointmentLink` table the same way it
+ * reconciles `Asset.unreferencedSince` (ADR 0031).
+ */
+export const referencedAppointmentIds = (doc: PMNode): string[] => {
+  const ids = new Set<string>();
+  doc.descendants((node) => {
+    if (node.type.name === 'appointmentLink') {
+      const id = String(node.attrs.appointmentId ?? '');
+      if (id !== '') ids.add(id);
+    }
+    return true;
+  });
+  return [...ids];
+};

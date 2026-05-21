@@ -21,6 +21,14 @@ type Row = {
   snippet: string;
 };
 
+/**
+ * Same shape as `Row` plus the appointment subject that drove the match,
+ * so the merge step below can attach it to `SearchHit.matchedVia` and the
+ * CommandBar can render "matched via 'Q4 Review'" under the title
+ * (ADR 0031).
+ */
+type AppointmentRow = Row & { matchedSubject: string };
+
 const buildTsquery = (raw: string): string => {
   const tokens = raw
     .toLowerCase()
@@ -99,15 +107,43 @@ export const GET = async (req: Request): Promise<Response> => {
           ])
         : [[], []];
 
-      // Merge: direct note hits first, then asset-only hits, de-duplicated.
+      // Third source: notes whose linked Microsoft Graph appointments'
+      // subjects match the query. Joined here rather than at the call sites
+      // (CommandBar, etc.) so every search surface gets it consistently.
+      // ILIKE is acceptable for v1 — the `@@index([subject])` from ADR 0031
+      // covers the equality side; a tsvector column is the documented
+      // follow-up if latency drifts.
+      const appointmentRows = await prisma.$queryRaw<AppointmentRow[]>(Prisma.sql`
+        SELECT DISTINCT ON (n.id) n.id,
+            n.title,
+            n."folderId" as "folderId",
+            n."updatedAt",
+            left(n.body, 200) AS snippet,
+            al.subject AS "matchedSubject"
+         FROM "AppointmentLink" al
+         JOIN "Note" n ON n.id = al."noteId"
+        WHERE n."archivedAt" IS NULL
+          AND al.subject ILIKE '%' || ${q} || '%'
+          AND (n."authorId" = ${user.id}
+               OR n."folderId" = ANY(${scope.accessibleFolderIds}::text[])
+               OR n.id = ANY(${scope.sharedNoteIds}::text[]))
+        ORDER BY n.id, n."updatedAt" DESC
+        LIMIT ${limit}
+      `);
+
+      // Merge: direct note hits first, then asset-only hits, then
+      // appointment-only hits, de-duplicated. Appointment hits carry an
+      // extra `matchedSubject` we attach to the final SearchHit shape.
       const seen = new Set(noteRows.map((r) => r.id));
       const rows: Row[] = [...noteRows, ...assetRows.filter((r) => !seen.has(r.id))].slice(
         0,
         limit,
       );
+      for (const r of rows) seen.add(r.id);
+      const appointmentExtra = appointmentRows.filter((r) => !seen.has(r.id));
 
-      let final = rows;
-      if (final.length === 0) {
+      let final: Row[] = rows;
+      if (final.length === 0 && appointmentExtra.length === 0) {
         // Trigram fallback for typos / unusual punctuation.
         final = await prisma.$queryRaw<Row[]>(Prisma.sql`
           SELECT n.id, n.title, n."folderId" as "folderId", n."updatedAt",
@@ -123,13 +159,26 @@ export const GET = async (req: Request): Promise<Response> => {
         `);
       }
 
-      const hits: SearchHit[] = final.map((r) => ({
-        id: r.id,
-        title: r.title,
-        snippet: r.snippet ?? '',
-        folderId: r.folderId,
-        updatedAt: r.updatedAt.toISOString(),
-      }));
+      const appointmentSubjectById = new Map(
+        appointmentRows.map((r) => [r.id, r.matchedSubject] as const),
+      );
+      // Combine the trimmed `final` (note / asset hits) with the
+      // appointment-only extras; cap to `limit`.
+      const merged: Array<Row & { matchedSubject?: string }> = [
+        ...final,
+        ...appointmentExtra,
+      ].slice(0, limit);
+      const hits: SearchHit[] = merged.map((r) => {
+        const subject = r.matchedSubject ?? appointmentSubjectById.get(r.id);
+        return {
+          id: r.id,
+          title: r.title,
+          snippet: r.snippet ?? '',
+          folderId: r.folderId,
+          updatedAt: r.updatedAt.toISOString(),
+          ...(subject ? { matchedVia: { kind: 'appointment' as const, subject } } : {}),
+        };
+      });
 
       return jsonOk({ hits, total: hits.length });
     },

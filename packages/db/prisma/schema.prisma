@@ -17,24 +17,26 @@ datasource db {
 /// Source of truth for identity stays in Keycloak; this row is upserted on
 /// first login and refreshed on subsequent logins (Phase 3 wires this).
 model User {
-  id             String        @id @default(cuid())
-  keycloakSub    String        @unique
-  email          String        @unique
-  displayName    String?
-  locale         String        @default("de")
-  theme          String        @default("warm-paper")
-  roles          String[]      @default([])
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  lastSeenAt     DateTime?
-  auditLogs      AuditLog[]
-  authoredNotes  Note[]        @relation("note_author")
-  editedNotes    Note[]        @relation("note_last_editor")
-  noteHistory    NoteHistory[]
-  ownedFolders   Folder[]      @relation("folder_owner")
-  sharesReceived Share[]       @relation("share_grantee")
-  sharesCreated  Share[]       @relation("share_creator")
-  publicLinks    PublicLink[]  @relation("publiclink_creator")
+  id               String            @id @default(cuid())
+  keycloakSub      String            @unique
+  email            String            @unique
+  displayName      String?
+  locale           String            @default("de")
+  theme            String            @default("warm-paper")
+  roles            String[]          @default([])
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  lastSeenAt       DateTime?
+  auditLogs        AuditLog[]
+  authoredNotes    Note[]            @relation("note_author")
+  editedNotes      Note[]            @relation("note_last_editor")
+  noteHistory      NoteHistory[]
+  ownedFolders     Folder[]          @relation("folder_owner")
+  sharesReceived   Share[]           @relation("share_grantee")
+  sharesCreated    Share[]           @relation("share_creator")
+  publicLinks      PublicLink[]      @relation("publiclink_creator")
+  microsoftAccount MicrosoftAccount?
+  appointmentLinks AppointmentLink[] @relation("appointmentlink_linker")
 
   @@index([email])
 }
@@ -114,6 +116,7 @@ model Note {
   assets       Asset[]
   shares       Share[]
   publicLink   PublicLink?
+  appointmentLinks AppointmentLink[]
   searchVector Unsupported("tsvector")?
 
   @@index([folderId, updatedAt])
@@ -242,4 +245,44 @@ model PublicLink {
   createdAt   DateTime  @default(now())
 
   @@index([expiresAt])
+}
+
+/// Per-user Microsoft 365 integration (ADR 0031). 1:1 with User. The refresh
+/// token is the only artefact that survives sign-out; access tokens are
+/// fetched on demand via `lib/microsoft/tokens.ts` and never persisted.
+/// Documented exception to the "no auth tokens in the DB" rule — Microsoft
+/// has no equivalent of Keycloak's cookie-session.
+model MicrosoftAccount {
+  userId       String   @id
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId     String
+  oid          String
+  upn          String?
+  refreshToken String   @db.Text
+  scopes       String
+  connectedAt  DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// A note's backlink to a Microsoft Graph calendar event (ADR 0031). Holds a
+/// small NON-attendee snapshot (subject + start/end + webLink) so the chip
+/// renders without a Graph round-trip and the search route can find notes by
+/// appointment subject. Attendees are NEVER snapshotted — the popover live-
+/// fetches them through the viewer's own M365 token.
+model AppointmentLink {
+  id         String    @id @default(cuid())
+  noteId     String
+  note       Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  eventId    String
+  subject    String
+  startsAt   DateTime?
+  endsAt     DateTime?
+  webLink    String?
+  linkedById String
+  linkedBy   User      @relation("appointmentlink_linker", fields: [linkedById], references: [id], onDelete: Cascade)
+  linkedAt   DateTime  @default(now())
+
+  @@unique([noteId, eventId])
+  @@index([noteId])
+  @@index([subject])
 }

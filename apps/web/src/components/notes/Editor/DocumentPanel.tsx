@@ -4,13 +4,21 @@ import type { Editor } from '@tiptap/core';
 import { useTranslations } from 'next-intl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type DocItems, deriveDocItems } from '@/lib/notes/doc-outline.ts';
+import { AppointmentsSection } from './AppointmentsSection.tsx';
 import { AssetSection } from './AssetSection.tsx';
 import { LinksSection } from './LinksSection.tsx';
 import { OutlineSection } from './OutlineSection.tsx';
 
 const EMPTY: DocItems = { headings: [], images: [], pdfs: [], links: [] };
 
-type Props = { editor: Editor | null; onCollapse: () => void };
+type Props = {
+  editor: Editor | null;
+  onCollapse: () => void;
+  /** Needed by AppointmentsSection to fetch /api/notes/[id]/appointments. */
+  noteId: string;
+  /** Bumped by NoteEditor when a body save lands — re-fetches the section. */
+  appointmentsRefreshKey?: number;
+};
 
 /**
  * The document panel container. Derives the heading/image/PDF/link lists from
@@ -18,7 +26,7 @@ type Props = { editor: Editor | null; onCollapse: () => void };
  * runs the outline scroll-spy, and handles click-to-jump. The section
  * components below it are purely presentational.
  */
-export function DocumentPanel({ editor, onCollapse }: Props) {
+export function DocumentPanel({ editor, onCollapse, noteId, appointmentsRefreshKey }: Props) {
   const t = useTranslations('notes.docPanel');
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   // A monotonically increasing counter bumped on each (debounced) editor
@@ -124,6 +132,10 @@ export function DocumentPanel({ editor, onCollapse }: Props) {
         onSelect={handleSelect}
       />
       <LinksSection links={items.links} origin={origin} />
+      <AppointmentsSection
+        noteId={noteId}
+        {...(appointmentsRefreshKey !== undefined ? { refreshKey: appointmentsRefreshKey } : {})}
+      />
     </aside>
   );
 }

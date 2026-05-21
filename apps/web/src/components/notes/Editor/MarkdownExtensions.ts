@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/core';
 import Collaboration from '@tiptap/extension-collaboration';
 import CollaborationCaret from '@tiptap/extension-collaboration-caret';
 import FileHandler from '@tiptap/extension-file-handler';
+import Highlight from '@tiptap/extension-highlight';
 import Link from '@tiptap/extension-link';
 import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
@@ -9,6 +10,8 @@ import Typography from '@tiptap/extension-typography';
 import StarterKit from '@tiptap/starter-kit';
 import type * as Y from 'yjs';
 import { ApiError, assetsApi } from '@/lib/notes/api-client.ts';
+import { AppointmentLinkExtension } from './AppointmentLinkExtension.ts';
+import { AppointmentSuggestion } from './AppointmentSuggestion.ts';
 import { Callout } from './CalloutExtension.ts';
 import { NoteImage } from './ImageExtension.ts';
 import { PdfChipNode } from './PdfChipExtension.ts';
@@ -82,12 +85,21 @@ export const buildExtensions = (input: {
     //     double undo stacks.
     StarterKit.configure({ link: false, undoRedo: false }),
     Link.configure({ openOnClick: false, autolink: true }),
+    // `multicolor: true` lets the menubar set per-mark colours (yellow,
+    // green, blue, red) via `setHighlight({ color })`. Rendered as
+    // <mark data-color="…" style="background-color: …">; the per-theme
+    // legibility tweaks live in `globals.css`.
+    Highlight.configure({ multicolor: true }),
     Typography,
     TaskList,
     TaskItem.configure({ nested: true }),
     Callout,
     NoteImage,
     PdfChipNode,
+    AppointmentLinkExtension,
+    // `$$` overlay (ADR 0031). The suggestion plugin needs `noteId` so the
+    // picker can later POST the link — passed via the buildExtensions arg.
+    AppointmentSuggestion.configure({ noteId: input.noteId }),
     ...tableExtensions,
     FileHandler.configure({
       allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'application/pdf'],

@@ -251,6 +251,11 @@ export function CommandBar({
                     className="text-muted-foreground prose-paper truncate text-xs"
                   />
                 ) : null}
+                {hit.matchedVia?.kind === 'appointment' ? (
+                  <div className="text-muted-foreground/70 mt-0.5 text-[10px]">
+                    {t('matchedViaAppointment', { subject: hit.matchedVia.subject })}
+                  </div>
+                ) : null}
               </button>
             </li>
           ))}

@@ -91,6 +91,19 @@ export const PUT = async (req: Request, ctx: RouteContext): Promise<Response> =>
         ]);
       }
 
+      // Appointment backlink reconcile (ADR 0031). Unlike assets (which are
+      // soft-stamped so customer projects can keep recovery windows), the
+      // AppointmentLink row is a pure backlink — once the chip is gone from
+      // the doc the link has no meaning. Hard-delete rows whose eventId is
+      // not in the reported set. Skipped when `appointmentIds` is omitted
+      // (non-editor callers) so they never wipe a note's links.
+      if (parsed.data.appointmentIds !== undefined) {
+        const eventIds = parsed.data.appointmentIds;
+        await prisma.appointmentLink.deleteMany({
+          where: { noteId: id, eventId: { notIn: eventIds } },
+        });
+      }
+
       return jsonOk({
         id: updated.id,
         updatedAt: updated.updatedAt.toISOString(),

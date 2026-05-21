@@ -3,9 +3,15 @@ import { Editor, type JSONContent } from '@tiptap/core';
 import Link from '@tiptap/extension-link';
 import StarterKit from '@tiptap/starter-kit';
 import { describe, expect, it } from 'vitest';
+import { AppointmentLinkNodeBase } from '@/components/notes/Editor/appointment-link-node.ts';
 import { NoteImage } from '../../components/notes/Editor/ImageExtension.ts';
 import { PdfChipNode } from '../../components/notes/Editor/PdfChipExtension.ts';
-import { deriveDocItems, isInternalNoteLink, referencedAssetIds } from './doc-outline.ts';
+import {
+  deriveDocItems,
+  isInternalNoteLink,
+  referencedAppointmentIds,
+  referencedAssetIds,
+} from './doc-outline.ts';
 
 const ORIGIN = 'http://localhost:3000';
 
@@ -185,5 +191,39 @@ describe('referencedAssetIds', () => {
       },
     });
     expect(referencedAssetIds(editor.state.doc)).toEqual([]);
+  });
+});
+
+describe('referencedAppointmentIds', () => {
+  const make = (html: string) =>
+    new Editor({
+      extensions: [StarterKit.configure({ link: false }), AppointmentLinkNodeBase],
+      content: html,
+    });
+
+  it('returns the distinct appointmentIds referenced by appointmentLink nodes', () => {
+    const editor = make(
+      '<p>before <span data-appointment-id="evt-a" data-subject="A">📅 A</span> and ' +
+        '<span data-appointment-id="evt-b" data-subject="B">📅 B</span></p>' +
+        '<p>same one twice <span data-appointment-id="evt-a" data-subject="A">📅 A</span></p>',
+    );
+    expect(referencedAppointmentIds(editor.state.doc).sort()).toEqual(['evt-a', 'evt-b']);
+  });
+
+  it('returns [] for a document with no appointment chips', () => {
+    const editor = make('<p>just text</p>');
+    expect(referencedAppointmentIds(editor.state.doc)).toEqual([]);
+  });
+
+  it('ignores chips with an empty appointmentId', () => {
+    // Insert one programmatically with an empty id — the renderHTML drops
+    // the data-attr so a parse round-trip wouldn't reconstruct it, but
+    // the walker MUST also exclude it (defence in depth).
+    const editor = make('<p></p>');
+    editor.commands.insertContent({
+      type: 'appointmentLink',
+      attrs: { appointmentId: '', subject: 'untitled' },
+    });
+    expect(referencedAppointmentIds(editor.state.doc)).toEqual([]);
   });
 });

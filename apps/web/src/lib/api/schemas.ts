@@ -55,6 +55,12 @@ export const putNoteBodySchema = z.object({
   // asset-cleanup reconcile entirely rather than treating the note as
   // asset-less.
   assetIds: z.array(cuidSchema).max(500).optional(),
+  // The Microsoft Graph event ids the editor's current document references
+  // via `appointmentLink` nodes. Same gating as `assetIds` — present means
+  // "reconcile the AppointmentLink rows for this note against this set";
+  // omitted means "leave them alone" (ADR 0031). Graph ids are opaque
+  // strings; we don't enforce a cuid shape.
+  appointmentIds: z.array(z.string().min(1).max(512)).max(500).optional(),
 });
 export type PutNoteBodyInput = z.infer<typeof putNoteBodySchema>;
 
@@ -166,6 +172,13 @@ export type SearchHit = {
   snippet: string;
   folderId: string | null;
   updatedAt: string;
+  /**
+   * When the hit was produced via an indirect match (currently: a linked
+   * Microsoft Graph appointment whose subject matched the query — ADR 0031),
+   * carries the context the UI renders under the title (e.g. "matched via
+   * 'Q4 Review'"). Absent for direct note / asset hits.
+   */
+  matchedVia?: { kind: 'appointment'; subject: string };
 };
 
 export type ApiError = { error: string; details?: unknown };

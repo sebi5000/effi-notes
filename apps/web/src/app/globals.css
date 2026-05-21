@@ -230,14 +230,44 @@
 .prose-paper :where(ul, ol) {
   padding-left: 1.5em;
 }
+/* Tailwind's preflight zeroes `list-style` on ul/ol — restore it so the
+ * editor bullets and numbers are visible. The ::marker color follows the
+ * text colour explicitly so it stays legible under every theme (the
+ * default would inherit, but some browsers render markers in a forced
+ * subdued tone — being explicit avoids the "invisible bullet" bug). */
+.prose-paper :where(ul) {
+  list-style: disc;
+}
+.prose-paper :where(ol) {
+  list-style: decimal;
+}
+.prose-paper :where(ul ul) {
+  list-style: circle;
+}
+.prose-paper :where(ul ul ul) {
+  list-style: square;
+}
+.prose-paper :where(li)::marker {
+  color: var(--color-foreground);
+}
 .prose-paper :where(li) {
   margin-bottom: 0.25em;
 }
+/* Tiptap's Highlight extension (multicolor: true) renders <mark> with
+ * `data-color` plus an inline `background-color`. We rely on the inline
+ * style for the per-color background and supply the text colour + padding
+ * here so the highlight reads well on every theme. The legacy bare <mark>
+ * (no data-color) keeps the accent-soft default. */
 .prose-paper :where(mark) {
   background: var(--color-accent-soft);
   color: var(--color-foreground);
   padding: 0 0.15em;
   border-radius: 2px;
+}
+.prose-paper :where(mark[data-color]) {
+  /* The colour comes from the extension's inline `background-color`. We
+   * just need a readable text colour and the same padding shape. */
+  color: #1e2230;
 }
 
 /* Task lists (Tiptap TaskList / TaskItem).

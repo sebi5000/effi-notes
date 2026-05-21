@@ -153,4 +153,10 @@ jobs:
           KEYCLOAK_CLIENT_SECRET: ci-stub-secret-not-used
           AUTH_SECRET: ci-stub-secret-must-be-32-bytes-or-longer
           AUTH_URL: http://localhost:3000
+          # ADR 0031 — dummy values keep `isMicrosoftConfigured()` true so
+          # M365 test paths exercise the real code (the fetcher is injected
+          # in tests, so no Microsoft endpoint is ever called).
+          MICROSOFT_TENANT_ID: ci-stub-tenant
+          MICROSOFT_CLIENT_ID: ci-stub-client
+          MICROSOFT_CLIENT_SECRET: ci-stub-secret
         run: bun run test
