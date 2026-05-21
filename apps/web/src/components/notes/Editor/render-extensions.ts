@@ -3,6 +3,7 @@ import TaskItem from '@tiptap/extension-task-item';
 import TaskList from '@tiptap/extension-task-list';
 import Typography from '@tiptap/extension-typography';
 import StarterKit from '@tiptap/starter-kit';
+import { AppointmentLinkNodeBase } from './appointment-link-node.ts';
 import { Callout } from './CalloutExtension.ts';
 import { NoteImageNode } from './image-node.ts';
 import { PdfChipNodeBase } from './pdf-chip-node.ts';
@@ -31,5 +32,6 @@ export const buildRenderExtensions = () => [
   Callout,
   NoteImageNode,
   PdfChipNodeBase,
+  AppointmentLinkNodeBase,
   ...tableExtensions,
 ];

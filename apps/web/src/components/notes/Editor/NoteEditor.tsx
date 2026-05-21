@@ -13,6 +13,7 @@ import { deriveDocItems, referencedAssetIds } from '@/lib/notes/doc-outline.ts';
 import { initialSaveState, reduceSaveState } from '@/lib/notes/save-state.ts';
 import { useDocPanel } from '@/lib/notes/use-doc-panel.ts';
 import { useResponsiveCollapse } from '@/lib/notes/use-responsive-collapse.ts';
+import { AppointmentOverlay } from './AppointmentOverlay.tsx';
 import { CopyMarkdownButton } from './CopyMarkdownButton.tsx';
 import { DeleteNoteButton } from './DeleteNoteButton.tsx';
 import { DocumentPanel } from './DocumentPanel.tsx';
@@ -344,6 +345,9 @@ function CollaborativeEditor({
             that do not support `zoom` in `@media screen`. */}
         <EditorContent editor={editor} className="editor-rail flex-1 overflow-x-auto pb-24" />
         <EditorToolbar editor={editor} />
+        {/* `$$` appointment-picker overlay (ADR 0031). Pure consumer of the
+            suggestion store; renders nothing when closed. */}
+        <AppointmentOverlay />
       </div>
       {panelOpen ? (
         <DocumentPanel editor={editor} onCollapse={togglePanel} />

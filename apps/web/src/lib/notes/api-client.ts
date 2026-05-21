@@ -252,6 +252,84 @@ export const publicLinkApi = {
     }),
 };
 
+// ── Microsoft 365 + appointment linking (ADR 0031) ──────────────────────
+
+export type MicrosoftStatus = {
+  configured: boolean;
+  connected: boolean;
+  upn?: string;
+  connectedAt?: string;
+};
+export type AppointmentSearchResult = {
+  id: string;
+  subject: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  webLink: string | null;
+};
+export type AppointmentLinkView = {
+  id: string;
+  noteId: string;
+  eventId: string;
+  subject: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  webLink: string | null;
+  linkedById: string;
+  linkedAt: string;
+};
+export type AttendeeView = {
+  name?: string;
+  email?: string;
+  response?: string;
+};
+
+export const microsoftApi = {
+  status: (fetcher?: typeof fetch): Promise<MicrosoftStatus> =>
+    request('/api/users/me/microsoft/status', fetcher ? { fetcher } : {}),
+  disconnect: (fetcher?: typeof fetch): Promise<{ disconnected: boolean }> =>
+    request('/api/users/me/microsoft', {
+      method: 'DELETE',
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  searchAppointments: (
+    q: string,
+    fetcher?: typeof fetch,
+  ): Promise<{ events: AppointmentSearchResult[] }> =>
+    request(
+      `/api/users/me/microsoft/appointments?q=${encodeURIComponent(q)}`,
+      fetcher ? { fetcher } : {},
+    ),
+  attendees: (eventId: string, fetcher?: typeof fetch): Promise<{ attendees: AttendeeView[] }> =>
+    request(
+      `/api/users/me/microsoft/appointments/${encodeURIComponent(eventId)}/attendees`,
+      fetcher ? { fetcher } : {},
+    ),
+};
+
+export const appointmentApi = {
+  list: (
+    noteId: string,
+    fetcher?: typeof fetch,
+  ): Promise<{ appointments: AppointmentLinkView[] }> =>
+    request(`/api/notes/${noteId}/appointments`, fetcher ? { fetcher } : {}),
+  link: (noteId: string, eventId: string, fetcher?: typeof fetch): Promise<AppointmentLinkView> =>
+    request(`/api/notes/${noteId}/appointments`, {
+      method: 'POST',
+      body: JSON.stringify({ eventId }),
+      ...(fetcher ? { fetcher } : {}),
+    }),
+  unlink: (
+    noteId: string,
+    linkId: string,
+    fetcher?: typeof fetch,
+  ): Promise<{ unlinked: boolean }> =>
+    request(`/api/notes/${noteId}/appointments/${linkId}`, {
+      method: 'DELETE',
+      ...(fetcher ? { fetcher } : {}),
+    }),
+};
+
 export const assetsApi = {
   /** Uploads a file as a note asset. Returns the new asset's id + serve URL. */
   upload: async (

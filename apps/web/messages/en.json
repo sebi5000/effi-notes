@@ -209,6 +209,24 @@
       "toggleHeader": "Toggle header row",
       "deleteTable": "Delete table"
     },
+    "appointments": {
+      "untitled": "Untitled appointment",
+      "chipLabel": "Open attendees for {subject}",
+      "attendeesLabel": "Attendees of {subject}",
+      "loading": "Loading attendees…",
+      "fetchError": "Could not load attendees.",
+      "notConnected": "Connect Microsoft 365 to view attendees.",
+      "connectInSettings": "Open Settings",
+      "noAttendees": "No attendees on this appointment.",
+      "unknownAttendee": "Unknown attendee",
+      "response": {
+        "organizer": "Organiser",
+        "tentativelyAccepted": "Tentative",
+        "accepted": "Accepted",
+        "declined": "Declined",
+        "notResponded": "No response"
+      }
+    },
     "tagBar": {
       "addTag": "Tag",
       "removeTag": "Remove tag {name}",
@@ -279,6 +297,29 @@
     "themeWarmPaper": "Warm Paper",
     "themeDark": "Dark",
     "themeCoolSlate": "Cool Slate",
-    "themeSaveFailed": "Could not save your theme. Please try again."
+    "themeSaveFailed": "Could not save your theme. Please try again.",
+    "microsoft": {
+      "heading": "Microsoft 365",
+      "description": "Connect your Outlook calendar to link notes to appointments. Read-only — we only access your calendar.",
+      "connect": "Connect Microsoft 365",
+      "disconnect": "Disconnect",
+      "connectedAs": "Connected as {upn}",
+      "connectedGeneric": "Connected",
+      "notConfigured": "Microsoft 365 is not configured by your administrator.",
+      "disconnectFailed": "Could not disconnect. Please try again.",
+      "callbackConnected": "Microsoft 365 connected.",
+      "callback": {
+        "denied": "Microsoft 365 connection cancelled.",
+        "malformed": "The link from Microsoft was malformed. Please try again.",
+        "bad-state": "Security check failed. Please try connecting again.",
+        "user-mismatch": "The session changed during the flow. Please sign in and try again.",
+        "token-exchange-failed": "Microsoft refused the connection. Please try again.",
+        "no-refresh-token": "Microsoft did not return offline access. Please try again and accept all permissions.",
+        "no-id-token": "Microsoft did not return an identity token. Please try again.",
+        "bad-id-token": "Microsoft returned an unreadable identity token. Please try again.",
+        "not-configured": "Microsoft 365 is not configured by your administrator.",
+        "unauthorised": "You must be signed in to connect Microsoft 365."
+      }
+    }
   }
 }

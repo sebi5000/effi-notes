@@ -209,6 +209,24 @@
       "toggleHeader": "Kopfzeile umschalten",
       "deleteTable": "Tabelle löschen"
     },
+    "appointments": {
+      "untitled": "Termin ohne Titel",
+      "chipLabel": "Teilnehmer für {subject} anzeigen",
+      "attendeesLabel": "Teilnehmer von {subject}",
+      "loading": "Teilnehmer werden geladen…",
+      "fetchError": "Teilnehmer konnten nicht geladen werden.",
+      "notConnected": "Verbinde Microsoft 365, um Teilnehmer zu sehen.",
+      "connectInSettings": "Einstellungen öffnen",
+      "noAttendees": "Keine Teilnehmer für diesen Termin.",
+      "unknownAttendee": "Unbekannter Teilnehmer",
+      "response": {
+        "organizer": "Organisator:in",
+        "tentativelyAccepted": "Vorbehaltlich",
+        "accepted": "Zugesagt",
+        "declined": "Abgesagt",
+        "notResponded": "Keine Antwort"
+      }
+    },
     "tagBar": {
       "addTag": "Tag",
       "removeTag": "Tag {name} entfernen",
@@ -279,6 +297,29 @@
     "themeWarmPaper": "Warm Paper",
     "themeDark": "Dunkel",
     "themeCoolSlate": "Cool Slate",
-    "themeSaveFailed": "Theme konnte nicht gespeichert werden. Bitte erneut versuchen."
+    "themeSaveFailed": "Theme konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "microsoft": {
+      "heading": "Microsoft 365",
+      "description": "Verbinde deinen Outlook-Kalender, um Notizen mit Terminen zu verknüpfen. Schreibgeschützt – wir greifen nur auf deinen Kalender zu.",
+      "connect": "Microsoft 365 verbinden",
+      "disconnect": "Trennen",
+      "connectedAs": "Verbunden als {upn}",
+      "connectedGeneric": "Verbunden",
+      "notConfigured": "Microsoft 365 wurde von deinem Administrator nicht konfiguriert.",
+      "disconnectFailed": "Verbindung konnte nicht getrennt werden. Bitte erneut versuchen.",
+      "callbackConnected": "Microsoft 365 verbunden.",
+      "callback": {
+        "denied": "Microsoft-365-Verbindung abgebrochen.",
+        "malformed": "Die Antwort von Microsoft war fehlerhaft. Bitte erneut versuchen.",
+        "bad-state": "Sicherheitsprüfung fehlgeschlagen. Bitte erneut verbinden.",
+        "user-mismatch": "Die Sitzung hat sich während des Vorgangs geändert. Bitte erneut anmelden.",
+        "token-exchange-failed": "Microsoft hat die Verbindung abgelehnt. Bitte erneut versuchen.",
+        "no-refresh-token": "Microsoft hat keinen Offline-Zugriff gewährt. Bitte erneut versuchen und alle Berechtigungen erlauben.",
+        "no-id-token": "Microsoft hat kein Identity-Token zurückgegeben. Bitte erneut versuchen.",
+        "bad-id-token": "Microsoft hat ein ungültiges Identity-Token zurückgegeben. Bitte erneut versuchen.",
+        "not-configured": "Microsoft 365 wurde von deinem Administrator nicht konfiguriert.",
+        "unauthorised": "Du musst angemeldet sein, um Microsoft 365 zu verbinden."
+      }
+    }
   }
 }
