@@ -116,7 +116,8 @@
       "hint": "Type # for tags, / for folders",
       "noTagMatch": "No tags match.",
       "noFolderMatch": "No folders match.",
-      "clearSearch": "Clear search"
+      "clearSearch": "Clear search",
+      "matchedViaAppointment": "Matched via appointment \"{subject}\""
     },
     "saveIndicator": {
       "idle": "Saved",
@@ -165,13 +166,15 @@
       "images": "Images",
       "pdfs": "PDFs",
       "links": "Links",
+      "appointments": "Appointments",
       "internal": "Internal",
       "external": "External",
       "empty": {
         "outline": "No headings yet",
         "images": "No images",
         "pdfs": "No PDFs",
-        "links": "No links"
+        "links": "No links",
+        "appointments": "No linked appointments"
       }
     },
     "editorActions": {

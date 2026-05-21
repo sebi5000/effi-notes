@@ -116,7 +116,8 @@
       "hint": "# für Tags, / für Ordner",
       "noTagMatch": "Keine passenden Tags.",
       "noFolderMatch": "Keine passenden Ordner.",
-      "clearSearch": "Suche löschen"
+      "clearSearch": "Suche löschen",
+      "matchedViaAppointment": "Treffer über Termin „{subject}\""
     },
     "saveIndicator": {
       "idle": "Gespeichert",
@@ -165,13 +166,15 @@
       "images": "Bilder",
       "pdfs": "PDFs",
       "links": "Links",
+      "appointments": "Termine",
       "internal": "Intern",
       "external": "Extern",
       "empty": {
         "outline": "Noch keine Überschriften",
         "images": "Keine Bilder",
         "pdfs": "Keine PDFs",
-        "links": "Keine Links"
+        "links": "Keine Links",
+        "appointments": "Keine verknüpften Termine"
       }
     },
     "editorActions": {

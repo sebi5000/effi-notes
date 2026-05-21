@@ -138,10 +138,8 @@ export function AttendeesPopover({
           <ul className="flex max-h-72 flex-col gap-1 overflow-y-auto p-1">
             {state.attendees.map((a, i) => (
               <li
-                // Email is the natural id but may be missing on resources —
-                // fall back to index. The list is rebuilt on every open so
-                // a list-order-key is acceptable here.
-                // biome-ignore lint/suspicious/noArrayIndexKey: per-open ephemeral list, fallback when email missing
+                // Email is the natural id; falls back to a synthetic
+                // "attendee-i" when missing (resources don't always carry one).
                 key={a.email ?? `attendee-${i}`}
                 className="text-foreground flex items-center justify-between gap-2 rounded px-2 py-1 text-xs"
               >

@@ -109,7 +109,7 @@ const wrap = (ui: React.ReactNode) => (
 );
 
 const renderPanel = (editor: Editor | null, onCollapse: () => void = () => {}) =>
-  render(wrap(<DocumentPanel editor={editor} onCollapse={onCollapse} />));
+  render(wrap(<DocumentPanel editor={editor} onCollapse={onCollapse} noteId="test-note" />));
 
 describe('DocumentPanel', () => {
   it('renders all four section titles', () => {
